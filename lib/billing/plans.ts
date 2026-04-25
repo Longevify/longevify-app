@@ -20,37 +20,71 @@ export interface Plan {
   stripePriceId?: PlanStripePrices;
 }
 
-export const PLANS: Plan[] = [
+/**
+ * Preços oficiais extraídos de longevify.com.br:
+ *  - Individual: R$250/mês cobrado anualmente como R$3.000 (de R$3.600)
+ *  - Trio Bundle: R$210/mês × 3 = R$7.560/ano (de R$9.000)
+ *  - Concierge: produto premium com exames avançados bancados
+ */
+export interface PlanMonthlyDisplay {
+  /** valor "fictício" mensal pra exibição (R$250/mês) — cobrado anualmente */
+  monthlyDisplayBRL: number;
+  /** valor cheio sem desconto (mostrado riscado) */
+  strikePriceBRL?: number;
+}
+
+export const PLANS: (Plan & { monthly?: PlanMonthlyDisplay })[] = [
   {
-    id: "essential-anual",
-    name: "Essential",
-    tagline: "O ponto de partida pra começar a cuidar com método.",
-    priceBRL: 3600,
+    id: "individual-anual",
+    name: "Individual",
+    tagline:
+      "Tudo o que você precisa pra começar — coleta domiciliar, plataforma e concierge IA.",
+    priceBRL: 3000,
     interval: "year",
-    cta: "Assinar Essential",
+    monthly: { monthlyDisplayBRL: 250, strikePriceBRL: 3600 },
+    badge: "Oferta",
+    cta: "Assinar Individual",
     features: [
-      "1 coleta de sangue/ano (50+ biomarcadores)",
+      "100+ biomarcadores em 1 coleta/ano",
+      "Coleta em domicílio (Profissional vai até você)",
       "Plataforma Longevify completa",
-      "Concierge IA com seu histórico",
-      "Protocolo personalizado de longevidade",
-      "Integrações com wearables",
+      "Concierge IA com seu histórico clínico",
+      "Detecção precoce de 1.000+ condições",
+      "Integração com wearables",
     ],
   },
   {
     id: "premium-anual",
     name: "Premium",
-    tagline: "O plano mais completo — recomendado pra maioria.",
+    tagline: "Acompanhamento médico ativo — 2 coletas/ano + revisão clínica.",
     priceBRL: 4800,
     interval: "year",
+    monthly: { monthlyDisplayBRL: 400 },
     highlight: true,
     badge: "Mais popular",
     cta: "Assinar Premium",
     features: [
-      "2 coletas de sangue/ano (50+ biomarcadores)",
-      "Tudo do Essential",
+      "Tudo do Individual, com 2 coletas/ano",
       "Médico Longevify trimestral (4 consultas)",
       "Revisão clínica do protocolo a cada exame",
+      "Painel avançado de colesterol incluso",
       "Suporte prioritário",
+    ],
+  },
+  {
+    id: "trio-anual",
+    name: "Trio Bundle",
+    tagline: "Pra você, parceiro(a) e mais alguém — 3 assinaturas com 16% off.",
+    priceBRL: 7560,
+    interval: "year",
+    monthly: { monthlyDisplayBRL: 210, strikePriceBRL: 9000 },
+    cta: "Assinar Trio",
+    badge: "Em casal/família",
+    features: [
+      "3 assinaturas Individual completas",
+      "Painel da família compartilhado (com permissão)",
+      "Coleta em domicílio coordenada",
+      "Desconto progressivo em exames adicionais",
     ],
   },
   {
@@ -59,6 +93,7 @@ export const PLANS: Plan[] = [
     tagline: "Acompanhamento exclusivo com exames avançados bancados.",
     priceBRL: 12000,
     interval: "year",
+    monthly: { monthlyDisplayBRL: 1000 },
     cta: "Falar com a Longevify",
     features: [
       "Tudo do Premium",

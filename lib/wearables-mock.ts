@@ -49,42 +49,45 @@ export interface GoalProgress {
 // mock devices
 // ---------------------------------------------------------------------------
 
+// Os 4 principais: Apple, Garmin, Oura, Whoop. Withings/Fitbit ficam como
+// "outros disponíveis" abaixo da grid principal.
 export const DEVICES: WearableDevice[] = [
   {
     brand: "apple",
-    name: "Apple Watch Series 9",
-    connected: true,
-    syncStatus: "live",
-    lastSyncAt: new Date(Date.now() - 1000 * 60 * 7).toISOString(),
-    supported: "v1",
-  },
-  {
-    brand: "withings",
-    name: "Withings Body Comp",
+    name: "Apple Watch",
     connected: false,
     supported: "v1",
   },
   {
     brand: "garmin",
-    name: "Garmin Epix Pro",
+    name: "Garmin Connect",
     connected: false,
-    supported: "coming",
+    supported: "v1",
   },
   {
     brand: "oura",
-    name: "Oura Ring Heritage",
+    name: "Oura Ring",
     connected: false,
-    supported: "coming",
+    supported: "v1",
   },
   {
     brand: "whoop",
-    name: "Whoop 4.0",
+    name: "Whoop",
+    connected: false,
+    supported: "v1",
+  },
+];
+
+export const OTHER_DEVICES: WearableDevice[] = [
+  {
+    brand: "withings",
+    name: "Withings",
     connected: false,
     supported: "coming",
   },
   {
     brand: "fitbit",
-    name: "Fitbit Charge 6",
+    name: "Fitbit",
     connected: false,
     supported: "coming",
   },

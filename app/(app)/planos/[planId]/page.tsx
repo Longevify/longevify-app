@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -18,6 +18,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   PAYMENT_METHODS,
+  PLANS,
   computeFinalPrice,
   getPlanById,
   type PaymentMethod,
@@ -32,21 +33,45 @@ const ICONS: Record<PaymentMethod, React.ComponentType<{ className?: string }>> 
   boleto: ScrollText,
 };
 
+// Redirect ids antigos pra novos (compat)
+const LEGACY_PLAN_REDIRECTS: Record<string, string> = {
+  "essential-anual": "individual-anual",
+};
+
 export default function PlanCheckoutPage({
   params,
 }: {
   params: Promise<{ planId: string }>;
 }) {
   const { planId } = use(params);
-  const plan = getPlanById(planId);
   const router = useRouter();
+  const redirectTo = LEGACY_PLAN_REDIRECTS[planId];
+  const plan = redirectTo ? undefined : getPlanById(planId);
+  const planMonthly = plan
+    ? PLANS.find((p) => p.id === plan.id)?.monthly
+    : undefined;
   const [method, setMethod] = useState<PaymentMethod>("card");
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (redirectTo) {
+      router.replace(`/planos/${redirectTo}`);
+    }
+  }, [redirectTo, router]);
 
   const pricing = useMemo(() => {
     if (!plan) return null;
     return computeFinalPrice(plan, method);
   }, [plan, method]);
+
+  if (redirectTo) {
+    return (
+      <div className="mx-auto flex min-h-[40vh] w-full max-w-[1280px] items-center justify-center px-6 py-10 text-[14px] text-muted">
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        Redirecionando…
+      </div>
+    );
+  }
 
   if (!plan || !pricing) {
     notFound();
@@ -106,6 +131,22 @@ export default function PlanCheckoutPage({
           Assinar plano {plan.name}
         </h1>
         <p className="mt-2 max-w-2xl text-[14px] text-muted">{plan.tagline}</p>
+        {planMonthly ? (
+          <div className="mt-4 inline-flex items-baseline gap-2 rounded-full border border-border bg-white px-4 py-2">
+            <span className="text-[20px] font-semibold tabular-nums">
+              {formatBRL(planMonthly.monthlyDisplayBRL)}
+            </span>
+            <span className="text-[12px] text-muted">/mês</span>
+            <span className="text-[12px] text-muted">
+              · {formatBRL(plan.priceBRL)}/ano
+            </span>
+            {planMonthly.strikePriceBRL ? (
+              <span className="text-[12px] text-muted/70 line-through">
+                {formatBRL(planMonthly.strikePriceBRL)}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
       </header>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_minmax(0,420px)]">

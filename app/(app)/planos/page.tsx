@@ -6,6 +6,8 @@ import { PLANS, type Plan } from "@/lib/billing/plans";
 import { formatBRL } from "@/lib/products";
 import { cn } from "@/lib/utils";
 
+type PlanWithMonthly = (typeof PLANS)[number];
+
 export default function PlanosPage() {
   return (
     <div className="mx-auto w-full max-w-[1280px] px-6 py-10">
@@ -29,7 +31,7 @@ export default function PlanosPage() {
         </span>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         {PLANS.map((plan) => (
           <PlanCard key={plan.id} plan={plan} />
         ))}
@@ -62,56 +64,70 @@ export default function PlanosPage() {
   );
 }
 
-function PlanCard({ plan }: { plan: Plan }) {
-  const monthly = Math.round(plan.priceBRL / 12);
+function PlanCard({ plan }: { plan: PlanWithMonthly }) {
+  const monthlyDisplay = plan.monthly?.monthlyDisplayBRL ?? Math.round(plan.priceBRL / 12);
+  const strike = plan.monthly?.strikePriceBRL;
   return (
     <Card
       className={cn(
-        "relative flex flex-col gap-5 p-6",
+        "relative flex flex-col gap-4 p-5",
         plan.highlight
           ? "border-brand-500 bg-white shadow-[0_24px_60px_-32px_rgba(13,40,24,.32)] ring-1 ring-brand-500"
           : "bg-white",
       )}
     >
       {plan.badge ? (
-        <span className="absolute -top-3 left-6 inline-flex items-center gap-1 rounded-full bg-brand-900 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white">
-          <Sparkles className="h-3 w-3" />
+        <span
+          className={cn(
+            "absolute -top-3 left-5 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em]",
+            plan.highlight
+              ? "bg-brand-900 text-white"
+              : "bg-brand-100 text-brand-800",
+          )}
+        >
+          {plan.highlight ? <Sparkles className="h-3 w-3" /> : null}
           {plan.badge}
         </span>
       ) : null}
 
-      <div className="flex flex-col gap-2">
-        <h2 className="text-[22px] font-semibold leading-tight">{plan.name}</h2>
-        <p className="text-[13.5px] text-muted">{plan.tagline}</p>
+      <div className="flex flex-col gap-1.5 pt-1">
+        <h2 className="text-[18px] font-semibold leading-tight">{plan.name}</h2>
+        <p className="text-[12.5px] leading-snug text-muted">{plan.tagline}</p>
       </div>
 
-      <div className="flex flex-col gap-1 border-y border-border py-5">
-        <div className="flex items-baseline gap-2">
-          <span className="text-[36px] font-semibold tabular-nums leading-none">
-            {formatBRL(plan.priceBRL)}
+      <div className="flex flex-col gap-1 border-y border-border py-4">
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-[30px] font-semibold tabular-nums leading-none">
+            {formatBRL(monthlyDisplay)}
           </span>
-          <span className="text-[13px] text-muted">/ano</span>
+          <span className="text-[12px] text-muted">/mês</span>
         </div>
-        <span className="text-[12.5px] text-muted">
-          12x de {formatBRL(monthly)} sem juros · ou Pix com 5% de desconto
+        <span className="text-[11.5px] text-muted">
+          Cobrado anualmente por {formatBRL(plan.priceBRL)}
+          {strike ? (
+            <>
+              {" "}
+              <span className="text-muted/70 line-through">{formatBRL(strike)}</span>
+            </>
+          ) : null}
         </span>
       </div>
 
-      <ul className="flex flex-col gap-2.5">
+      <ul className="flex flex-col gap-2">
         {plan.features.map((feat) => (
           <li
             key={feat}
-            className="flex items-start gap-2 text-[13.5px] leading-snug"
+            className="flex items-start gap-2 text-[12.5px] leading-snug"
           >
             <span
               className={cn(
-                "mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full",
+                "mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full",
                 plan.highlight
                   ? "bg-brand-500 text-white"
                   : "bg-brand-100 text-brand-700",
               )}
             >
-              <Check className="h-3 w-3" strokeWidth={3} />
+              <Check className="h-2.5 w-2.5" strokeWidth={3} />
             </span>
             <span className="text-ink">{feat}</span>
           </li>
@@ -121,7 +137,7 @@ function PlanCard({ plan }: { plan: Plan }) {
       <Link href={`/planos/${plan.id}`} className="mt-auto">
         <Button
           variant={plan.highlight ? "primary" : "outline"}
-          size="lg"
+          size="md"
           className="w-full"
         >
           {plan.cta}

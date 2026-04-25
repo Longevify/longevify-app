@@ -4,13 +4,12 @@ import {
   CheckCircle2,
   FlaskConical,
   Plus,
-  Sparkles,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScoreCard } from "@/components/dados/score-card";
 import { BioAgeCard } from "@/components/dados/bio-age-card";
-import { ProductCard } from "@/components/loja/product-card";
+import { RecommendationsSection } from "@/components/loja/recommendations-section";
 import { GoalsSummary } from "@/components/wearables/goals-summary";
 import { BIOMARKERS, PATIENT, biomarkersStats } from "@/lib/mock-data";
 import { getRecommendedProducts } from "@/lib/product-recommender";
@@ -173,39 +172,12 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 4. RECOMENDAÇÕES DE PRODUTOS — sempre por último */}
-      {recommendations.length > 0 ? (
-        <section className="mt-12">
-          <div className="mb-4 flex items-end justify-between gap-3">
-            <div>
-              <h2 className="inline-flex items-center gap-1.5 text-[13px] font-medium uppercase tracking-[0.14em] text-muted">
-                <Sparkles className="h-3.5 w-3.5 text-brand-600" />
-                Recomendados pra você
-              </h2>
-              <p className="mt-1 text-[13px] text-muted">
-                Selecionados a partir dos seus biomarcadores e protocolo atual.
-              </p>
-            </div>
-            <Link
-              href="/loja"
-              className="inline-flex items-center gap-1 text-[13px] font-medium text-brand-700 hover:text-brand-900"
-            >
-              Ver loja completa <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {recommendations.slice(0, 3).map(({ product, reason }) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                highlight
-                reason={reason}
-                size="compact"
-              />
-            ))}
-          </div>
-        </section>
-      ) : null}
+      {/* 4. RECOMENDAÇÕES DE PRODUTOS — sempre por último, com bulk-add e assinatura */}
+      <RecommendationsSection
+        recommendations={recommendations}
+        limit={3}
+        className="mt-12"
+      />
     </div>
   );
 }

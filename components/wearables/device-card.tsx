@@ -6,6 +6,7 @@ import {
   Heart,
   Scale,
   Smartphone,
+  Upload,
   Watch,
 } from "lucide-react";
 import { useEffect, useState, type ComponentType, type SVGProps } from "react";
@@ -121,7 +122,14 @@ export function DeviceCard({
             className="w-full"
             onClick={() => onConnect?.(device)}
           >
-            Conectar
+            {device.brand === "apple" ? (
+              <>
+                <Upload className="h-3.5 w-3.5" />
+                Importar Apple Health
+              </>
+            ) : (
+              "Conectar"
+            )}
           </Button>
         )}
       </div>

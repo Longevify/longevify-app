@@ -2,9 +2,23 @@ export type ProductCategory =
   | "suplemento"
   | "wearable"
   | "equipamento"
-  | "longevify-original";
+  | "longevify-original"
+  | "exame";
 
 export type ProductBadge = "Top" | "Novo" | "Exclusivo" | "Curadoria";
+
+/**
+ * Recorrência sugerida — derivada da posologia e quantidade do frasco.
+ * Exemplo: 60 cápsulas / 2 por dia → 30 dias.
+ */
+export interface ProductRecurrence {
+  /** dias entre uma compra e a próxima (com base na posologia) */
+  intervalDays: number;
+  /** rótulo humanizado: "todo mês", "a cada 60 dias" */
+  label: string;
+  /** % de desconto aplicado se virar assinatura recorrente */
+  subscriptionDiscountPct: number;
+}
 
 export interface Product {
   id: string;
@@ -18,6 +32,12 @@ export interface Product {
   longDescription: string;
   benefits: string[];
   usage: string;
+  /** "60 cápsulas", "30 doses", "750 ml" */
+  packageSize?: string;
+  /** "1 cápsula/dia", "2 ampolas/dia" */
+  posology?: string;
+  /** undefined = produto não-consumível (ex: anel, balança) */
+  recurrence?: ProductRecurrence;
   targetsBiomarkers: string[];
   rating: number;
   reviewsCount: number;
@@ -29,280 +49,338 @@ export const CATEGORY_LABELS: Record<ProductCategory, string> = {
   "longevify-original": "Originais Longevify",
   wearable: "Wearables",
   equipamento: "Equipamento",
+  exame: "Exames adicionais",
 };
 
+export function formatBRL(value: number): string {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: value % 1 === 0 ? 0 : 2,
+  }).format(value);
+}
+
+/**
+ * Catálogo Longevify — preços e produtos extraídos do site oficial
+ * longevify.com.br (curadoria + originais + exames adicionais + wearables).
+ */
 export const PRODUCTS: Product[] = [
+  // ──────────────────────────────────────────────────────────────────
+  // SUPLEMENTOS — curadoria
+  // ──────────────────────────────────────────────────────────────────
+  {
+    id: "ag1-greens-daily",
+    name: "AG1 Greens Daily",
+    brand: "AG1",
+    category: "suplemento",
+    badge: "Top",
+    priceBRL: 299,
+    currency: "BRL",
+    shortDescription:
+      "Multinutriente diário com 75 ingredientes — base de micronutrientes pra simplificar.",
+    longDescription:
+      "Combinação de vitaminas, minerais, adaptógenos, probióticos e enzimas em uma única dose diária. Substitui 5+ suplementos avulsos. NSF Certified for Sport.",
+    benefits: [
+      "75 ingredientes em 1 dose",
+      "Probióticos + prebióticos",
+      "Adaptógenos pra estresse",
+      "NSF Certified for Sport",
+    ],
+    usage: "1 sachê dissolvido em água gelada — manhã, em jejum.",
+    packageSize: "30 doses",
+    posology: "1 dose/dia",
+    recurrence: {
+      intervalDays: 30,
+      label: "todo mês",
+      subscriptionDiscountPct: 10,
+    },
+    targetsBiomarkers: ["vitd", "ferritin", "crp"],
+    rating: 4.8,
+    reviewsCount: 2143,
+  },
+  {
+    id: "bioptimizers-magnesium",
+    name: "Magnesium Breakthrough",
+    brand: "BiOptimizers",
+    category: "suplemento",
+    priceBRL: 219,
+    currency: "BRL",
+    shortDescription:
+      "7 formas de magnésio biodisponível — sono, recuperação muscular e regulação do sistema nervoso.",
+    longDescription:
+      "A maioria dos suplementos de magnésio usa apenas 1-2 formas. Aqui são 7 (glicinato, treonato, malato, taurato, citrato, orotato, sucinato) cobrindo todas as funções fisiológicas.",
+    benefits: [
+      "7 formas em 1 cápsula",
+      "Atravessa barreira hemato-encefálica (treonato)",
+      "Melhora qualidade do sono",
+      "Reduz cãibras e tensão muscular",
+    ],
+    usage: "2 cápsulas antes de dormir.",
+    packageSize: "60 cápsulas",
+    posology: "2 cápsulas/dia",
+    recurrence: {
+      intervalDays: 30,
+      label: "todo mês",
+      subscriptionDiscountPct: 10,
+    },
+    targetsBiomarkers: ["hba1c", "crp"],
+    rating: 4.7,
+    reviewsCount: 1124,
+  },
+  {
+    id: "quicksilver-methyl-b12",
+    name: "Methyl B-12",
+    brand: "Quicksilver Scientific",
+    category: "suplemento",
+    badge: "Curadoria",
+    priceBRL: 339,
+    currency: "BRL",
+    shortDescription:
+      "B-12 metilada lipossomal — absorção 5-10x superior à oral comum.",
+    longDescription:
+      "Tecnologia lipossomal entrega B-12 ativa direto pela mucosa oral. Indicada especialmente pra quem tem variação MTHFR.",
+    benefits: [
+      "Forma metilada (ativa)",
+      "Tecnologia lipossomal",
+      "Energia e cognição",
+      "Suporte ao MTHFR",
+    ],
+    usage: "1 ml sob a língua, 1x ao dia. Segurar 30s antes de engolir.",
+    packageSize: "50 ml",
+    posology: "1 ml/dia",
+    recurrence: {
+      intervalDays: 50,
+      label: "a cada 50 dias",
+      subscriptionDiscountPct: 10,
+    },
+    targetsBiomarkers: ["ferritin"],
+    rating: 4.6,
+    reviewsCount: 567,
+  },
+  {
+    id: "quinton-hypertonic",
+    name: "Quinton Hypertonic",
+    brand: "Quinton",
+    category: "suplemento",
+    priceBRL: 189,
+    currency: "BRL",
+    shortDescription:
+      "Plasma marinho hipertônico — 78 minerais bioativos da água do mar pré-filtrada.",
+    longDescription:
+      "Coletada em oceano profundo (>30m) por procedimento patenteado desde 1897, restaura equilíbrio mineral celular. Performance, recuperação e suporte adrenal.",
+    benefits: [
+      "78 minerais em proporção fisiológica",
+      "Energia e foco",
+      "Hidratação celular",
+      "Suporte adrenal",
+    ],
+    usage: "1 ampola sublingual em jejum, 30 min antes do café.",
+    packageSize: "30 ampolas",
+    posology: "1 ampola/dia",
+    recurrence: {
+      intervalDays: 30,
+      label: "todo mês",
+      subscriptionDiscountPct: 10,
+    },
+    targetsBiomarkers: [],
+    rating: 4.5,
+    reviewsCount: 412,
+  },
+  {
+    id: "zero-acre-oil",
+    name: "Zero Acre Oil",
+    brand: "Zero Acre",
+    category: "suplemento",
+    badge: "Novo",
+    priceBRL: 249,
+    currency: "BRL",
+    shortDescription:
+      "Óleo de cocção fermentado — substitui seed oils inflamatórios.",
+    longDescription:
+      "Produzido por fermentação de açúcar de cana, tem 93% gordura monoinsaturada, ponto de fumaça de 250°C e zero gordura saturada de origem industrial.",
+    benefits: [
+      "93% gordura monoinsaturada",
+      "Sem seed oils inflamatórios",
+      "Ponto de fumaça 250°C",
+      "Sabor neutro pra cozinhar",
+    ],
+    usage: "Substituto direto do óleo comum em qualquer receita.",
+    packageSize: "750 ml",
+    posology: "Uso culinário diário",
+    recurrence: {
+      intervalDays: 45,
+      label: "a cada 45 dias",
+      subscriptionDiscountPct: 8,
+    },
+    targetsBiomarkers: ["ldl", "apob", "hdl"],
+    rating: 4.4,
+    reviewsCount: 289,
+  },
   {
     id: "omega-3-nordic",
     name: "Ômega 3 Ultimate (EPA/DHA)",
     brand: "Nordic Naturals",
     category: "suplemento",
-    badge: "Curadoria",
+    badge: "Top",
     priceBRL: 389,
     currency: "BRL",
     shortDescription:
-      "Óleo de peixe de alta pureza com 2g de EPA+DHA por dose, padrão-ouro em estudos cardiometabólicos.",
+      "EPA + DHA 2g/dose — padrão-ouro em ensaios cardiometabólicos.",
     longDescription:
-      "Fórmula em triglicerídeos naturais, destilada molecularmente para remover metais pesados e PCBs. Concentração de 1280 mg de EPA + 720 mg de DHA por porção, dentro da faixa terapêutica usada em estudos de redução de triglicerídeos e suporte cardiovascular. Terceirizada em testes IFOS — certificação 5 estrelas para pureza e frescor. Embalagem com 60 cápsulas softgel.",
+      "Óleo de peixe selvagem com baixa oxidação certificada por terceiros. Reduz triglicérides, melhora membrana eritrocitária e modula inflamação sistêmica.",
     benefits: [
-      "Reduz triglicerídeos e apoia perfil lipídico",
-      "Suporte anti-inflamatório sistêmico",
-      "Saúde cerebral e cognitiva",
-      "Sem refluxo sabor limão",
+      "2g de EPA+DHA por dose",
+      "Baixa oxidação certificada",
+      "Reduz triglicérides",
+      "Modula PCR ultra-sensível",
     ],
-    usage: "2 cápsulas ao dia, preferencialmente junto das refeições principais.",
-    targetsBiomarkers: ["ldl", "hdl", "crp", "apob"],
+    usage: "2 cápsulas/dia, com refeição rica em gordura.",
+    packageSize: "120 cápsulas",
+    posology: "2 cápsulas/dia",
+    recurrence: {
+      intervalDays: 60,
+      label: "a cada 2 meses",
+      subscriptionDiscountPct: 10,
+    },
+    targetsBiomarkers: ["ldl", "apob", "crp"],
     rating: 4.8,
-    reviewsCount: 1243,
+    reviewsCount: 1843,
   },
-  {
-    id: "vitd3-k2",
-    name: "Vitamina D3 5000 UI + K2 MK-7",
-    brand: "Thorne",
-    category: "suplemento",
-    badge: "Top",
-    priceBRL: 229,
-    currency: "BRL",
-    shortDescription:
-      "Combinação sinérgica de D3 colecalciferol com K2 MK-7 para saúde óssea e cardiovascular.",
-    longDescription:
-      "Vitamina D3 na forma colecalciferol (a mesma produzida pela pele) acoplada a 180 mcg de K2 MK-7 all-trans, que direciona o cálcio para ossos e dentes em vez de artérias. Formulação em MCT para absorção superior. Recomendada para níveis séricos de 25(OH)D abaixo de 50 ng/mL, tipicamente por 12 semanas de retomada.",
-    benefits: [
-      "Eleva 25(OH)D para faixa ótima",
-      "Direciona cálcio para ossos",
-      "Suporte imunológico",
-      "Base MCT, absorção rápida",
-    ],
-    usage: "1 cápsula ao dia, junto a refeição com gordura — idealmente pela manhã.",
-    targetsBiomarkers: ["vitd"],
-    rating: 4.9,
-    reviewsCount: 2187,
-  },
-  {
-    id: "magnesio-glicinato",
-    name: "Magnésio Glicinato 400mg",
-    brand: "Pure Encapsulations",
-    category: "suplemento",
-    priceBRL: 179,
-    currency: "BRL",
-    shortDescription:
-      "Forma quelada de magnésio com alta biodisponibilidade e excelente tolerância gastrointestinal.",
-    longDescription:
-      "O magnésio é cofator de mais de 300 reações enzimáticas, incluindo síntese de ATP, regulação neuromuscular e sinalização de insulina. A forma glicinato (bisglicinato) é quelada a dois aminoácidos de glicina, evitando efeito laxativo comum em formas como óxido e citrato. Suporte a sono profundo e variabilidade da frequência cardíaca.",
-    benefits: [
-      "Melhora a qualidade do sono profundo",
-      "Reduz cãibras e tensão muscular",
-      "Suporte à regulação glicêmica",
-      "Sem efeito laxativo",
-    ],
-    usage: "2 cápsulas 30-60 minutos antes de dormir.",
-    targetsBiomarkers: ["hba1c", "crp"],
-    rating: 4.7,
-    reviewsCount: 892,
-  },
-  {
-    id: "creatina-mono",
-    name: "Creatina Monohidratada Creapure",
-    brand: "Kion",
-    category: "suplemento",
-    badge: "Top",
-    priceBRL: 219,
-    currency: "BRL",
-    shortDescription:
-      "Creatina Creapure pura, o suplemento mais estudado do mundo para performance e longevidade.",
-    longDescription:
-      "Creatina monohidratada grau Creapure (Alzchem, Alemanha), padrão-ouro de pureza. Mais de 500 estudos clínicos suportam benefícios em força, potência, recuperação, neuroproteção e massa óssea. Dose diária de 5g mantém saturação muscular de fosfocreatina sem necessidade de fase de carga.",
-    benefits: [
-      "Aumenta força e potência muscular",
-      "Suporte cognitivo e neuroproteção",
-      "Preservação de massa magra com a idade",
-      "Melhora recuperação entre sessões",
-    ],
-    usage: "5g (1 colher) ao dia, misturada em água ou shake, em qualquer horário.",
-    targetsBiomarkers: ["testo", "hba1c"],
-    rating: 4.9,
-    reviewsCount: 3104,
-  },
-  {
-    id: "coq10-ubiquinol",
-    name: "Coenzima Q10 Ubiquinol 100mg",
-    brand: "Jarrow Formulas",
-    category: "suplemento",
-    priceBRL: 349,
-    currency: "BRL",
-    shortDescription:
-      "Forma ativa (ubiquinol) da CoQ10, essencial para produção mitocondrial de ATP e saúde cardíaca.",
-    longDescription:
-      "Ubiquinol é a forma reduzida da CoQ10, com biodisponibilidade até 4x superior à ubiquinona especialmente após os 40 anos, quando a capacidade de conversão diminui. Essencial para a cadeia de transporte de elétrons nas mitocôndrias. Particularmente indicada para usuários de estatinas, que depletam CoQ10 endógena.",
-    benefits: [
-      "Suporte mitocondrial e energético",
-      "Proteção cardíaca",
-      "Antioxidante potente",
-      "Repõe CoQ10 depletada por estatinas",
-    ],
-    usage: "1 cápsula ao dia, com refeição contendo gordura.",
-    targetsBiomarkers: ["ldl", "apob"],
-    rating: 4.6,
-    reviewsCount: 567,
-  },
-  {
-    id: "nmn-tru-niagen",
-    name: "Tru Niagen NR 300mg",
-    brand: "ChromaDex",
-    category: "suplemento",
-    badge: "Novo",
-    priceBRL: 599,
-    currency: "BRL",
-    shortDescription:
-      "Precursor de NAD+ (nicotinamida ribosídeo) patenteado com mais de 25 estudos clínicos em humanos.",
-    longDescription:
-      "NR é um precursor direto de NAD+, coenzima central em metabolismo energético, reparo de DNA e sinalização de longevidade via sirtuínas. Níveis de NAD+ caem 40-50% entre os 40 e 60 anos. Suplementação com NR eleva NAD+ sanguíneo de forma dose-dependente em humanos. Tru Niagen é a forma mais clinicamente validada disponível.",
-    benefits: [
-      "Eleva NAD+ sanguíneo",
-      "Suporte à função mitocondrial",
-      "Ativação de sirtuínas de longevidade",
-      "25+ estudos clínicos em humanos",
-    ],
-    usage: "1 cápsula ao dia pela manhã, com ou sem alimento.",
-    targetsBiomarkers: ["hba1c", "alt", "crp"],
-    rating: 4.5,
-    reviewsCount: 412,
-  },
+  // ──────────────────────────────────────────────────────────────────
+  // LONGEVIFY ORIGINALS
+  // ──────────────────────────────────────────────────────────────────
   {
     id: "longevify-essentials",
     name: "Longevify Essentials Daily",
     brand: "Longevify",
     category: "longevify-original",
     badge: "Exclusivo",
-    priceBRL: 449,
+    priceBRL: 279,
     currency: "BRL",
     shortDescription:
-      "Multivitamínico premium formulado pela equipe médica Longevify em doses terapêuticas.",
+      "Multi diário formulado pela equipe clínica — D, B-complex, magnésio em 1 cápsula.",
     longDescription:
-      "Base diária com 32 micronutrientes em formas ativas (metilfolato, P-5-P, metilcobalamina, quelatos minerais). Dosagens ajustadas para o perfil de usuário com hábito preventivo — sem ferro, sem cálcio em excesso, com foco em cofatores de metilação e metabolismo mitocondrial. Substitui 4-5 frascos avulsos com melhor custo-benefício.",
+      "Pensado pra cobrir as deficiências mais comuns observadas nos exames dos pacientes Longevify. Doses ajustadas com base nos dados agregados anonimizados do programa.",
     benefits: [
-      "Formas ativas de vitaminas do complexo B",
-      "Quelatos minerais de alta absorção",
-      "Sem ferro (evita sobrecarga)",
-      "Formulado por médicos Longevify",
+      "8 micronutrientes em 1 cápsula",
+      "Doses baseadas em dados clínicos",
+      "Sem aditivos desnecessários",
+      "Fabricado em GMP no Brasil",
     ],
-    usage: "2 cápsulas ao dia, com a primeira refeição.",
+    usage: "1 cápsula/dia com café da manhã.",
+    packageSize: "30 cápsulas",
+    posology: "1 cápsula/dia",
+    recurrence: {
+      intervalDays: 30,
+      label: "todo mês",
+      subscriptionDiscountPct: 15,
+    },
     targetsBiomarkers: ["vitd", "ferritin"],
     rating: 4.9,
-    reviewsCount: 156,
+    reviewsCount: 142,
   },
   {
-    id: "longevify-protein-plant",
+    id: "longevify-protein",
     name: "Longevify Protein Plant",
     brand: "Longevify",
     category: "longevify-original",
-    badge: "Exclusivo",
-    priceBRL: 329,
+    priceBRL: 219,
     currency: "BRL",
     shortDescription:
-      "Blend vegetal de ervilha e arroz com perfil completo de aminoácidos, 25g de proteína por dose.",
+      "Proteína vegetal isolada — perfil aminoacídico completo, sem açúcar.",
     longDescription:
-      "Proteína vegetal combinando isolado de ervilha e concentrado de arroz integral, cobrindo todos os aminoácidos essenciais incluindo os BCAAs em proporção comparável ao whey. Baixo em FODMAPs, sem soja, sem açúcar adicionado. Adoçado com estévia orgânica. Suporta síntese proteica e preservação de massa magra.",
+      "Mix proprietário de ervilha + arroz integral + chia. Iguala o perfil de aminoácidos essenciais do whey isolado, ideal pra sensíveis a lactose.",
     benefits: [
-      "25g de proteína completa por dose",
-      "Sem lactose, soja ou glúten",
-      "Baixo em FODMAPs",
-      "Aminograma comparável ao whey",
+      "25g proteína por dose",
+      "Sem açúcar adicionado",
+      "Perfil aminoacídico completo",
+      "Vegano",
     ],
-    usage: "1 dose (35g) pós-treino ou entre refeições, em 300 ml de água ou leite vegetal.",
-    targetsBiomarkers: ["testo", "ferritin"],
+    usage: "1 dose pós-treino ou substitui um lanche.",
+    packageSize: "900g",
+    posology: "1 dose/dia",
+    recurrence: {
+      intervalDays: 30,
+      label: "todo mês",
+      subscriptionDiscountPct: 12,
+    },
+    targetsBiomarkers: [],
     rating: 4.7,
-    reviewsCount: 284,
+    reviewsCount: 88,
   },
+  // ──────────────────────────────────────────────────────────────────
+  // WEARABLES
+  // ──────────────────────────────────────────────────────────────────
   {
     id: "oura-ring-heritage",
-    name: "Oura Ring Heritage Gen 3",
+    name: "Oura Ring Heritage",
     brand: "Oura",
     category: "wearable",
     badge: "Top",
-    priceBRL: 2499,
+    priceBRL: 1199,
     currency: "BRL",
     shortDescription:
-      "Anel inteligente que mede sono, HRV, temperatura corporal e prontidão com precisão clínica.",
+      "Anel de tracking de sono, recuperação e atividade — bateria 7 dias.",
     longDescription:
-      "Oura Ring Gen 3 oferece o rastreamento de sono e recuperação mais validado cientificamente do mercado wearable. Mede estágios de sono, variabilidade da frequência cardíaca, frequência respiratória, temperatura corporal de pele e SpO2. Integra com Longevify via API para cruzamento com biomarcadores. Bateria de até 7 dias.",
+      "Sensores de temperatura corporal, HRV, frequência cardíaca, SpO2 e movimento. Algoritmos avançados de score de sono, prontidão e atividade.",
     benefits: [
-      "Tracking de sono com precisão clínica",
-      "HRV noturno contínuo",
-      "Temperatura corporal para detecção precoce",
-      "Bateria de 7 dias",
+      "Tracking 24/7 de sono e HRV",
+      "Bateria 7 dias",
+      "Detecção de ciclo menstrual",
+      "Sem mensalidade no plano básico",
     ],
-    usage: "Uso contínuo no dedo indicador ou anelar, sincroniza via app Oura.",
-    targetsBiomarkers: ["crp", "hba1c"],
+    usage: "Use no dedo indicador 24/7 (tira pro banho/sauna).",
+    targetsBiomarkers: [],
     rating: 4.7,
-    reviewsCount: 1890,
+    reviewsCount: 5234,
   },
   {
     id: "garmin-epix-pro",
-    name: "Garmin Epix Pro Sapphire 47mm",
+    name: "Garmin Epix Pro",
     brand: "Garmin",
     category: "wearable",
-    priceBRL: 7990,
+    priceBRL: 5499,
     currency: "BRL",
     shortDescription:
-      "Relógio multiesportivo premium com VO2max, lactate threshold e tela AMOLED protegida por safira.",
+      "Smartwatch premium pra performance — VO2max, lactate threshold, sono detalhado.",
     longDescription:
-      "Top de linha da Garmin para atletas e entusiastas de performance. Mede VO2max, limiar de lactato, carga de treino e status de recuperação com algoritmos Firstbeat. GPS multibanda, mapas topográficos, lanterna LED embutida. Bateria de até 16 dias em uso smartwatch, 42h em GPS contínuo.",
+      "Combina precisão Garmin com tela AMOLED. Métricas avançadas pra atletas amadores e high-performers.",
     benefits: [
-      "VO2max e limiar de lactato",
-      "GPS multibanda de alta precisão",
-      "Mapas topográficos offline",
-      "Bateria de 16 dias",
+      "VO2max + lactate threshold",
+      "GPS multi-banda",
+      "Bateria 16+ dias",
+      "Mapas topográficos",
     ],
-    usage: "Uso contínuo no pulso. Sincroniza via Garmin Connect.",
-    targetsBiomarkers: ["hba1c", "testo"],
-    rating: 4.8,
-    reviewsCount: 742,
+    usage: "Use no pulso 24/7. Use o Garmin Coach pra treinos guiados.",
+    targetsBiomarkers: [],
+    rating: 4.6,
+    reviewsCount: 1087,
   },
   {
-    id: "whoop-4",
-    name: "Whoop 4.0 (Membership 12 meses)",
+    id: "whoop-membership",
+    name: "Whoop 4.0 + Mensalidade Anual",
     brand: "Whoop",
     category: "wearable",
-    priceBRL: 1890,
+    priceBRL: 2400,
     currency: "BRL",
     shortDescription:
-      "Pulseira focada em carga de treino, recuperação e strain — sem tela, foco puro em dados.",
+      "Pulseira sem display + assinatura — foco total em recuperação e sono.",
     longDescription:
-      "Whoop é uma assinatura anual que inclui a pulseira 4.0 (sem custo separado de hardware). Mede continuamente HRV, frequência cardíaca, SpO2, temperatura de pele e sono com amostragem de alta frequência. Algoritmos de strain e recovery ajudam a calibrar intensidade de treino. Sem tela: filosofia 'screenless' para reduzir distração.",
+      "O hardware vem grátis na assinatura. Whoop é a opção pra quem quer dados granulares de recuperação sem distração visual.",
     benefits: [
-      "Strain e recovery diários",
-      "HRV contínuo 24/7",
-      "Bateria recarregável sem remover",
-      "Sem tela, sem distração",
+      "Strain coach diário",
+      "Recovery score baseado em HRV/RHR",
+      "Bateria 5 dias com swap",
+      "Sem display = zero distração",
     ],
-    usage: "Uso contínuo 24/7 no pulso ou bíceps (com sleeve). Sincroniza via app Whoop.",
-    targetsBiomarkers: ["crp", "hba1c"],
-    rating: 4.5,
-    reviewsCount: 1120,
+    usage: "Use no pulso 24/7, sincroniza por Bluetooth.",
+    targetsBiomarkers: [],
+    rating: 4.4,
+    reviewsCount: 3421,
   },
-  {
-    id: "apple-watch-ultra",
-    name: "Apple Watch Ultra 2",
-    brand: "Apple",
-    category: "wearable",
-    priceBRL: 9299,
-    currency: "BRL",
-    shortDescription:
-      "Smartwatch esportivo Apple com ECG, SpO2, temperatura do pulso e GPS dual-frequency.",
-    longDescription:
-      "Apple Watch Ultra 2 traz ECG de derivação única, SpO2 noturno, sensor de temperatura do pulso e GPS de banda dupla. Case em titânio, certificação IP6X e MIL-STD-810H, visor Always-On de 3000 nits. Longevify não revende o Ultra diretamente — este item é informativo para usuários que já possuem ou pretendem comprar pela Apple.",
-    benefits: [
-      "ECG derivação única",
-      "Temperatura do pulso para ciclo e sono",
-      "GPS banda dupla",
-      "Ecossistema Apple Health",
-    ],
-    usage: "Compra direta via Apple. Integração com Longevify via Apple HealthKit.",
-    targetsBiomarkers: ["crp"],
-    rating: 4.8,
-    reviewsCount: 3420,
-  },
+  // ──────────────────────────────────────────────────────────────────
+  // EQUIPAMENTO
+  // ──────────────────────────────────────────────────────────────────
   {
     id: "withings-body-comp",
     name: "Withings Body Comp",
@@ -311,42 +389,139 @@ export const PRODUCTS: Product[] = [
     priceBRL: 1490,
     currency: "BRL",
     shortDescription:
-      "Balança de bioimpedância que mede composição corporal, idade vascular e saúde dos nervos.",
+      "Balança de bioimpedância — idade vascular, gordura visceral e composição segmentar.",
     longDescription:
-      "Withings Body Comp mede peso, percentual de gordura, massa muscular segmentada, água corporal, massa óssea, gordura visceral, idade vascular (rigidez arterial estimada) e atividade do nervo (VNS score). Sincroniza via Wi-Fi com app Health Mate e pode integrar com Longevify via Withings API. Até 8 perfis de usuário.",
+      "Conecta automaticamente via Wi-Fi ao seu app Longevify. Pesa em 30 segundos com 6 métricas além do peso.",
     benefits: [
-      "Composição corporal segmentada",
-      "Idade vascular estimada",
-      "Sincronia Wi-Fi automática",
-      "8 perfis familiares",
+      "Idade vascular",
+      "Gordura visceral",
+      "Composição segmentar",
+      "Sincronização automática",
     ],
-    usage: "Pesagem diária pela manhã, descalço, após acordar e usar o banheiro.",
-    targetsBiomarkers: ["hba1c", "ldl", "apob"],
-    rating: 4.6,
-    reviewsCount: 678,
+    usage: "Pesagem diária, mesmo horário, em jejum.",
+    targetsBiomarkers: [],
+    rating: 4.5,
+    reviewsCount: 1654,
   },
   {
-    id: "cgm-libre-3-kit",
-    name: "FreeStyle Libre 3 — Kit inicial",
+    id: "freestyle-libre-3",
+    name: "FreeStyle Libre 3 (kit)",
     brand: "Abbott",
     category: "equipamento",
     badge: "Novo",
-    priceBRL: 1290,
+    priceBRL: 890,
     currency: "BRL",
     shortDescription:
-      "Kit com 2 sensores CGM (28 dias) para monitorar glicose intersticial em tempo real.",
+      "CGM de glicose contínua — descubra como cada refeição afeta sua glicemia.",
     longDescription:
-      "O FreeStyle Libre 3 mede glicose intersticial a cada minuto, sem necessidade de picadas em dedo, com sensor do tamanho de uma moeda aplicado no braço. Kit inicial Longevify inclui 2 sensores (cobertura de 28 dias) e orientação da equipe médica para interpretar glicemia pós-prandial, variabilidade e curva em jejum. Ideal para investigação metabólica mesmo fora de quadro diabético.",
+      "Sensor que dura 14 dias por aplicação. Kit Longevify inclui 2 sensores (28 dias) + análise da equipe clínica.",
     benefits: [
-      "Glicose intersticial contínua",
-      "Picos pós-prandiais e variabilidade",
-      "Sem picadas em dedo",
-      "Orientação médica incluída",
+      "14 dias por sensor",
+      "Sem furar dedo",
+      "App em tempo real",
+      "Análise clínica inclusa",
     ],
-    usage: "Aplicar no braço. Cada sensor dura 14 dias. Leitura via celular.",
+    usage: "Aplicar no braço; trocar a cada 14 dias.",
+    packageSize: "2 sensores (28 dias)",
+    posology: "Sensor contínuo",
+    recurrence: {
+      intervalDays: 28,
+      label: "a cada 28 dias",
+      subscriptionDiscountPct: 5,
+    },
     targetsBiomarkers: ["hba1c"],
+    rating: 4.6,
+    reviewsCount: 432,
+  },
+  // ──────────────────────────────────────────────────────────────────
+  // EXAMES ADICIONAIS
+  // ──────────────────────────────────────────────────────────────────
+  {
+    id: "exam-cancer-mc",
+    name: "Detecção Precoce Multi-Câncer",
+    brand: "Longevify Labs",
+    category: "exame",
+    badge: "Novo",
+    priceBRL: 1899,
+    currency: "BRL",
+    shortDescription:
+      "Identifica sinais de 50+ tipos de câncer em uma única coleta de sangue.",
+    longDescription:
+      "Teste de DNA tumoral circulante (ctDNA) com sensibilidade pra detecção precoce em estágios I-II. Inclui consulta de retorno.",
+    benefits: [
+      "50+ tipos de câncer",
+      "1 coleta de sangue",
+      "Resultado em 14 dias",
+      "Inclui consulta de retorno",
+    ],
+    usage: "Coleta única — recomendado anualmente após os 40.",
+    targetsBiomarkers: [],
+    rating: 4.9,
+    reviewsCount: 78,
+  },
+  {
+    id: "exam-cholesterol-advanced",
+    name: "Painel de Colesterol Avançado",
+    brand: "Longevify Labs",
+    category: "exame",
+    priceBRL: 179,
+    currency: "BRL",
+    shortDescription:
+      "Concentração, tamanho e tipo das partículas (LDL-P, ApoB, Lp(a)).",
+    longDescription:
+      "Vai além do LDL-C tradicional. Mede número de partículas LDL, fenótipo e Lp(a) — fator genético de risco cardiovascular.",
+    benefits: [
+      "LDL-P (número de partículas)",
+      "ApoB",
+      "Lp(a) genético",
+      "Tamanho de partícula",
+    ],
+    usage: "Coleta única, 12h de jejum.",
+    targetsBiomarkers: ["ldl", "apob", "hdl"],
     rating: 4.7,
-    reviewsCount: 523,
+    reviewsCount: 156,
+  },
+  {
+    id: "exam-mthfr",
+    name: "Teste Genético MTHFR",
+    brand: "Longevify Labs",
+    category: "exame",
+    priceBRL: 399,
+    currency: "BRL",
+    shortDescription:
+      "Identifica variações no gene MTHFR que afetam metabolismo de folato.",
+    longDescription:
+      "30-40% da população tem alguma variação MTHFR. Saber se você tem orienta dose e forma da B12/B9.",
+    benefits: [
+      "Análise C677T + A1298C",
+      "Orientação personalizada",
+      "Resultado em 21 dias",
+    ],
+    usage: "Coleta única — uma vez na vida.",
+    targetsBiomarkers: [],
+    rating: 4.6,
+    reviewsCount: 92,
+  },
+  {
+    id: "exam-heavy-metals",
+    name: "Teste de Metais Pesados",
+    brand: "Longevify Labs",
+    category: "exame",
+    priceBRL: 199,
+    currency: "BRL",
+    shortDescription:
+      "Mercúrio, chumbo, cádmio, arsênico, alumínio e níquel em uma coleta.",
+    longDescription:
+      "Importante pra quem consome muito peixe ou vive em áreas industriais. Plano de detox incluso se necessário.",
+    benefits: [
+      "6 metais analisados",
+      "Coleta única",
+      "Plano de detox se necessário",
+    ],
+    usage: "Coleta única.",
+    targetsBiomarkers: [],
+    rating: 4.5,
+    reviewsCount: 67,
   },
 ];
 
@@ -354,15 +529,7 @@ export function getProductById(id: string): Product | undefined {
   return PRODUCTS.find((p) => p.id === id);
 }
 
-export function getProductsByCategory(category: ProductCategory | "all"): Product[] {
-  if (category === "all") return PRODUCTS;
+export function getProductsByCategory(category?: ProductCategory): Product[] {
+  if (!category) return PRODUCTS;
   return PRODUCTS.filter((p) => p.category === category);
-}
-
-export function formatBRL(value: number): string {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    maximumFractionDigits: 0,
-  }).format(value);
 }

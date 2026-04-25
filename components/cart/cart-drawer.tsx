@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import Link from "next/link";
-import { Minus, Plus, ShoppingBag, X } from "lucide-react";
+import { Minus, Plus, Repeat, ShoppingBag, X } from "lucide-react";
 import { useCart } from "@/lib/cart/store";
 import { cn } from "@/lib/utils";
 import { formatBRL } from "@/lib/products";
@@ -14,10 +14,13 @@ export function CartDrawer() {
     items,
     count,
     totalBRL,
+    totalRecurringBRL,
+    recurringCount,
     isOpen,
     closeCart,
     updateQuantity,
     removeItem,
+    setRecurring,
   } = useCart();
 
   useEffect(() => {
@@ -33,6 +36,31 @@ export function CartDrawer() {
       document.body.style.overflow = prevOverflow;
     };
   }, [isOpen, closeCart]);
+
+  // "Compra única hoje" = soma só dos itens não-recorrentes.
+  // "Mensal recorrente" = soma equivalente mensal dos itens recorrentes (já com desconto).
+  const split = useMemo(() => {
+    let oneShot = 0;
+    let monthlyRecurring = 0;
+    let monthlySavings = 0;
+    for (const item of items) {
+      const lineTotal = item.product.priceBRL * item.quantity;
+      if (item.recurring && item.product.recurrence) {
+        const interval = item.product.recurrence.intervalDays;
+        const discountPct = item.product.recurrence.subscriptionDiscountPct / 100;
+        const perMonth = (lineTotal * 30) / interval;
+        monthlyRecurring += perMonth * (1 - discountPct);
+        monthlySavings += perMonth * discountPct;
+      } else {
+        oneShot += lineTotal;
+      }
+    }
+    return {
+      oneShot: Math.round(oneShot),
+      monthlyRecurring: Math.round(monthlyRecurring),
+      monthlySavings: Math.round(monthlySavings),
+    };
+  }, [items]);
 
   return (
     <>
@@ -98,65 +126,134 @@ export function CartDrawer() {
         ) : (
           <>
             <ul className="flex-1 divide-y divide-border overflow-y-auto px-5">
-              {items.map(({ product, quantity }) => (
-                <li key={product.id} className="flex gap-3 py-4">
-                  <div className="h-20 w-20 shrink-0">
-                    <ProductImage product={product} aspect="square" />
-                  </div>
-                  <div className="flex flex-1 flex-col gap-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="text-[11px] uppercase tracking-[0.12em] text-muted">
-                          {product.brand}
+              {items.map(({ product, quantity, recurring }) => {
+                const canRecur = Boolean(product.recurrence);
+                const isRecurring = canRecur && Boolean(recurring);
+                const modeLabel = isRecurring
+                  ? `assinatura · ${product.recurrence?.label ?? "recorrente"}`
+                  : "compra única";
+                return (
+                  <li key={product.id} className="flex gap-3 py-4">
+                    <div className="h-20 w-20 shrink-0">
+                      <ProductImage product={product} aspect="square" />
+                    </div>
+                    <div className="flex flex-1 flex-col gap-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="text-[11px] uppercase tracking-[0.12em] text-muted">
+                            {product.brand}
+                          </div>
+                          <Link
+                            href={`/loja/${product.id}`}
+                            onClick={closeCart}
+                            className="line-clamp-2 text-[13.5px] font-medium leading-snug text-ink hover:text-brand-700"
+                          >
+                            {product.name}
+                          </Link>
                         </div>
-                        <Link
-                          href={`/loja/${product.id}`}
-                          onClick={closeCart}
-                          className="line-clamp-2 text-[13.5px] font-medium leading-snug text-ink hover:text-brand-700"
+                        <button
+                          type="button"
+                          onClick={() => removeItem(product.id)}
+                          aria-label={`Remover ${product.name}`}
+                          className="grid h-7 w-7 place-items-center rounded-full text-muted hover:bg-black/5 hover:text-ink"
                         >
-                          {product.name}
-                        </Link>
+                          <X className="h-3.5 w-3.5" />
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => removeItem(product.id)}
-                        aria-label={`Remover ${product.name}`}
-                        className="grid h-7 w-7 place-items-center rounded-full text-muted hover:bg-black/5 hover:text-ink"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-medium",
+                            isRecurring
+                              ? "bg-brand-100 text-brand-800"
+                              : "bg-black/5 text-muted",
+                          )}
+                        >
+                          {isRecurring ? (
+                            <Repeat className="h-3 w-3" />
+                          ) : null}
+                          {modeLabel}
+                        </span>
+                        {canRecur ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setRecurring(product.id, !isRecurring)
+                            }
+                            className="text-[11px] font-medium text-brand-700 underline-offset-2 hover:text-brand-900 hover:underline"
+                          >
+                            {isRecurring
+                              ? "trocar p/ compra única"
+                              : `assinar (-${product.recurrence?.subscriptionDiscountPct}%)`}
+                          </button>
+                        ) : null}
+                      </div>
+
+                      <div className="mt-auto flex items-center justify-between">
+                        <QuantityStepper
+                          value={quantity}
+                          onChange={(q) => updateQuantity(product.id, q)}
+                        />
+                        <span className="text-[14px] font-semibold tabular-nums">
+                          {formatBRL(product.priceBRL * quantity)}
+                        </span>
+                      </div>
                     </div>
-                    <div className="mt-auto flex items-center justify-between">
-                      <QuantityStepper
-                        value={quantity}
-                        onChange={(q) => updateQuantity(product.id, q)}
-                      />
-                      <span className="text-[14px] font-semibold tabular-nums">
-                        {formatBRL(product.priceBRL * quantity)}
-                      </span>
-                    </div>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
 
             <footer className="border-t border-border bg-brand-50/40 px-5 py-4">
               <dl className="space-y-1.5 text-[13px]">
-                <div className="flex items-center justify-between text-muted">
-                  <dt>Subtotal</dt>
-                  <dd className="tabular-nums text-ink">
-                    {formatBRL(totalBRL)}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between text-muted">
-                  <dt>Frete</dt>
-                  <dd>A calcular no checkout</dd>
-                </div>
-                <div className="flex items-center justify-between pt-1 text-[15px] font-semibold text-ink">
-                  <dt>Total</dt>
-                  <dd className="tabular-nums">{formatBRL(totalBRL)}</dd>
-                </div>
+                {recurringCount > 0 ? (
+                  <>
+                    <div className="flex items-center justify-between text-muted">
+                      <dt>Compra única hoje</dt>
+                      <dd className="tabular-nums text-ink">
+                        {formatBRL(split.oneShot)}
+                      </dd>
+                    </div>
+                    <div className="flex items-center justify-between text-muted">
+                      <dt className="inline-flex items-center gap-1.5">
+                        <Repeat className="h-3 w-3" />
+                        Mensal recorrente
+                      </dt>
+                      <dd className="tabular-nums text-brand-800">
+                        {formatBRL(split.monthlyRecurring)}
+                      </dd>
+                    </div>
+                    {split.monthlySavings > 0 ? (
+                      <div className="rounded-full bg-brand-100 px-3 py-1 text-[11.5px] font-medium text-brand-800">
+                        Economiza {formatBRL(split.monthlySavings)}/mês com
+                        assinatura
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between text-muted">
+                      <dt>Subtotal</dt>
+                      <dd className="tabular-nums text-ink">
+                        {formatBRL(totalBRL)}
+                      </dd>
+                    </div>
+                    <div className="flex items-center justify-between text-muted">
+                      <dt>Frete</dt>
+                      <dd>A calcular no checkout</dd>
+                    </div>
+                    <div className="flex items-center justify-between pt-1 text-[15px] font-semibold text-ink">
+                      <dt>Total</dt>
+                      <dd className="tabular-nums">{formatBRL(totalBRL)}</dd>
+                    </div>
+                  </>
+                )}
               </dl>
+              {/* totalRecurringBRL é referenciado pra manter consistência com o store */}
+              <div className="sr-only" aria-hidden>
+                {totalRecurringBRL}
+              </div>
               <Link
                 href="/checkout"
                 onClick={closeCart}

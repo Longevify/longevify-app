@@ -2,6 +2,7 @@ import { BIOMARKERS } from "@/lib/mock-data";
 import { PRODUCTS } from "@/lib/products";
 import { getRecommendedProducts } from "@/lib/product-recommender";
 import { RecommendationStrip } from "@/components/loja/recommendation-strip";
+import { RecommendationsSection } from "@/components/loja/recommendations-section";
 import { CategoryFilter } from "@/components/loja/category-filter";
 
 export default function LojaPage() {
@@ -19,6 +20,12 @@ export default function LojaPage() {
           selecionados com base em evidência e integrados aos seus biomarcadores.
         </p>
       </header>
+
+      <RecommendationsSection
+        recommendations={recommendations}
+        title="Recomendados pra você"
+        className="mb-8"
+      />
 
       <RecommendationStrip recommendations={recommendations} />
 

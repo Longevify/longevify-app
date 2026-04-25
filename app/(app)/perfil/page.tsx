@@ -21,6 +21,7 @@ import { Card } from "@/components/ui/card";
 import { cn, formatDatePtBR } from "@/lib/utils";
 import { PATIENT } from "@/lib/mock-data";
 import { formatBRL } from "@/lib/products";
+import { PLANS } from "@/lib/billing/plans";
 
 interface ProfileData {
   firstName: string;
@@ -384,6 +385,9 @@ function SubscriptionSection() {
     }
   }
 
+  // Default = primeiro plano com highlight (Premium hoje); fallback pro primeiro plano.
+  const currentPlan = PLANS.find((p) => p.highlight) ?? PLANS[0];
+
   return (
     <Card className="flex flex-col gap-5 p-6">
       <div className="flex items-start gap-3">
@@ -399,10 +403,17 @@ function SubscriptionSection() {
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <SubRow label="Plano atual" value="Plano Premium Anual" highlight />
+        <SubRow
+          label="Plano atual"
+          value={`Plano ${currentPlan.name} Anual`}
+          highlight
+        />
         <SubRow label="Renovação" value="12 de mar de 2027" />
         <SubRow label="Forma de pagamento" value="Cartão Visa final 4242" />
-        <SubRow label="Próxima cobrança" value={`${formatBRL(4800)} / ano`} />
+        <SubRow
+          label="Próxima cobrança"
+          value={`${formatBRL(currentPlan.priceBRL)} / ano`}
+        />
       </div>
 
       <div className="flex flex-wrap gap-2 border-t border-border pt-4">

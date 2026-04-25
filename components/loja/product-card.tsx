@@ -13,25 +13,38 @@ const BADGE_STYLES: Record<ProductBadge, string> = {
   Curadoria: "bg-[#E7ECFD] text-[#3B44C2]",
 };
 
+interface ProductCardProps {
+  product: Product;
+  className?: string;
+  highlight?: boolean;
+  reason?: string;
+  /**
+   * `default` — full card with vertical image (used in /loja grid).
+   * `compact` — small horizontal card (used in Home recommendations).
+   */
+  size?: "default" | "compact";
+}
+
 export function ProductCard({
   product,
   className,
   highlight,
   reason,
   size = "default",
-}: {
-  product: Product;
-  className?: string;
-  highlight?: boolean;
-  reason?: string;
-  /**
-   * `default` — full card with square image, used in /loja grid.
-   * `compact` — small horizontal card for recommendation strips on Home.
-   */
-  size?: "default" | "compact";
-}) {
-  const isCompact = size === "compact";
+}: ProductCardProps) {
+  if (size === "compact") return <CompactCard {...{ product, className, highlight, reason }} />;
+  return <DefaultCard {...{ product, className, highlight, reason }} />;
+}
 
+// ──────────────────────────────────────────────────────────────────
+// Default vertical card
+// ──────────────────────────────────────────────────────────────────
+function DefaultCard({
+  product,
+  className,
+  highlight,
+  reason,
+}: Omit<ProductCardProps, "size">) {
   return (
     <Link
       href={`/loja/${product.id}`}
@@ -39,92 +52,119 @@ export function ProductCard({
     >
       <Card
         className={cn(
-          "flex h-full transition-shadow hover:shadow-[0_6px_20px_rgba(13,40,24,.08)]",
-          isCompact ? "flex-row gap-3 p-3" : "flex-col gap-3 p-4",
+          "flex h-full flex-col gap-3 p-4 transition-shadow hover:shadow-[0_6px_20px_rgba(13,40,24,.08)]",
           highlight && "border-brand-300",
         )}
       >
-        <div className={cn("relative", isCompact ? "w-24 shrink-0" : "")}>
-          <ProductImage
-            product={product}
-            aspect={isCompact ? "square" : "wide"}
-            className={isCompact ? "h-full" : ""}
-          />
-          {!isCompact && (
-            <div className="absolute left-2 top-2 flex gap-1.5">
-              {highlight && (
-                <span className="rounded-full bg-brand-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow">
-                  Pra você
-                </span>
-              )}
-              {product.badge && (
-                <span
-                  className={cn(
-                    "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                    BADGE_STYLES[product.badge],
-                  )}
-                >
-                  {product.badge}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="flex flex-1 flex-col gap-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] uppercase tracking-[0.12em] text-muted truncate">
-              {product.brand}
-            </span>
-            {isCompact && highlight ? (
-              <span className="rounded-full bg-brand-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-brand-700">
-                Pra você
-              </span>
+        <div className="relative">
+          <ProductImage product={product} aspect="wide" />
+          <div className="pointer-events-none absolute left-2 top-2 flex flex-wrap gap-1">
+            {highlight ? <BadgePill className="bg-brand-500 text-white">Pra você</BadgePill> : null}
+            {product.badge ? (
+              <BadgePill className={BADGE_STYLES[product.badge]}>{product.badge}</BadgePill>
             ) : null}
           </div>
-          <h3
-            className={cn(
-              "font-semibold leading-snug text-ink group-hover:text-brand-700",
-              isCompact ? "text-[13px] line-clamp-2" : "text-[15px]",
-            )}
-          >
+        </div>
+
+        <div className="flex flex-1 flex-col gap-1.5 min-w-0">
+          <span className="text-[10.5px] uppercase tracking-[0.12em] text-muted truncate">
+            {product.brand}
+          </span>
+          <h3 className="text-[14.5px] font-semibold leading-snug text-ink group-hover:text-brand-700 line-clamp-2">
             {product.name}
           </h3>
-          {!isCompact && (
-            <p className="line-clamp-2 text-[12.5px] text-muted">
-              {product.shortDescription}
-            </p>
-          )}
+          <p className="text-[12px] text-muted line-clamp-2">
+            {product.shortDescription}
+          </p>
           {reason ? (
-            <p
-              className={cn(
-                "rounded-lg bg-brand-50/80 px-2 py-1.5 leading-snug text-brand-800",
-                isCompact ? "text-[10.5px] line-clamp-2 mt-0.5" : "text-[11.5px] line-clamp-3 mt-1",
-              )}
-            >
+            <p className="mt-1 rounded-lg bg-brand-50/80 px-2.5 py-2 text-[11.5px] leading-snug text-brand-800 line-clamp-3">
               {reason}
             </p>
           ) : null}
+        </div>
 
-          <div
-            className={cn(
-              "flex items-center justify-between gap-2",
-              isCompact
-                ? "mt-1"
-                : "mt-1 border-t border-border/70 pt-3",
-            )}
-          >
-            <PriceTag value={product.priceBRL} />
-            <span className="inline-flex items-center gap-1 text-[11px] text-muted">
+        <div className="mt-auto flex items-center justify-between border-t border-border/70 pt-3">
+          <PriceTag value={product.priceBRL} />
+          <span className="inline-flex items-center gap-1 text-[12px] text-muted">
+            <Star className="h-3.5 w-3.5 fill-[#E6B845] text-[#E6B845]" />
+            {product.rating.toFixed(1)}
+            <span className="text-muted/70">({product.reviewsCount})</span>
+          </span>
+        </div>
+      </Card>
+    </Link>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Compact horizontal card — for recommendation strips
+// ──────────────────────────────────────────────────────────────────
+function CompactCard({
+  product,
+  className,
+  highlight,
+  reason,
+}: Omit<ProductCardProps, "size">) {
+  return (
+    <Link
+      href={`/loja/${product.id}`}
+      className={cn("group block focus-visible:outline-none", className)}
+    >
+      <Card
+        className={cn(
+          "flex h-full items-stretch gap-3 p-3 transition-shadow hover:shadow-[0_4px_14px_rgba(13,40,24,.06)]",
+          highlight && "border-brand-300",
+        )}
+      >
+        <div className="relative h-20 w-20 flex-none">
+          <ProductImage product={product} aspect="square" className="h-full w-full" />
+        </div>
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.1em] text-muted">
+            <span className="truncate">{product.brand}</span>
+            {highlight ? (
+              <span className="rounded-full bg-brand-500/15 px-1.5 py-0.5 font-semibold tracking-wide text-brand-700">
+                pra você
+              </span>
+            ) : null}
+          </div>
+          <h3 className="mt-0.5 text-[13px] font-semibold leading-tight text-ink group-hover:text-brand-700 line-clamp-2">
+            {product.name}
+          </h3>
+          {reason ? (
+            <p className="mt-1 text-[11px] leading-snug text-muted line-clamp-2">
+              {reason}
+            </p>
+          ) : null}
+          <div className="mt-auto flex items-center justify-between gap-2 pt-1.5">
+            <PriceTag value={product.priceBRL} compact />
+            <span className="inline-flex items-center gap-0.5 text-[11px] text-muted">
               <Star className="h-3 w-3 fill-[#E6B845] text-[#E6B845]" />
               {product.rating.toFixed(1)}
-              {!isCompact && (
-                <span className="text-muted/70">({product.reviewsCount})</span>
-              )}
             </span>
           </div>
         </div>
       </Card>
     </Link>
+  );
+}
+
+function BadgePill({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+        className,
+      )}
+    >
+      {children}
+    </span>
   );
 }
