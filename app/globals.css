@@ -1,26 +1,63 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  /* brand green scale (derived from Longevify logo) */
+  --color-brand-50: #f4faf6;
+  --color-brand-100: #e7f5ec;
+  --color-brand-200: #c9e9d6;
+  --color-brand-300: #9fd4b3;
+  --color-brand-400: #6dba8e;
+  --color-brand-500: #3f9a6b;
+  --color-brand-600: #2a7a53;
+  --color-brand-700: #1f5d3f;
+  --color-brand-800: #123e2a;
+  --color-brand-900: #0d2818;
+
+  /* status */
+  --color-status-optimal: #10b981;
+  --color-status-normal: #e6b845;
+  --color-status-out: #e85d5d;
+
+  /* surfaces */
+  --color-page: #f7faf8;
+  --color-surface: #ffffff;
+  --color-border: #e7edea;
+  --color-ink: #0f1f19;
+  --color-muted: #6b7a74;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-display: var(--font-geist-sans), ui-sans-serif, system-ui;
+
+  --radius-card: 20px;
+  --radius-pill: 999px;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+html,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-page);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* subtle page gradient — nods to the brand gradient assets */
+body {
+  background:
+    radial-gradient(1200px 600px at 0% -10%, #e7f5ec 0%, transparent 60%),
+    radial-gradient(900px 500px at 100% 110%, #dff0e5 0%, transparent 55%),
+    var(--color-page);
+  background-attachment: fixed;
+}
+
+/* recharts tweaks */
+.recharts-surface {
+  overflow: visible;
 }

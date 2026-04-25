@@ -35,7 +35,17 @@ yarn-error.log*
 
 # vercel
 .vercel
+.vercel/
+
+# local node wrapper (lives in /bin/node, not committed)
+bin/node
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# logs
+*.log
+
+# local Claude state
+.claude/

@@ -20,17 +20,100 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-## Learn More
+## Setup Supabase
 
-To learn more about Next.js, take a look at the following resources:
+The app ships with a **demo mode**: if `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are not set, the proxy lets every request through and data repositories return the mock data bundled in `lib/`. Use it for UI work without any backend.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+To plug a real Supabase project:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. **Create a project** at [supabase.com](https://supabase.com/dashboard) (free tier is fine).
+2. **Copy the URL and anon key** from *Project settings → API* into a new `.env.local` file at the project root:
 
-## Deploy on Vercel
+   ```bash
+   cp .env.local.example .env.local
+   # then fill in:
+   # NEXT_PUBLIC_SUPABASE_URL=...
+   # NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+   # SUPABASE_SERVICE_ROLE_KEY=...   (Project settings → API → service_role)
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+3. **Run the schema migration**. Two options:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+   - Using the Supabase CLI (recommended):
+     ```bash
+     supabase link --project-ref <your-ref>
+     supabase db push
+     ```
+   - Or paste the contents of `supabase/migrations/0001_initial.sql` into the SQL editor on the Supabase dashboard and run it.
+
+4. **Seed catalog tables** (biomarker definitions + product catalog):
+
+   ```bash
+   # CLI
+   psql "$SUPABASE_DB_URL" -f supabase/seed.sql
+   # Dashboard
+   # Paste supabase/seed.sql into the SQL editor and run.
+   ```
+
+5. **Create an admin (optional).** After signing up once through `/signup`, promote that user by running in the SQL editor:
+
+   ```sql
+   update public.profiles set role = 'admin' where id = '<auth-user-id>';
+   ```
+
+6. **Configure Auth email templates** (optional). Under *Authentication → URL Configuration*, set `Site URL` to `http://localhost:3000` for local dev (adjust for production) so magic links and confirmation emails redirect to `/auth/callback` correctly.
+
+7. **Restart the dev server** so Next picks up the new env vars.
+
+With Supabase configured, the proxy enforces authentication on `/home`, `/dados`, `/protocolo`, `/loja`, `/concierge`, `/wearables`, and `/admin/*`. Unauthenticated visitors are redirected to `/login`. RLS policies ensure each user only sees their own rows.
+
+### How the data layer works
+
+- UI pages can either import `lib/mock-data.ts` directly (legacy) or go through `lib/data` which exposes a repository interface.
+- `getRepositories()` always returns mock — safe for synchronous usage.
+- `getServerRepositories()` inspects env + session and returns either the mock adapter (demo mode) or the Supabase adapter (real mode). This makes incremental migration of each page possible without branching code.
+
+### Sign out
+
+Route handler: `GET /logout` clears the Supabase session (if any) plus the demo cookie, then redirects to `/login`.
+
+## Setup Stripe BR
+
+A página `/planos` e a API `/api/billing/*` ficam em **modo demo** se `STRIPE_SECRET_KEY` não estiver configurada — o checkout pula direto pra página de sucesso sem cobrar nada. Pra plugar a Stripe Brasil de verdade:
+
+1. **Crie a conta Stripe BR** em [dashboard.stripe.com](https://dashboard.stripe.com). A entidade Brasil suporta nativamente `card`, `pix` e `boleto` como métodos de pagamento — habilite os três em *Settings → Payment methods*.
+
+2. **Crie os produtos e prices**. Pra cada plano (`essential-anual`, `premium-anual`, `concierge-anual`) crie um Product, e dentro dele 3 Prices distintos (um por método de pagamento, porque PIX e boleto são one-shot e cartão é recorrente):
+
+   | Plano             | Card (recorrente, anual)         | Pix (one-shot)             | Boleto (one-shot)            |
+   | ----------------- | -------------------------------- | -------------------------- | ---------------------------- |
+   | Essential         | R$ 3.600 / yr, recurring         | R$ 3.420 (5% off), one-time | R$ 3.600, one-time          |
+   | Premium           | R$ 4.800 / yr, recurring         | R$ 4.560 (5% off), one-time | R$ 4.800, one-time          |
+   | Concierge         | R$ 12.000 / yr, recurring        | R$ 11.400 (5% off), one-time | R$ 12.000, one-time        |
+
+   Copie cada `price_id` e cole em `lib/billing/plans.ts` no campo `stripePriceId` do plano correspondente.
+
+3. **Configure as variáveis de ambiente** em `.env.local`:
+
+   ```bash
+   STRIPE_SECRET_KEY=sk_test_...
+   STRIPE_WEBHOOK_SECRET=whsec_...
+   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+   ```
+
+4. **Configure o webhook**. Em *Developers → Webhooks*, adicione um endpoint apontando para `https://<seu-dominio>/api/billing/webhook` (em dev use `stripe listen --forward-to localhost:3001/api/billing/webhook`). Eventos a escutar:
+
+   - `checkout.session.completed`
+   - `customer.subscription.created`
+   - `customer.subscription.updated`
+   - `customer.subscription.deleted`
+   - `invoice.paid`
+   - `invoice.payment_failed`
+
+   Copie o signing secret (`whsec_...`) pro `STRIPE_WEBHOOK_SECRET`.
+
+5. **Parcelamento sem juros (cartão)**. Em *Settings → Payment methods → Cards → Brazil*, habilite "Installments" e configure até 12x sem juros (Stripe BR aceita ICR/installments nativamente para cards Brasil).
+
+6. **Restart** o dev server pra carregar as envs novas.
+
+A persistência da assinatura no Supabase (Wave 3+) ainda é stub — o webhook hoje só faz `console.log` dos eventos. A UI de "Minha assinatura" em `/perfil` mostra dados mock até a integração com a tabela `subscriptions` no Supabase.
