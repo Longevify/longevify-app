@@ -9,8 +9,8 @@ type FilterKey = "all" | ProductCategory;
 
 const FILTERS: Array<{ key: FilterKey; label: string }> = [
   { key: "all", label: "Todos" },
-  { key: "suplemento", label: "Suplementos" },
-  { key: "longevify-original", label: "Originais Longevify" },
+  { key: "exame", label: "Exames" },
+  { key: "longevify-original", label: "Suplementos Longevify" },
   { key: "wearable", label: "Wearables" },
   { key: "equipamento", label: "Equipamento" },
 ];
