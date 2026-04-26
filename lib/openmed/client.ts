@@ -1,27 +1,30 @@
 /**
- * OpenMed NLP médico via HuggingFace Inference API.
+ * Medical NLP via HuggingFace Inference Providers.
  *
- * OpenMed (https://github.com/maziyarpanahi/openmed) — Apache 2.0 — fornece
- * modelos NER especializados em texto clínico. Aqui chamamos via HF Inference
- * em vez de hospedar Python — mantém a infra Next.js limpa.
+ * Originalmente esse módulo usava OpenMed (github.com/maziyarpanahi/openmed) mas
+ * a HF marcou os modelos OpenMed como "deprecated" no provider hf-inference em
+ * abr/2026, então caímos pra modelos equivalentes que ainda têm inferência
+ * gratuita ativa:
  *
- * Modelos usados (todos públicos no HF Hub):
- *  - OpenMed/OpenMed-NER-DiseaseDetect-SuperClinical-434M
- *  - OpenMed/OpenMed-NER-PharmaDetect-SuperClinical-434M
- *  - OpenMed/OpenMed-PII-SuperClinical-Small-44M-v1
- *  - OpenMed/OpenMed-PII-Portuguese-SnowflakeMed-Large-568M-v1
+ *  - blaze999/Medical-NER     — disease + medication num único modelo
+ *  - dslim/bert-base-NER      — PII genérico (pessoa, organização, local)
+ *
+ * Pra escalar (tier paga, Português específico), considerar:
+ *   - Self-host OpenMed via Docker (Render/Fly.io)
+ *   - HF Inference Endpoints dedicados ($)
+ *   - AWS Comprehend Medical (PT-BR limitado)
  *
  * Env var necessária:
  *   HUGGINGFACE_API_KEY — token gratuito em huggingface.co/settings/tokens
  */
 
-const HF_BASE = "https://api-inference.huggingface.co/models";
+const HF_BASE = "https://router.huggingface.co/hf-inference/models";
 
 const MODELS = {
-  disease: "OpenMed/OpenMed-NER-DiseaseDetect-SuperClinical-434M",
-  pharma: "OpenMed/OpenMed-NER-PharmaDetect-SuperClinical-434M",
-  piiEn: "OpenMed/OpenMed-PII-SuperClinical-Small-44M-v1",
-  piiPt: "OpenMed/OpenMed-PII-Portuguese-SnowflakeMed-Large-568M-v1",
+  /** blaze999/Medical-NER — retorna entity_group: DISEASE_DISORDER | MEDICATION | etc. */
+  medical: "blaze999/Medical-NER",
+  /** dslim/bert-base-NER — entity_group: PER | ORG | LOC | MISC */
+  pii: "dslim/bert-base-NER",
 } as const;
 
 export type OpenMedTask = "disease" | "pharma" | "pii";
@@ -106,24 +109,53 @@ async function hfNer(modelId: string, text: string): Promise<MedicalEntity[]> {
   }
 }
 
+/**
+ * Doenças e medicamentos vêm do mesmo modelo (blaze999/Medical-NER).
+ * Pra evitar 2 chamadas, fazemos 1 e separamos as entidades por entity_group.
+ */
+async function extractMedicalCombined(text: string): Promise<{
+  diseases: MedicalEntity[];
+  medications: MedicalEntity[];
+}> {
+  const all = await hfNer(MODELS.medical, text);
+  const diseases: MedicalEntity[] = [];
+  const medications: MedicalEntity[] = [];
+  for (const e of all) {
+    const lbl = e.label.toUpperCase();
+    if (lbl.includes("DISEASE") || lbl.includes("DISORDER") || lbl.includes("CONDITION")) {
+      diseases.push(e);
+    } else if (lbl.includes("MEDICATION") || lbl.includes("DRUG") || lbl.includes("CHEMICAL")) {
+      medications.push(e);
+    }
+  }
+  return { diseases, medications };
+}
+
 export async function extractDiseases(text: string): Promise<MedicalEntity[]> {
-  return hfNer(MODELS.disease, text);
+  const { diseases } = await extractMedicalCombined(text);
+  return diseases;
 }
 
 export async function extractMedications(
   text: string,
 ): Promise<MedicalEntity[]> {
-  return hfNer(MODELS.pharma, text);
+  const { medications } = await extractMedicalCombined(text);
+  return medications;
 }
 
 /**
- * PII detection — usa modelo PT-BR específico se `lang="pt"`, senão small EN.
+ * PII detection (genérico). O modelo dslim/bert-base-NER retorna PER/ORG/LOC/MISC.
+ * Pra LGPD, foco em PER (nomes) e LOC (endereços/cidades) — ORG geralmente é
+ * empresa/instituição, não PII pessoal.
+ *
+ * Lang param mantido na assinatura por compat — bert-base-NER é multilíngue.
  */
 export async function extractPII(
   text: string,
-  lang: "pt" | "en" = "pt",
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _lang: "pt" | "en" = "pt",
 ): Promise<MedicalEntity[]> {
-  return hfNer(lang === "pt" ? MODELS.piiPt : MODELS.piiEn, text);
+  return hfNer(MODELS.pii, text);
 }
 
 export type DeidentifyMethod = "mask" | "remove" | "replace";
@@ -197,11 +229,20 @@ export async function extractAll(
     options.tasks ?? ["disease", "pharma", "pii"],
   );
 
-  const [diseases, medications, pii] = await Promise.all([
-    tasks.has("disease") ? extractDiseases(text) : Promise.resolve([]),
-    tasks.has("pharma") ? extractMedications(text) : Promise.resolve([]),
-    tasks.has("pii") ? extractPII(text, options.lang ?? "pt") : Promise.resolve([]),
+  // Disease + medication vêm do mesmo modelo — fazemos 1 chamada se ambos pedidos
+  const wantMedical = tasks.has("disease") || tasks.has("pharma");
+  const wantPii = tasks.has("pii");
+
+  const [medical, pii] = await Promise.all([
+    wantMedical
+      ? extractMedicalCombined(text)
+      : Promise.resolve({ diseases: [], medications: [] }),
+    wantPii ? extractPII(text, options.lang ?? "pt") : Promise.resolve([]),
   ]);
 
-  return { diseases, medications, pii };
+  return {
+    diseases: tasks.has("disease") ? medical.diseases : [],
+    medications: tasks.has("pharma") ? medical.medications : [],
+    pii,
+  };
 }
