@@ -186,8 +186,14 @@ interface WhoopWorkout {
   score?: {
     strain?: number;
     kilojoule?: number;
-    zone_duration?: {
+    /** v2 — note plural "zone_durations" (era zone_duration na v1) */
+    zone_durations?: {
+      zone_zero_milli?: number;
+      zone_one_milli?: number;
       zone_two_milli?: number;
+      zone_three_milli?: number;
+      zone_four_milli?: number;
+      zone_five_milli?: number;
     };
   };
 }
@@ -235,8 +241,9 @@ export function normalizeWhoop(raw: WhoopResponse): DailyHealthMetrics[] {
     if (!Number.isNaN(startMs) && !Number.isNaN(endMs) && endMs > startMs) {
       d.activeMinutes += (endMs - startMs) / 60000;
     }
-    if (w.score?.zone_duration?.zone_two_milli)
-      d.zone2Minutes += w.score.zone_duration.zone_two_milli / 60000;
+    // v2 da API renomeou pra zone_durations (plural)
+    if (w.score?.zone_durations?.zone_two_milli)
+      d.zone2Minutes += w.score.zone_durations.zone_two_milli / 60000;
   }
 
   return Array.from(map.values())
