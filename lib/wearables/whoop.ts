@@ -1,12 +1,14 @@
-// Helpers servidor-side da integração Whoop.
+// Helpers servidor-side da integração Whoop — API v2.
+// Spec: https://developer.whoop.com (OpenAPI 3.0.1, base /developer/v2)
 
 import { normalizeWhoop } from "./normalize";
 import type { DailyHealthMetrics } from "@/lib/wearables-mock";
 
 const AUTHORIZE_URL = "https://api.prod.whoop.com/oauth/oauth2/auth";
 const TOKEN_URL = "https://api.prod.whoop.com/oauth/oauth2/token";
-const API_BASE = "https://api.prod.whoop.com/developer/v1";
-const SCOPE = "read:profile read:recovery read:cycles read:sleep read:workout";
+const API_BASE = "https://api.prod.whoop.com/developer/v2";
+const SCOPE =
+  "read:profile read:recovery read:cycles read:sleep read:workout read:body_measurement";
 
 export function whoopConfig() {
   const clientId = process.env.WHOOP_CLIENT_ID?.trim() ?? "";
@@ -63,8 +65,9 @@ export async function exchangeWhoopCode(
   return (await res.json()) as WhoopTokenResponse;
 }
 
-async function whoopFetch(path: string, token: string, params: URLSearchParams) {
-  const url = `${API_BASE}/${path}?${params.toString()}`;
+async function whoopFetch(path: string, token: string, params?: URLSearchParams) {
+  const qs = params ? `?${params.toString()}` : "";
+  const url = `${API_BASE}/${path}${qs}`;
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -86,6 +89,8 @@ export async function fetchWhoopLast7Days(
     end: end.toISOString(),
     limit: "25",
   });
+  // Endpoints v2 (Sleep retorna PaginatedSleepResponse; Cycle/Recovery
+  // PaginatedCycleResponse / RecoveryCollection; Workout WorkoutCollection).
   const [recovery, sleep, cycle, workout] = await Promise.all([
     whoopFetch("recovery", token, params),
     whoopFetch("activity/sleep", token, params),
@@ -93,4 +98,47 @@ export async function fetchWhoopLast7Days(
     whoopFetch("activity/workout", token, params),
   ]);
   return normalizeWhoop({ recovery, sleep, cycle, workout });
+}
+
+/**
+ * Body measurement (height, weight, max HR) — uma chamada separada,
+ * só precisa rodar 1x na conexão e quando user atualizar dados.
+ */
+export interface WhoopBodyMeasurement {
+  height_meter?: number;
+  weight_kilogram?: number;
+  max_heart_rate?: number;
+}
+
+export async function fetchWhoopBodyMeasurement(
+  token: string,
+): Promise<WhoopBodyMeasurement | null> {
+  // v2: /developer/v2/user/measurement/body
+  try {
+    const data = await whoopFetch("user/measurement/body", token);
+    return data as WhoopBodyMeasurement;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Perfil básico do usuário Whoop (nome, email, user_id).
+ */
+export interface WhoopBasicProfile {
+  user_id: number;
+  email: string;
+  first_name: string;
+  last_name: string;
+}
+
+export async function fetchWhoopProfile(
+  token: string,
+): Promise<WhoopBasicProfile | null> {
+  try {
+    const data = await whoopFetch("user/profile/basic", token);
+    return data as WhoopBasicProfile;
+  } catch {
+    return null;
+  }
 }
