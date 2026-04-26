@@ -15,9 +15,12 @@ interface ChatBody {
 }
 
 // Provider preference order:
-// 1. MOONSHOT_API_KEY → Kimi K2 (chinês, OpenAI-compatible)
-// 2. ANTHROPIC_API_KEY → Claude Sonnet 4.6
-// 3. OPENAI_API_KEY → gpt-4o-mini
+// 1. MOONSHOT_API_KEY → Kimi K2.5 (OpenAI-compatible). Tem cache automático
+//    de prefixo ativo em todas as chamadas (sem opt-in necessário).
+// 2. ANTHROPIC_API_KEY → Claude Sonnet 4.6 com prompt caching explícito
+//    (cache_control: ephemeral) no system prompt — corta ~90% do custo
+//    e ~50% da latência em mensagens subsequentes da mesma sessão.
+// 3. OPENAI_API_KEY → gpt-4o-mini (cache automático também)
 // 4. Sem nada configurado → fallback rule-based
 const ANTHROPIC_MODEL = "claude-sonnet-4-6";
 const MOONSHOT_MODEL = "kimi-k2.5";
@@ -96,10 +99,28 @@ async function streamAnthropic({
       try {
         const { default: Anthropic } = await import("@anthropic-ai/sdk");
         const client = new Anthropic({ apiKey });
+        // Anthropic prompt caching:
+        //   docs.claude.com/en/build-with-claude/prompt-caching
+        //
+        // O system prompt do Concierge tem ~3-5k tokens (perfil + biomarcadores
+        // + instruções clínicas) e é IDÊNTICO entre todas as mensagens da mesma
+        // sessão. Marcando ele com cache_control: { type: "ephemeral" }, a
+        // Anthropic guarda esse prefixo por 5 min — chamadas subsequentes
+        // pagam 10% do custo desses tokens (e voltam em ~latência reduzida).
+        //
+        // Limite: precisa ter >=1024 tokens cacheáveis pro cache valer.
+        // Se estiver abaixo, a API ignora silenciosamente o cache_control
+        // e cobra normal — sem erro. Por isso é seguro deixar sempre ligado.
         const response = await client.messages.stream({
           model: ANTHROPIC_MODEL,
           max_tokens: 1024,
-          system: systemPrompt,
+          system: [
+            {
+              type: "text",
+              text: systemPrompt,
+              cache_control: { type: "ephemeral" },
+            },
+          ],
           messages: messages.map((m) => ({ role: m.role, content: m.content })),
         });
         for await (const event of response) {
