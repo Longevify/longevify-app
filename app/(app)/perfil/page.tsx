@@ -22,6 +22,7 @@ import { cn, formatDatePtBR } from "@/lib/utils";
 import { PATIENT } from "@/lib/mock-data";
 import { formatBRL } from "@/lib/products";
 import { useCurrentUser } from "@/lib/auth/user-context";
+import { MedicalExtractor } from "@/components/openmed/medical-extractor";
 import { PLANS } from "@/lib/billing/plans";
 
 interface ProfileData {
@@ -262,6 +263,18 @@ export default function PerfilPage() {
                 onChange={(v) => update("allergies", v)}
               />
             </Field>
+          </Section>
+
+          <Section
+            title="Análise inteligente do histórico"
+            icon={ShieldCheck}
+            description="Cole um texto livre — sintomas, lista de remédios, anotações antigas — e a gente extrai doenças, medicações e dados pessoais automaticamente. Modelos clínicos open-source (OpenMed) rodando via HuggingFace."
+          >
+            <div className="md:col-span-2">
+              <MedicalExtractor
+                placeholder="Ex: 'Tomo losartana 50mg pela manhã pra hipertensão e atorvastatina 20mg à noite. Tenho diabetes tipo 2. Alergia a dipirona. Mãe teve infarto aos 60 anos.'"
+              />
+            </div>
           </Section>
 
           {/* Save bar */}
