@@ -14,10 +14,11 @@ import {
 interface LoginFormProps {
   demo: boolean;
   next: string;
+  errorBanner?: string | null;
   children: React.ReactNode;
 }
 
-export function LoginForm({ demo, next, children }: LoginFormProps) {
+export function LoginForm({ demo, next, errorBanner, children }: LoginFormProps) {
   const [loginState, loginAction, loginPending] = useActionState<
     AuthActionResult | null,
     FormData
@@ -38,6 +39,11 @@ export function LoginForm({ demo, next, children }: LoginFormProps) {
       }
       footer={children}
     >
+      {errorBanner ? (
+        <div className="mb-4 rounded-xl border border-[#FBE1E1] bg-[#FBE1E1]/40 px-4 py-3 text-[13px] text-[#B6333A]">
+          {errorBanner}
+        </div>
+      ) : null}
       <form action={loginAction} className="flex flex-col gap-4">
         <input type="hidden" name="next" value={next} />
         <AuthInput
