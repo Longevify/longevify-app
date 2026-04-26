@@ -31,18 +31,14 @@ function safeReadStorage(): CartItem[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw) as PersistedItem[];
     if (!Array.isArray(parsed)) return [];
-    return parsed
-      .map((p) => {
-        const product = getProductById(p.productId);
-        if (!product) return null;
-        const quantity = Math.max(1, Math.floor(p.quantity || 1));
-        return {
-          product,
-          quantity,
-          recurring: Boolean(p.recurring),
-        } satisfies CartItem;
-      })
-      .filter((x): x is CartItem => x !== null);
+    const items: CartItem[] = [];
+    for (const p of parsed) {
+      const product = getProductById(p.productId);
+      if (!product) continue;
+      const quantity = Math.max(1, Math.floor(p.quantity || 1));
+      items.push({ product, quantity, recurring: Boolean(p.recurring) });
+    }
+    return items;
   } catch {
     return [];
   }

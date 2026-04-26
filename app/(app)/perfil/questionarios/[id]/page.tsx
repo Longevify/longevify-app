@@ -24,9 +24,12 @@ export default function QuestionnaireRunPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const questionnaire = getQuestionnaire(id);
+  const maybe = getQuestionnaire(id);
 
-  if (!questionnaire) notFound();
+  if (!maybe) notFound();
+  // Após notFound() a TS deveria saber que `maybe` é non-null, mas o overload
+  // dela é `never` apenas em alguns paths. Re-bind pra garantir narrowing.
+  const questionnaire = maybe;
 
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [index, setIndex] = useState(0);

@@ -391,6 +391,7 @@ export function createMockAdminMutations(): AdminMutations {
         brand: input.brand.trim(),
         category: input.category,
         badge: input.badge,
+        kicker: (input as { kicker?: string }).kicker ?? "Produto",
         priceBRL: input.priceBRL,
         currency: "BRL",
         shortDescription: input.shortDescription,

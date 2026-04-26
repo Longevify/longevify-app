@@ -260,12 +260,21 @@ export function createSupabaseRepositories(
 }
 
 function mapProduct(row: Record<string, unknown>): Product {
+  const category = row.category as ProductCategory;
+  const kickerByCategory: Record<ProductCategory, string> = {
+    exame: "Exame Diagnóstico",
+    suplemento: "Suplemento",
+    "longevify-original": "Suplemento Longevify",
+    wearable: "Wearable",
+    equipamento: "Equipamento",
+  };
   return {
     id: String(row.id),
     name: String(row.name),
     brand: String(row.brand),
-    category: row.category as ProductCategory,
+    category,
     badge: (row.badge as Product["badge"]) ?? undefined,
+    kicker: kickerByCategory[category] ?? "Produto",
     priceBRL: Number(row.price_brl),
     currency: "BRL",
     shortDescription: String(row.short_description ?? ""),
