@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
@@ -25,7 +25,16 @@ const STEPS = [
   { id: "review", label: "Revisão" },
 ];
 
-export default function NovoExamePage() {
+// Wrapper que satisfaz a exigência do Next 16 de Suspense em torno de useSearchParams
+export default function NovoExamePageWrapper() {
+  return (
+    <Suspense fallback={<div className="px-6 py-10 text-muted">Carregando…</div>}>
+      <NovoExamePage />
+    </Suspense>
+  );
+}
+
+function NovoExamePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselectPatient = searchParams.get("patient");
