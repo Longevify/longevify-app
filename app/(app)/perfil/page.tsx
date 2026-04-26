@@ -30,7 +30,8 @@ interface ProfileData {
   lastName: string;
   email: string;
   phone: string;
-  birthDate: string; // ISO
+  /** Idade cronológica (anos). Substitui birthDate — armazenada direto no profile do Supabase. */
+  chronologicalAge: number;
   cpf: string;
   height: number; // cm
   weight: number; // kg
@@ -45,36 +46,43 @@ interface ProfileData {
   language: string;
 }
 
+/**
+ * Default vazios pra novo usuário. Os campos preenchidos vão sair do
+ * usuário autenticado quando disponíveis. Mantemos placeholders úteis
+ * pra demos / users sem perfil completo ainda.
+ */
 const INITIAL: ProfileData = {
-  firstName: PATIENT.firstName,
-  lastName: PATIENT.lastName,
-  email: "joao.silva@longevify.co",
-  phone: "(21) 98888-7777",
-  birthDate: "1999-02-12",
-  cpf: "123.456.789-00",
-  height: 178,
-  weight: 76,
-  bloodType: "O+",
-  city: "Rio de Janeiro",
-  uf: "RJ",
-  occupation: "Empreendedor",
-  goals:
-    "Manter idade biológica abaixo da cronológica, baixar LDL pra <80, melhorar VO2max pra 50.",
-  conditions: "Nenhuma diagnosticada.",
-  medications: "Nenhuma de uso contínuo.",
-  allergies: "Nenhuma conhecida.",
+  firstName: "",
+  lastName: "",
+  email: "",
+  phone: "",
+  chronologicalAge: 0,
+  cpf: "",
+  height: 0,
+  weight: 0,
+  bloodType: "",
+  city: "",
+  uf: "",
+  occupation: "",
+  goals: "",
+  conditions: "",
+  medications: "",
+  allergies: "",
   language: "Português (BR)",
 };
 
 export default function PerfilPage() {
-  // Hidrata o INITIAL com dados do usuário autenticado (Supabase) na primeira render
+  // Hidrata com dados do usuário autenticado (Supabase) na primeira render.
+  // Em modo demo (sem login), usa o paciente mock como fallback didático.
   const ctxUser = useCurrentUser();
-  const [data, setData] = useState<ProfileData>({
+  const [data, setData] = useState<ProfileData>(() => ({
     ...INITIAL,
-    firstName: ctxUser.firstName || INITIAL.firstName,
-    lastName: ctxUser.lastName || INITIAL.lastName,
-    email: ctxUser.email || INITIAL.email,
-  });
+    firstName: ctxUser.firstName || (ctxUser.isDemo ? PATIENT.firstName : ""),
+    lastName: ctxUser.lastName || (ctxUser.isDemo ? PATIENT.lastName : ""),
+    email: ctxUser.email || (ctxUser.isDemo ? "joao.silva@longevify.co" : ""),
+    chronologicalAge:
+      ctxUser.chronologicalAge ?? (ctxUser.isDemo ? PATIENT.chronologicalAge : 0),
+  }));
   const [saved, setSaved] = useState<null | "ok">(null);
 
   function update<K extends keyof ProfileData>(key: K, value: ProfileData[K]) {
@@ -127,15 +135,36 @@ export default function PerfilPage() {
             <h3 className="text-[13px] uppercase tracking-[0.14em] text-muted">
               Saúde recente
             </h3>
-            <Row label="Longevify Score" value={`${PATIENT.longevifyScore}`} />
-            <Row
-              label="Idade biológica"
-              value={`${PATIENT.biologicalAge} (${PATIENT.chronologicalAge} cron.)`}
-            />
-            <Row
-              label="Último exame"
-              value={formatDatePtBR(PATIENT.latestExamDate)}
-            />
+            {ctxUser.isDemo ? (
+              <>
+                <Row label="Longevify Score" value={`${PATIENT.longevifyScore}`} />
+                <Row
+                  label="Idade biológica"
+                  value={`${PATIENT.biologicalAge} (${PATIENT.chronologicalAge} cron.)`}
+                />
+                <Row
+                  label="Último exame"
+                  value={formatDatePtBR(PATIENT.latestExamDate)}
+                />
+              </>
+            ) : (
+              <>
+                <Row
+                  label="Idade cronológica"
+                  value={
+                    data.chronologicalAge ? `${data.chronologicalAge} anos` : "—"
+                  }
+                />
+                <Row
+                  label="Idade biológica"
+                  value="Em breve (após 1º exame)"
+                />
+                <Row
+                  label="Último exame"
+                  value="Sem exames ainda"
+                />
+              </>
+            )}
           </Card>
         </aside>
 
@@ -168,11 +197,11 @@ export default function PerfilPage() {
             <Field label="Telefone" icon={Phone}>
               <Input value={data.phone} onChange={(v) => update("phone", v)} />
             </Field>
-            <Field label="Data de nascimento" icon={Calendar}>
+            <Field label="Idade cronológica" icon={Calendar}>
               <Input
-                value={data.birthDate}
-                onChange={(v) => update("birthDate", v)}
-                type="date"
+                value={data.chronologicalAge ? String(data.chronologicalAge) : ""}
+                onChange={(v) => update("chronologicalAge", Number(v) || 0)}
+                type="number"
               />
             </Field>
             <Field label="CPF">
