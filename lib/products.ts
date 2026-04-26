@@ -78,7 +78,7 @@ export const PRODUCTS: Product[] = [
     category: "exame",
     badge: "Melhor Custo",
     kicker: "Exame Diagnóstico",
-    priceBRL: 299,
+    priceBRL: 349,
     currency: "BRL",
     image: "/marketplace/painel-basico.png",
     shortDescription:
@@ -106,7 +106,9 @@ export const PRODUCTS: Product[] = [
     category: "exame",
     badge: "Mais Vendido",
     kicker: "Exame Diagnóstico",
-    priceBRL: 599,
+    // Pricing 2026-04: media de mercado de paineis avancados c/ ApoB+Lp(a)+hormonal
+    // (~R$1.549) é estruturalmente premium no BR; markup +15% justifica salto >3x.
+    priceBRL: 1799,
     currency: "BRL",
     image: "/marketplace/painel-avancado.png",
     shortDescription:
@@ -135,7 +137,9 @@ export const PRODUCTS: Product[] = [
     category: "exame",
     badge: "Novo",
     kicker: "Exame Diagnóstico",
-    priceBRL: 479,
+    // Pricing 2026-04: BiomeHub Plus shotgun R$2.710, Vinci R$1.098, Origem ~R$1.500.
+    // Mercado de microbioma metagenomico no BR é premium (>R$1.000).
+    priceBRL: 1799,
     currency: "BRL",
     image: "/marketplace/microbioma-intestinal.png",
     shortDescription:
@@ -167,7 +171,7 @@ export const PRODUCTS: Product[] = [
     category: "longevify-original",
     badge: "Top",
     kicker: "Suplemento Longevify",
-    priceBRL: 59,
+    priceBRL: 49,
     currency: "BRL",
     image: "/marketplace/vitamina-d.png",
     shortDescription:
@@ -199,7 +203,7 @@ export const PRODUCTS: Product[] = [
     brand: "Longevify",
     category: "longevify-original",
     kicker: "Suplemento Longevify",
-    priceBRL: 45,
+    priceBRL: 39,
     currency: "BRL",
     image: "/marketplace/vitamina-c.png",
     shortDescription:
@@ -233,7 +237,7 @@ export const PRODUCTS: Product[] = [
     category: "longevify-original",
     badge: "Top",
     kicker: "Suplemento Longevify",
-    priceBRL: 199,
+    priceBRL: 249,
     currency: "BRL",
     image: "/marketplace/whey-protein.png",
     shortDescription:
@@ -254,7 +258,7 @@ export const PRODUCTS: Product[] = [
     recurrence: {
       intervalDays: 30,
       label: "todo mês",
-      subscriptionDiscountPct: 12,
+      subscriptionDiscountPct: 15,
     },
     targetsBiomarkers: [],
     rating: 4.8,
@@ -266,7 +270,9 @@ export const PRODUCTS: Product[] = [
     brand: "Longevify",
     category: "longevify-original",
     kicker: "Suplemento Longevify",
-    priceBRL: 89,
+    // Pricing 2026-04: bisglicinato 200mg em 120 caps no varejo (Avitalfarma,
+    // Vitafor, Amazon) tem media R$105; markup +15% justifica salto de 33%.
+    priceBRL: 119,
     currency: "BRL",
     image: "/marketplace/magnesio-quelato.png",
     shortDescription:
@@ -288,7 +294,7 @@ export const PRODUCTS: Product[] = [
     recurrence: {
       intervalDays: 60,
       label: "a cada 2 meses",
-      subscriptionDiscountPct: 12,
+      subscriptionDiscountPct: 14,
     },
     targetsBiomarkers: ["hba1c"],
     rating: 4.8,
@@ -300,7 +306,11 @@ export const PRODUCTS: Product[] = [
     brand: "Longevify",
     category: "longevify-original",
     kicker: "Suplemento Longevify",
-    priceBRL: 69,
+    // Pricing 2026-04: melatonina em capsula no BR é regulada (ANVISA permite
+    // doses baixas); 60 caps de marcas premium custam R$55-95. Normalizado
+    // para 120 caps a media foi R$115; salto de 87% reflete subprecificacao
+    // anterior.
+    priceBRL: 129,
     currency: "BRL",
     image: "/marketplace/melatonina.png",
     shortDescription:
@@ -321,7 +331,7 @@ export const PRODUCTS: Product[] = [
     recurrence: {
       intervalDays: 120,
       label: "a cada 4 meses",
-      subscriptionDiscountPct: 10,
+      subscriptionDiscountPct: 12,
     },
     targetsBiomarkers: [],
     rating: 4.6,
@@ -334,7 +344,7 @@ export const PRODUCTS: Product[] = [
     category: "longevify-original",
     badge: "Mais Vendido",
     kicker: "Suplemento Longevify",
-    priceBRL: 129,
+    priceBRL: 159,
     currency: "BRL",
     image: "/marketplace/omega-3.png",
     shortDescription:
@@ -355,7 +365,7 @@ export const PRODUCTS: Product[] = [
     recurrence: {
       intervalDays: 60,
       label: "a cada 2 meses",
-      subscriptionDiscountPct: 15,
+      subscriptionDiscountPct: 17,
     },
     targetsBiomarkers: ["ldl", "apob", "crp", "hdl"],
     rating: 4.9,
@@ -368,7 +378,11 @@ export const PRODUCTS: Product[] = [
     category: "longevify-original",
     badge: "Top",
     kicker: "Suplemento Longevify",
-    priceBRL: 89,
+    // Pricing 2026-04: Creapure 300g das marcas premium (Vitafor R$259, Dux
+    // R$215-349, Nutrify R$199) tem media R$254. Preco antigo R$89 estava
+    // muito abaixo do mercado de Creapure puro (so creatina monohidratada
+    // generica fica nessa faixa).
+    priceBRL: 289,
     currency: "BRL",
     image: "/marketplace/creatina.png",
     shortDescription:
@@ -389,7 +403,7 @@ export const PRODUCTS: Product[] = [
     recurrence: {
       intervalDays: 60,
       label: "a cada 2 meses",
-      subscriptionDiscountPct: 12,
+      subscriptionDiscountPct: 15,
     },
     targetsBiomarkers: [],
     rating: 4.9,
@@ -401,7 +415,7 @@ export const PRODUCTS: Product[] = [
     brand: "Longevify",
     category: "longevify-original",
     kicker: "Suplemento Longevify",
-    priceBRL: 59,
+    priceBRL: 69,
     currency: "BRL",
     image: "/marketplace/zinco.png",
     shortDescription:
