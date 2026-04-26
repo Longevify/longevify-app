@@ -53,13 +53,11 @@ export function SignupForm({ demo, children }: SignupFormProps) {
           placeholder="voce@exemplo.com"
         />
         <AuthInput
-          label="Idade cronológica"
-          type="number"
-          name="chronologicalAge"
-          min={16}
-          max={120}
+          label="Data de nascimento"
+          type="date"
+          name="birthDate"
           required
-          placeholder="27"
+          hint="Usamos pra calcular sua idade biológica vs cronológica."
         />
         <AuthInput
           label="Senha"

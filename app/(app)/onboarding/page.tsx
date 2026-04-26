@@ -1,210 +1,193 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import {
-  ArrowLeft,
-  ArrowRight,
-  Check,
-  Loader2,
-  PartyPopper,
-  Sparkles,
-} from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Loader2, Repeat } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   OnboardingStepper,
   type OnboardingStep,
 } from "@/components/onboarding/stepper";
-import { CalendarPicker } from "@/components/scheduling/calendar-picker";
-import { LocationPicker } from "@/components/scheduling/location-picker";
+import { PathChooser } from "@/components/onboarding/path-chooser";
 import {
-  bookSlot,
-  type CollectionLocation,
-} from "@/lib/scheduling/slots";
+  StepQuickHabits,
+  StepQuickIdentity,
+} from "@/components/onboarding/intake/step-quick";
+import { StepIdentity } from "@/components/onboarding/intake/step-identity";
+import { StepMedical } from "@/components/onboarding/intake/step-medical";
+import { StepFamily } from "@/components/onboarding/intake/step-family";
+import { StepLifestyle } from "@/components/onboarding/intake/step-lifestyle";
+import { StepMental } from "@/components/onboarding/intake/step-mental";
+import { StepSexSpecific } from "@/components/onboarding/intake/step-sex-specific";
+import { StepGoals } from "@/components/onboarding/intake/step-goals";
+import { StepScheduling } from "@/components/onboarding/intake/step-scheduling";
+import { StepSummary } from "@/components/onboarding/intake/step-summary";
+import {
+  createEmptyRecord,
+  loadIntake,
+  saveIntake,
+} from "@/lib/intake/storage";
+import {
+  type IntakeData,
+  type IntakeRecord,
+  type IntakeVariant,
+} from "@/lib/intake/schema";
+import { bookSlot } from "@/lib/scheduling/slots";
 import { toast } from "@/lib/toast";
-import { cn } from "@/lib/utils";
-import { formatBRL } from "@/lib/products";
 
-const ONBOARDING_KEY = "longevify.onboarding.draft";
+// ─── State machine ─────────────────────────────────────────────────────────
+// Steps por variante. "choose" é o splash; "schedule" e "done" são compartilhados.
 
-const STEPS: OnboardingStep[] = [
-  { id: "perfil", label: "Perfil" },
-  { id: "historico", label: "Histórico" },
-  { id: "estilo", label: "Estilo de vida" },
-  { id: "objetivos", label: "Objetivos" },
-  { id: "agendamento", label: "Agendamento" },
-  { id: "confirmacao", label: "Pronto" },
+type StepId =
+  | "choose"
+  | "quick-1"
+  | "quick-2"
+  | "comp-1"
+  | "comp-2"
+  | "comp-3"
+  | "comp-4"
+  | "comp-5"
+  | "comp-6"
+  | "comp-7"
+  | "schedule"
+  | "done";
+
+const QUICK_FLOW: StepId[] = ["quick-1", "quick-2", "schedule", "done"];
+
+const COMPREHENSIVE_FLOW: StepId[] = [
+  "comp-1",
+  "comp-2",
+  "comp-3",
+  "comp-4",
+  "comp-5",
+  "comp-6",
+  "comp-7",
+  "schedule",
+  "done",
 ];
 
-const GOALS = [
-  { id: "longevidade", label: "Longevidade" },
-  { id: "performance", label: "Performance" },
-  { id: "perda-peso", label: "Perda de peso" },
-  { id: "energia", label: "Energia" },
-  { id: "preventivo", label: "Preventivo" },
-] as const;
-
-const CONDITIONS = [
-  { id: "nenhuma", label: "Nenhuma" },
-  { id: "hipertensao", label: "Hipertensão" },
-  { id: "diabetes", label: "Diabetes" },
-  { id: "colesterol", label: "Colesterol alto" },
-  { id: "outras", label: "Outras" },
-] as const;
-
-const FAMILY_HISTORY = [
-  { id: "cardio", label: "Cardiovascular" },
-  { id: "diabetes", label: "Diabetes" },
-  { id: "cancer", label: "Câncer" },
-  { id: "alzheimer", label: "Alzheimer/demência" },
-  { id: "nenhum", label: "Nenhum relevante" },
-] as const;
-
-const ACTIVITY = [
-  { id: "sedentario", label: "Sedentário" },
-  { id: "leve", label: "Leve (1-2x/semana)" },
-  { id: "moderado", label: "Moderado (3-4x/semana)" },
-  { id: "intenso", label: "Intenso (5+x/semana)" },
-] as const;
-
-const DIETS = [
-  { id: "omnivora", label: "Omnívora" },
-  { id: "pesco", label: "Pescetariana" },
-  { id: "vegetariana", label: "Vegetariana" },
-  { id: "vegana", label: "Vegana" },
-  { id: "cetogenica", label: "Cetogênica" },
-  { id: "outra", label: "Outra" },
-] as const;
-
-const PRIMARY_GOALS = [
-  {
-    id: "ponto-partida",
-    label: "Quero entender o ponto de partida da minha saúde",
-  },
-  {
-    id: "investigar-sintomas",
-    label: "Quero investigar sintomas específicos que tenho sentido",
-  },
-  {
-    id: "otimizar-performance",
-    label: "Quero otimizar performance física e cognitiva",
-  },
-  { id: "gestacao", label: "Quero me preparar pra gestação" },
-] as const;
-
-interface OnboardingDraft {
-  step: number;
-  // 1 — perfil
-  fullName: string;
-  age: string;
-  heightCm: string;
-  weightKg: string;
-  goals: string[];
-  // 2 — histórico
-  conditions: string[];
-  medications: string;
-  allergies: string;
-  familyHistory: string[];
-  // 3 — estilo de vida
-  sleepHours: number;
-  activity: string;
-  diet: string;
-  alcohol: string;
-  tobacco: string;
-  // 4 — objetivos do exame
-  primaryGoal: string;
-  // 5 — agendamento
-  location: CollectionLocation;
-  selectedSlotISO: string | null;
-  address: string;
-  weekOffsetDays: number;
-}
-
-const INITIAL_DRAFT: OnboardingDraft = {
-  step: 0,
-  fullName: "",
-  age: "",
-  heightCm: "",
-  weightKg: "",
-  goals: [],
-  conditions: [],
-  medications: "",
-  allergies: "",
-  familyHistory: [],
-  sleepHours: 7,
-  activity: "",
-  diet: "",
-  alcohol: "social",
-  tobacco: "nunca",
-  primaryGoal: "",
-  location: "home",
-  selectedSlotISO: null,
-  address: "",
-  weekOffsetDays: 0,
+const STEP_LABEL: Record<StepId, string> = {
+  choose: "Início",
+  "quick-1": "Você",
+  "quick-2": "Hábitos",
+  "comp-1": "Identidade",
+  "comp-2": "Histórico clínico",
+  "comp-3": "Histórico familiar",
+  "comp-4": "Estilo de vida",
+  "comp-5": "Mental",
+  "comp-6": "Específico",
+  "comp-7": "Objetivos",
+  schedule: "Agendamento",
+  done: "Pronto",
 };
 
-function loadDraft(): OnboardingDraft | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(ONBOARDING_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return { ...INITIAL_DRAFT, ...parsed };
-  } catch {
-    return null;
-  }
-}
+// Quantas perguntas cada step tem (pra "Pergunta X de Y" honesto).
+const STEP_QUESTION_COUNT: Record<StepId, number> = {
+  choose: 0,
+  "quick-1": 4,
+  "quick-2": 4,
+  "comp-1": 7,
+  "comp-2": 7,
+  "comp-3": 1,
+  "comp-4": 11,
+  "comp-5": 6,
+  "comp-6": 5,
+  "comp-7": 4,
+  schedule: 0,
+  done: 0,
+};
 
 export default function OnboardingPage() {
-  const [draft, setDraft] = useState<OnboardingDraft>(INITIAL_DRAFT);
+  const [record, setRecord] = useState<IntakeRecord | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    const saved = loadDraft();
-    if (saved) setDraft(saved);
+    const loaded = loadIntake();
+    setRecord(loaded);
     setHydrated(true);
   }, []);
 
-  // Persiste em cada mudança (após hidratar pra não sobrescrever).
+  // Auto-save a cada mudança (após hidratar pra não sobrescrever).
   useEffect(() => {
-    if (!hydrated) return;
-    try {
-      window.localStorage.setItem(ONBOARDING_KEY, JSON.stringify(draft));
-    } catch {
-      /* quota ignorada */
-    }
-  }, [draft, hydrated]);
+    if (!hydrated || !record) return;
+    saveIntake(record);
+  }, [record, hydrated]);
 
-  function patch(p: Partial<OnboardingDraft>) {
-    setDraft((d) => ({ ...d, ...p }));
+  function patchData(next: Partial<IntakeData>) {
+    setRecord((r) => (r ? { ...r, data: { ...r.data, ...next } } : r));
   }
 
-  function go(stepDelta: number) {
-    setDraft((d) => ({
-      ...d,
-      step: Math.max(0, Math.min(STEPS.length - 1, d.step + stepDelta)),
-    }));
+  function setStep(step: StepId) {
+    setRecord((r) => (r ? { ...r, step } : r));
     if (typeof window !== "undefined") {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   }
 
-  async function finalize() {
-    if (!draft.selectedSlotISO) return;
+  function chooseVariant(variant: IntakeVariant) {
+    setRecord((r) => {
+      if (!r) return createEmptyRecord(variant);
+      // preserva data acumulada — só troca variant + step inicial
+      return {
+        ...r,
+        variant,
+        step: variant === "quick" ? "quick-1" : "comp-1",
+      };
+    });
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
+
+  function switchVariant() {
+    if (!record) return;
+    const next: IntakeVariant =
+      record.variant === "quick" ? "comprehensive" : "quick";
+    setRecord((r) =>
+      r
+        ? {
+            ...r,
+            variant: next,
+            step: next === "quick" ? "quick-1" : "comp-1",
+          }
+        : r,
+    );
+  }
+
+  async function submitScheduling() {
+    if (!record) return;
+    const { scheduling } = record.data;
+    if (!scheduling.selectedSlotISO || !scheduling.location) return;
     setSubmitting(true);
     try {
-      await bookSlot(
-        new Date(draft.selectedSlotISO),
-        draft.location,
-        draft.location === "home" ? draft.address : undefined,
+      const result = await bookSlot(
+        new Date(scheduling.selectedSlotISO),
+        scheduling.location,
+        scheduling.location === "home" ? scheduling.address : undefined,
+      );
+      const completedAt = new Date().toISOString();
+      setRecord((r) =>
+        r
+          ? {
+              ...r,
+              data: {
+                ...r.data,
+                scheduling: {
+                  ...r.data.scheduling,
+                  bookingId: result.id,
+                  bookingConfirmedAt: result.confirmedAt,
+                },
+              },
+              step: "done",
+              completedAt,
+            }
+          : r,
       );
       toast.success({
         title: "Coleta agendada",
         description: "Te enviamos a confirmação por email.",
       });
-      patch({ step: STEPS.length - 1 });
     } catch (err) {
       toast.error({
         title: "Não conseguimos confirmar",
@@ -215,687 +198,284 @@ export default function OnboardingPage() {
     }
   }
 
-  const current = draft.step;
-  const stepValid = useMemo(() => isStepValid(draft), [draft]);
+  if (!hydrated) {
+    return (
+      <div className="mx-auto flex min-h-[60vh] w-full max-w-[920px] items-center justify-center px-6">
+        <Loader2 className="h-5 w-5 animate-spin text-muted" />
+      </div>
+    );
+  }
+
+  // Sem record carregado → splash.
+  if (!record) {
+    return (
+      <div className="mx-auto w-full max-w-[1080px] px-6 py-10 sm:py-12">
+        <PathChooser onSelect={chooseVariant} />
+      </div>
+    );
+  }
+
+  const stepId = record.step as StepId;
+
+  if (stepId === "choose") {
+    return (
+      <div className="mx-auto w-full max-w-[1080px] px-6 py-10 sm:py-12">
+        <PathChooser selected={record.variant} onSelect={chooseVariant} />
+      </div>
+    );
+  }
+
+  const flow = record.variant === "quick" ? QUICK_FLOW : COMPREHENSIVE_FLOW;
+  const stepIndex = Math.max(0, flow.indexOf(stepId));
+  const isFirst = stepIndex === 0;
+  const isLast = stepId === "done";
+
+  // Pergunta atual / total — só conta steps com perguntas.
+  const totalQuestions = flow.reduce(
+    (acc, s) => acc + STEP_QUESTION_COUNT[s],
+    0,
+  );
+  const questionsBefore = flow
+    .slice(0, stepIndex)
+    .reduce((acc, s) => acc + STEP_QUESTION_COUNT[s], 0);
+  const showProgress = STEP_QUESTION_COUNT[stepId] > 0;
+
+  const stepperSteps: OnboardingStep[] = flow.map((id) => ({
+    id,
+    label: STEP_LABEL[id],
+  }));
+
+  const valid = isStepValid(stepId, record);
 
   return (
-    <div className="mx-auto w-full max-w-[920px] px-6 py-10">
-      <header className="pb-6">
-        <span className="text-[13px] text-muted">Primeiro acesso</span>
-        <h1 className="text-[34px] leading-[1.05] font-semibold tracking-tight">
-          Vamos personalizar sua Longevify
-        </h1>
-        <p className="mt-2 max-w-2xl text-[14px] text-muted">
-          Em poucos minutos preparamos seu protocolo, agendamos a coleta e
-          deixamos tudo pronto pra começar.
-        </p>
+    <div className="mx-auto w-full max-w-[920px] px-4 py-8 sm:px-6 sm:py-10">
+      <header className="flex flex-col gap-2 pb-4 sm:flex-row sm:items-end sm:justify-between sm:pb-6">
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[12px] font-medium uppercase tracking-wide text-brand-700">
+            {record.variant === "quick"
+              ? "Cadastro Rápido"
+              : "Cadastro Completo"}
+          </span>
+          {showProgress ? (
+            <p className="text-[13px] text-muted">
+              Pergunta{" "}
+              <span className="font-semibold text-ink">
+                {questionsBefore + 1}–
+                {questionsBefore + STEP_QUESTION_COUNT[stepId]}
+              </span>{" "}
+              de {totalQuestions}
+            </p>
+          ) : (
+            <p className="text-[13px] text-muted">
+              {stepId === "schedule"
+                ? "Agendamento da coleta"
+                : "Confirmação"}
+            </p>
+          )}
+        </div>
+        {!isLast ? (
+          <button
+            type="button"
+            onClick={switchVariant}
+            className="inline-flex items-center gap-1.5 self-start rounded-full border border-border bg-white px-3 py-1.5 text-[12px] font-medium text-muted transition-colors hover:border-brand-400 hover:text-ink sm:self-end"
+          >
+            <Repeat className="h-3.5 w-3.5" />
+            Trocar pra{" "}
+            {record.variant === "quick" ? "Cadastro Completo" : "Cadastro Rápido"}
+          </button>
+        ) : null}
       </header>
 
-      <div className="sticky top-4 z-10 mb-6 rounded-2xl border border-border bg-white/95 p-3 shadow-[0_4px_18px_-12px_rgba(13,40,24,.18)] backdrop-blur">
-        <OnboardingStepper
-          steps={STEPS}
-          current={current}
-          onJump={(i) => i <= current && patch({ step: i })}
+      {!isLast ? (
+        <div className="sticky top-3 z-10 mb-5 rounded-2xl border border-border bg-white/95 p-3 shadow-[0_4px_18px_-12px_rgba(13,40,24,.18)] backdrop-blur sm:mb-6">
+          <OnboardingStepper
+            steps={stepperSteps}
+            current={stepIndex}
+            onJump={(i) => i <= stepIndex && setStep(flow[i])}
+          />
+        </div>
+      ) : null}
+
+      <Card className="flex flex-col gap-6 p-5 sm:p-7">
+        <StepBody
+          stepId={stepId}
+          record={record}
+          onPatch={patchData}
+          onEdit={() =>
+            setStep(record.variant === "quick" ? "quick-1" : "comp-1")
+          }
         />
-      </div>
 
-      <Card className="flex flex-col gap-6 p-6 sm:p-8">
-        {current === 0 ? (
-          <StepPerfil draft={draft} patch={patch} />
-        ) : null}
-        {current === 1 ? (
-          <StepHistorico draft={draft} patch={patch} />
-        ) : null}
-        {current === 2 ? (
-          <StepEstilo draft={draft} patch={patch} />
-        ) : null}
-        {current === 3 ? (
-          <StepObjetivos draft={draft} patch={patch} />
-        ) : null}
-        {current === 4 ? (
-          <StepAgendamento draft={draft} patch={patch} />
-        ) : null}
-        {current === 5 ? <StepConfirmacao draft={draft} /> : null}
-
-        <div className="flex flex-col-reverse items-stretch justify-between gap-3 border-t border-border pt-4 sm:flex-row sm:items-center">
-          <Button
-            variant="ghost"
-            size="md"
-            onClick={() => go(-1)}
-            disabled={current === 0 || submitting}
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Voltar
-          </Button>
-
-          {current < 4 ? (
+        {!isLast ? (
+          <div className="flex flex-col-reverse items-stretch justify-between gap-3 border-t border-border pt-4 sm:flex-row sm:items-center">
             <Button
-              variant="primary"
+              variant="ghost"
               size="md"
-              onClick={() => go(1)}
-              disabled={!stepValid}
+              onClick={() => {
+                if (isFirst) {
+                  setStep("choose");
+                } else {
+                  setStep(flow[stepIndex - 1]);
+                }
+              }}
+              disabled={submitting}
             >
-              Continuar
-              <ArrowRight className="h-4 w-4" />
+              <ArrowLeft className="h-4 w-4" />
+              Voltar
             </Button>
-          ) : null}
 
-          {current === 4 ? (
-            <Button
-              variant="dark"
-              size="md"
-              onClick={finalize}
-              disabled={!stepValid || submitting}
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Confirmando…
-                </>
-              ) : (
-                <>
-                  Confirmar agendamento
-                  <Check className="h-4 w-4" />
-                </>
-              )}
-            </Button>
-          ) : null}
-
-          {current === 5 ? (
-            <Link href="/home">
-              <Button variant="primary" size="md">
-                Ir pra plataforma
+            {stepId === "schedule" ? (
+              <Button
+                variant="dark"
+                size="md"
+                onClick={submitScheduling}
+                disabled={!valid || submitting}
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Confirmando…
+                  </>
+                ) : (
+                  <>
+                    Confirmar agendamento
+                    <Check className="h-4 w-4" />
+                  </>
+                )}
+              </Button>
+            ) : (
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => setStep(flow[stepIndex + 1])}
+                disabled={!valid}
+              >
+                Continuar
                 <ArrowRight className="h-4 w-4" />
               </Button>
-            </Link>
-          ) : null}
-        </div>
+            )}
+          </div>
+        ) : null}
       </Card>
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────
-// Steps
-// ─────────────────────────────────────────────────────────────────────
+// ─── Step body dispatcher ──────────────────────────────────────────────────
 
-function StepPerfil({
-  draft,
-  patch,
+function StepBody({
+  stepId,
+  record,
+  onPatch,
+  onEdit,
 }: {
-  draft: OnboardingDraft;
-  patch: (p: Partial<OnboardingDraft>) => void;
+  stepId: StepId;
+  record: IntakeRecord;
+  onPatch: (next: Partial<IntakeData>) => void;
+  onEdit: () => void;
 }) {
-  return (
-    <div className="flex flex-col gap-5">
-      <Heading
-        title="Quem é você?"
-        subtitle="A base do seu protocolo: dados antropométricos e objetivos."
-      />
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="Nome completo" full>
-          <TextInput
-            value={draft.fullName}
-            onChange={(v) => patch({ fullName: v })}
-            placeholder="João da Silva"
-          />
-        </Field>
-        <Field label="Idade">
-          <TextInput
-            value={draft.age}
-            onChange={(v) => patch({ age: v })}
-            type="number"
-            placeholder="34"
-          />
-        </Field>
-        <Field label="Altura (cm)">
-          <TextInput
-            value={draft.heightCm}
-            onChange={(v) => patch({ heightCm: v })}
-            type="number"
-            placeholder="178"
-          />
-        </Field>
-        <Field label="Peso (kg)">
-          <TextInput
-            value={draft.weightKg}
-            onChange={(v) => patch({ weightKg: v })}
-            type="number"
-            placeholder="76"
-          />
-        </Field>
-      </div>
-
-      <Field label="Principais objetivos (escolha um ou mais)" full>
-        <PillMulti
-          options={GOALS}
-          values={draft.goals}
-          onChange={(values) => patch({ goals: values })}
-        />
-      </Field>
-    </div>
-  );
-}
-
-function StepHistorico({
-  draft,
-  patch,
-}: {
-  draft: OnboardingDraft;
-  patch: (p: Partial<OnboardingDraft>) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-5">
-      <Heading
-        title="Histórico clínico"
-        subtitle="Compartilhe o que for relevante. Vai pro Concierge IA, não pra ninguém mais."
-      />
-
-      <Field label="Condições conhecidas" full>
-        <PillMulti
-          options={CONDITIONS}
-          values={draft.conditions}
-          onChange={(values) => patch({ conditions: values })}
-        />
-      </Field>
-
-      <Field label="Medicações em uso" full>
-        <TextArea
-          value={draft.medications}
-          onChange={(v) => patch({ medications: v })}
-          placeholder="Liste medicações, suplementos ou hormônios em uso contínuo."
-        />
-      </Field>
-
-      <Field label="Alergias" full>
-        <TextArea
-          value={draft.allergies}
-          onChange={(v) => patch({ allergies: v })}
-          placeholder="Medicamentosas, alimentares ou ambientais."
-        />
-      </Field>
-
-      <Field label="Histórico familiar" full>
-        <PillMulti
-          options={FAMILY_HISTORY}
-          values={draft.familyHistory}
-          onChange={(values) => patch({ familyHistory: values })}
-        />
-      </Field>
-    </div>
-  );
-}
-
-function StepEstilo({
-  draft,
-  patch,
-}: {
-  draft: OnboardingDraft;
-  patch: (p: Partial<OnboardingDraft>) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-5">
-      <Heading
-        title="Estilo de vida"
-        subtitle="Sono, movimento e dieta — os pilares que mais movem biomarcadores."
-      />
-
-      <Field
-        label={`Sono médio: ${draft.sleepHours}h por noite`}
-        hint="Use o slider pra ajustar"
-        full
-      >
-        <input
-          type="range"
-          min={3}
-          max={12}
-          step={0.5}
-          value={draft.sleepHours}
-          onChange={(e) => patch({ sleepHours: Number(e.target.value) })}
-          className="w-full accent-brand-600"
-          aria-label="Horas de sono médias"
-        />
-      </Field>
-
-      <Field label="Atividade física" full>
-        <RadioGrid
-          name="activity"
-          options={ACTIVITY}
-          value={draft.activity}
-          onChange={(v) => patch({ activity: v })}
-        />
-      </Field>
-
-      <Field label="Dieta" full>
-        <RadioGrid
-          name="diet"
-          options={DIETS}
-          value={draft.diet}
-          onChange={(v) => patch({ diet: v })}
-        />
-      </Field>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="Álcool">
-          <RadioColumn
-            name="alcohol"
-            options={[
-              { id: "nunca", label: "Nunca" },
-              { id: "social", label: "Social (1-3/semana)" },
-              { id: "frequente", label: "Frequente (4+/semana)" },
-            ]}
-            value={draft.alcohol}
-            onChange={(v) => patch({ alcohol: v })}
-          />
-        </Field>
-        <Field label="Tabaco">
-          <RadioColumn
-            name="tobacco"
-            options={[
-              { id: "nunca", label: "Nunca" },
-              { id: "ex", label: "Ex-fumante" },
-              { id: "atual", label: "Fumante atual" },
-            ]}
-            value={draft.tobacco}
-            onChange={(v) => patch({ tobacco: v })}
-          />
-        </Field>
-      </div>
-    </div>
-  );
-}
-
-function StepObjetivos({
-  draft,
-  patch,
-}: {
-  draft: OnboardingDraft;
-  patch: (p: Partial<OnboardingDraft>) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-5">
-      <Heading
-        title="Qual o seu objetivo principal com o exame?"
-        subtitle="Escolha o que mais combina com você — vamos calibrar a leitura inicial."
-      />
-      <div className="flex flex-col gap-2">
-        {PRIMARY_GOALS.map((opt) => {
-          const selected = draft.primaryGoal === opt.id;
-          return (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => patch({ primaryGoal: opt.id })}
-              aria-pressed={selected}
-              className={cn(
-                "flex items-center justify-between gap-3 rounded-2xl border px-4 py-3.5 text-left transition-colors",
-                selected
-                  ? "border-brand-700 bg-brand-50 shadow-[0_8px_24px_-12px_rgba(13,40,24,.18)]"
-                  : "border-border bg-white hover:border-brand-300 hover:bg-brand-50/40",
-              )}
-            >
-              <span className="text-[14px] font-medium text-ink">
-                {opt.label}
-              </span>
-              <span
-                className={cn(
-                  "grid h-5 w-5 shrink-0 place-items-center rounded-full border",
-                  selected
-                    ? "border-brand-700 bg-brand-700 text-white"
-                    : "border-border",
-                )}
-              >
-                {selected ? <Check className="h-3 w-3" /> : null}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function StepAgendamento({
-  draft,
-  patch,
-}: {
-  draft: OnboardingDraft;
-  patch: (p: Partial<OnboardingDraft>) => void;
-}) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const weekStart = useMemo(() => {
-    const d = new Date(today);
-    d.setDate(d.getDate() + draft.weekOffsetDays);
-    return d;
-  }, [draft.weekOffsetDays, today]);
-
-  const selected = draft.selectedSlotISO ? new Date(draft.selectedSlotISO) : null;
-
-  return (
-    <div className="flex flex-col gap-5">
-      <Heading
-        title="Agende sua coleta"
-        subtitle="Escolha local e horário. Você pode reagendar até 24h antes."
-      />
-
-      <Field label="Local da coleta" full>
-        <LocationPicker
-          value={draft.location}
-          onChange={(loc) =>
-            patch({ location: loc, selectedSlotISO: null })
-          }
-        />
-      </Field>
-
-      {draft.location === "home" ? (
-        <Field label="Endereço para coleta domiciliar" full>
-          <TextArea
-            value={draft.address}
-            onChange={(v) => patch({ address: v })}
-            placeholder="Rua, número, complemento, bairro, cidade"
-          />
-        </Field>
-      ) : null}
-
-      <Field label="Horário disponível" full>
-        <CalendarPicker
-          weekStart={weekStart}
-          location={draft.location}
-          selected={selected}
-          onSelect={(slot) =>
-            patch({ selectedSlotISO: slot.toISOString() })
-          }
-          onShiftWeek={(d) =>
-            patch({
-              weekOffsetDays: Math.max(0, draft.weekOffsetDays + d),
-            })
-          }
-        />
-      </Field>
-
-      {selected ? (
-        <div className="rounded-2xl border border-brand-200 bg-brand-50 px-4 py-3 text-[13px] text-brand-900">
-          Selecionado:{" "}
-          <strong>
-            {selected.toLocaleDateString("pt-BR", {
-              day: "2-digit",
-              month: "long",
-              weekday: "long",
-            })}{" "}
-            às {selected.getHours()}h
-          </strong>
-          {draft.location === "home" ? (
-            <> · em domicílio (+{formatBRL(120)})</>
-          ) : (
-            <> · laboratório parceiro</>
-          )}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function StepConfirmacao({ draft }: { draft: OnboardingDraft }) {
-  const slot = draft.selectedSlotISO ? new Date(draft.selectedSlotISO) : null;
-  return (
-    <div className="flex flex-col items-center gap-4 py-4 text-center">
-      <span className="grid h-14 w-14 place-items-center rounded-full bg-brand-100 text-brand-700">
-        <PartyPopper className="h-6 w-6" />
-      </span>
-      <h2 className="text-[22px] font-semibold leading-tight">
-        Tudo pronto, {draft.fullName.split(" ")[0] || "bem-vindo"}!
-      </h2>
-      <p className="max-w-md text-[13.5px] text-muted">
-        Te encaminhamos os próximos passos por email — instruções de jejum,
-        endereço (se em laboratório) e o link da plataforma. Sua coleta está
-        agendada
-        {slot ? (
-          <>
-            {" "}
-            para{" "}
-            <strong>
-              {slot.toLocaleDateString("pt-BR", {
-                day: "2-digit",
-                month: "long",
-              })}{" "}
-              às {slot.getHours()}h
-            </strong>
-            .
-          </>
-        ) : (
-          "."
-        )}
-      </p>
-      <div className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-[12px] text-muted">
-        <Sparkles className="h-3.5 w-3.5 text-brand-600" />
-        Seu Concierge IA já está sendo personalizado com seus dados.
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Helpers/UI
-// ─────────────────────────────────────────────────────────────────────
-
-function Heading({ title, subtitle }: { title: string; subtitle: string }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <h2 className="text-[20px] font-semibold leading-tight">{title}</h2>
-      <p className="text-[13px] text-muted">{subtitle}</p>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  full,
-  hint,
-  children,
-}: {
-  label: string;
-  full?: boolean;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label
-      className={cn(
-        "flex flex-col gap-1.5 text-[12px]",
-        full ? "sm:col-span-2" : "",
-      )}
-    >
-      <span className="font-medium text-ink">{label}</span>
-      {hint ? <span className="text-[11px] text-muted">{hint}</span> : null}
-      {children}
-    </label>
-  );
-}
-
-function TextInput({
-  value,
-  onChange,
-  placeholder,
-  type = "text",
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  type?: string;
-}) {
-  return (
-    <input
-      type={type}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      className="h-10 rounded-full border border-border bg-brand-50/30 px-4 text-[14px] text-ink outline-none transition-colors focus:border-brand-400 focus:bg-white"
-    />
-  );
-}
-
-function TextArea({
-  value,
-  onChange,
-  placeholder,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-}) {
-  return (
-    <textarea
-      rows={3}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      className="resize-y rounded-2xl border border-border bg-brand-50/30 px-4 py-3 text-[14px] text-ink outline-none transition-colors focus:border-brand-400 focus:bg-white"
-    />
-  );
-}
-
-function PillMulti({
-  options,
-  values,
-  onChange,
-}: {
-  options: readonly { id: string; label: string }[];
-  values: string[];
-  onChange: (next: string[]) => void;
-}) {
-  function toggle(id: string) {
-    if (values.includes(id)) {
-      onChange(values.filter((v) => v !== id));
-    } else {
-      onChange([...values, id]);
-    }
+  const data = record.data;
+  switch (stepId) {
+    case "quick-1":
+      return <StepQuickIdentity data={data} onPatch={onPatch} />;
+    case "quick-2":
+      return <StepQuickHabits data={data} onPatch={onPatch} />;
+    case "comp-1":
+      return <StepIdentity data={data} onPatch={onPatch} />;
+    case "comp-2":
+      return <StepMedical data={data} onPatch={onPatch} />;
+    case "comp-3":
+      return <StepFamily data={data} onPatch={onPatch} />;
+    case "comp-4":
+      return <StepLifestyle data={data} onPatch={onPatch} />;
+    case "comp-5":
+      return <StepMental data={data} onPatch={onPatch} />;
+    case "comp-6":
+      return <StepSexSpecific data={data} onPatch={onPatch} />;
+    case "comp-7":
+      return <StepGoals data={data} onPatch={onPatch} />;
+    case "schedule":
+      return <StepScheduling data={data} onPatch={onPatch} />;
+    case "done":
+      return <StepSummary record={record} onEdit={onEdit} />;
+    default:
+      return null;
   }
-  return (
-    <div className="flex flex-wrap gap-2">
-      {options.map((opt) => {
-        const selected = values.includes(opt.id);
-        return (
-          <button
-            type="button"
-            key={opt.id}
-            onClick={() => toggle(opt.id)}
-            aria-pressed={selected}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[12.5px] font-medium transition-colors",
-              selected
-                ? "border-brand-700 bg-brand-700 text-white"
-                : "border-border bg-white text-ink hover:border-brand-400 hover:bg-brand-50",
-            )}
-          >
-            {selected ? <Check className="h-3 w-3" /> : null}
-            {opt.label}
-          </button>
-        );
-      })}
-    </div>
-  );
 }
 
-function RadioGrid({
-  name,
-  options,
-  value,
-  onChange,
-}: {
-  name: string;
-  options: readonly { id: string; label: string }[];
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-      {options.map((opt) => {
-        const selected = value === opt.id;
-        return (
-          <button
-            type="button"
-            key={opt.id}
-            role="radio"
-            aria-checked={selected}
-            data-name={name}
-            onClick={() => onChange(opt.id)}
-            className={cn(
-              "rounded-2xl border px-3 py-3 text-[12.5px] font-medium transition-colors",
-              selected
-                ? "border-brand-700 bg-brand-50 text-brand-900"
-                : "border-border bg-white text-ink hover:border-brand-300 hover:bg-brand-50/40",
-            )}
-          >
-            {opt.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
+// ─── Validation ────────────────────────────────────────────────────────────
 
-function RadioColumn({
-  name,
-  options,
-  value,
-  onChange,
-}: {
-  name: string;
-  options: { id: string; label: string }[];
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      {options.map((opt) => {
-        const selected = value === opt.id;
-        return (
-          <label
-            key={opt.id}
-            className={cn(
-              "flex cursor-pointer items-center gap-2 rounded-full border px-3 py-2 text-[12.5px] transition-colors",
-              selected
-                ? "border-brand-700 bg-brand-50 text-brand-900"
-                : "border-border bg-white text-ink hover:border-brand-300",
-            )}
-          >
-            <input
-              type="radio"
-              name={name}
-              value={opt.id}
-              checked={selected}
-              onChange={() => onChange(opt.id)}
-              className="accent-brand-600"
-            />
-            <span>{opt.label}</span>
-          </label>
-        );
-      })}
-    </div>
-  );
-}
-
-function isStepValid(d: OnboardingDraft): boolean {
-  switch (d.step) {
-    case 0:
+function isStepValid(stepId: StepId, record: IntakeRecord): boolean {
+  const d = record.data;
+  switch (stepId) {
+    case "quick-1":
       return Boolean(
-        d.fullName.trim() &&
-          d.age &&
-          d.heightCm &&
-          d.weightKg &&
-          d.goals.length > 0,
+        d.identity.birthDate &&
+          d.identity.biologicalSex &&
+          d.identity.heightCm &&
+          d.identity.weightKg,
       );
-    case 1:
-      return d.conditions.length > 0;
-    case 2:
-      return Boolean(d.activity && d.diet);
-    case 3:
-      return Boolean(d.primaryGoal);
-    case 4:
+    case "quick-2":
       return Boolean(
-        d.selectedSlotISO &&
-          (d.location !== "home" || d.address.trim().length > 5),
+        d.lifestyle.smokingStatus &&
+          d.lifestyle.alcoholFrequency &&
+          d.lifestyle.exerciseDaysPerWeek != null &&
+          d.medical.hasChronicCondition !== undefined,
+      );
+    case "comp-1":
+      return Boolean(
+        d.identity.birthDate &&
+          d.identity.biologicalSex &&
+          d.identity.heightCm &&
+          d.identity.weightKg,
+      );
+    case "comp-2":
+      return d.medical.diagnosedConditions.length > 0;
+    case "comp-3":
+      return d.family.earlyEvents.length > 0;
+    case "comp-4":
+      return Boolean(
+        d.lifestyle.exerciseDaysPerWeek != null &&
+          d.lifestyle.sleepHours != null &&
+          d.lifestyle.sleepQuality != null &&
+          d.lifestyle.perceivedStress != null &&
+          d.lifestyle.smokingStatus &&
+          d.lifestyle.alcoholFrequency &&
+          d.lifestyle.diet &&
+          d.lifestyle.refinedSugar,
+      );
+    case "comp-5":
+      return Boolean(
+        d.mental.moodScore != null &&
+          d.mental.fatigueFrequency &&
+          d.mental.diagnosedDepressionAnxiety !== undefined &&
+          d.mental.inTherapy !== undefined &&
+          d.mental.focusScore != null,
+      );
+    case "comp-6":
+      if (d.identity.biologicalSex === "female") {
+        return Boolean(
+          d.female.regularCycle !== undefined &&
+            d.female.contraceptive &&
+            d.female.menopause,
+        );
+      }
+      if (d.identity.biologicalSex === "male") {
+        return Boolean(
+          d.male.urologicComplaint !== undefined &&
+            d.male.prostateExamRegular !== undefined &&
+            d.male.testosteroneTested !== undefined,
+        );
+      }
+      return false;
+    case "comp-7":
+      return Boolean(d.goals.primaryGoal && d.goals.acquisition);
+    case "schedule":
+      return Boolean(
+        d.scheduling.selectedSlotISO &&
+          d.scheduling.location &&
+          (d.scheduling.location !== "home" ||
+            (d.scheduling.address ?? "").trim().length > 5),
       );
     default:
       return true;

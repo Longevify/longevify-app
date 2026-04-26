@@ -99,7 +99,7 @@ export async function signUp(
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
-  const chronologicalAge = Number(formData.get("chronologicalAge") ?? 0);
+  const birthDate = String(formData.get("birthDate") ?? "").trim();
 
   if (!firstName || !lastName) {
     return { ok: false, error: "Informe seu nome completo." };
@@ -113,8 +113,22 @@ export async function signUp(
   if (password !== confirmPassword) {
     return { ok: false, error: "As senhas não coincidem." };
   }
+  // Validar data de nascimento (YYYY-MM-DD do <input type=date>) e calcular idade
+  const chronologicalAge = (() => {
+    if (!birthDate || !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) return 0;
+    const today = new Date();
+    const birth = new Date(birthDate + "T00:00:00");
+    if (Number.isNaN(birth.getTime())) return 0;
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    return age;
+  })();
   if (!chronologicalAge || chronologicalAge < 16 || chronologicalAge > 120) {
-    return { ok: false, error: "Informe uma idade válida (16-120)." };
+    return {
+      ok: false,
+      error: "Informe uma data de nascimento válida (idade entre 16 e 120).",
+    };
   }
 
   if (!isSupabaseConfigured()) {
@@ -140,6 +154,7 @@ export async function signUp(
       data: {
         first_name: firstName,
         last_name: lastName,
+        birth_date: birthDate,
         chronological_age: String(chronologicalAge),
       },
     },
