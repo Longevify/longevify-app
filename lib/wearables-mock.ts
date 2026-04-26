@@ -49,8 +49,9 @@ export interface GoalProgress {
 // mock devices
 // ---------------------------------------------------------------------------
 
-// Os 4 principais: Apple, Garmin, Oura, Whoop. Withings/Fitbit ficam como
-// "outros disponíveis" abaixo da grid principal.
+// Devices ativos hoje: Apple Watch (XML upload do Apple Health) e Garmin
+// (via bridge Apple Health). Oura/Whoop ficam como "em breve" porque
+// dependem de partnership/conta paga que não temos no MVP.
 export const DEVICES: WearableDevice[] = [
   {
     brand: "apple",
@@ -68,13 +69,13 @@ export const DEVICES: WearableDevice[] = [
     brand: "oura",
     name: "Oura Ring",
     connected: false,
-    supported: "v1",
+    supported: "coming",
   },
   {
     brand: "whoop",
     name: "Whoop",
     connected: false,
-    supported: "v1",
+    supported: "coming",
   },
 ];
 
