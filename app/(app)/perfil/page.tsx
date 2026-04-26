@@ -21,6 +21,7 @@ import { Card } from "@/components/ui/card";
 import { cn, formatDatePtBR } from "@/lib/utils";
 import { PATIENT } from "@/lib/mock-data";
 import { formatBRL } from "@/lib/products";
+import { useCurrentUser } from "@/lib/auth/user-context";
 import { PLANS } from "@/lib/billing/plans";
 
 interface ProfileData {
@@ -65,7 +66,14 @@ const INITIAL: ProfileData = {
 };
 
 export default function PerfilPage() {
-  const [data, setData] = useState<ProfileData>(INITIAL);
+  // Hidrata o INITIAL com dados do usuário autenticado (Supabase) na primeira render
+  const ctxUser = useCurrentUser();
+  const [data, setData] = useState<ProfileData>({
+    ...INITIAL,
+    firstName: ctxUser.firstName || INITIAL.firstName,
+    lastName: ctxUser.lastName || INITIAL.lastName,
+    email: ctxUser.email || INITIAL.email,
+  });
   const [saved, setSaved] = useState<null | "ok">(null);
 
   function update<K extends keyof ProfileData>(key: K, value: ProfileData[K]) {

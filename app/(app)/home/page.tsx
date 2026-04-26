@@ -14,15 +14,17 @@ import { GoalsSummary } from "@/components/wearables/goals-summary";
 import { BIOMARKERS, PATIENT, biomarkersStats } from "@/lib/mock-data";
 import { getRecommendedProducts } from "@/lib/product-recommender";
 import { formatDatePtBR } from "@/lib/utils";
+import { getCurrentUser } from "@/lib/auth/current-user";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const user = await getCurrentUser();
   const recommendations = getRecommendedProducts(BIOMARKERS, 3);
   const stats = biomarkersStats();
 
   return (
     <div className="mx-auto w-full max-w-[1280px] px-6 py-10">
       <header className="flex flex-col gap-1 pb-8">
-        <span className="text-[13px] text-muted">Olá, {PATIENT.firstName}</span>
+        <span className="text-[13px] text-muted">Olá, {user.firstName}</span>
         <h1 className="text-[40px] leading-[1.05] font-semibold tracking-tight">
           Sua saúde hoje
         </h1>

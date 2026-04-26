@@ -15,6 +15,7 @@ import {
 import { Avatar } from "@/components/ui/avatar";
 import { cn, formatDatePtBR } from "@/lib/utils";
 import { PATIENT } from "@/lib/mock-data";
+import { useCurrentUser } from "@/lib/auth/user-context";
 
 interface ProfileItem {
   href: string;
@@ -59,7 +60,10 @@ const ITEMS: ProfileItem[] = [
 export function ProfileMenu() {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const fullName = `${PATIENT.firstName} ${PATIENT.lastName}`;
+  const user = useCurrentUser();
+  const fullName = user.fullName || "Usuário";
+  const email = user.email ?? "demo@longevify.com.br";
+  const isAdmin = user.role === "admin";
 
   useEffect(() => {
     if (!open) return;
@@ -110,12 +114,14 @@ export function ProfileMenu() {
               <div className="truncate text-[14px] font-semibold leading-tight">
                 {fullName}
               </div>
-              <div className="truncate text-[12px] text-muted">
-                joao.silva@longevify.co
-              </div>
+              <div className="truncate text-[12px] text-muted">{email}</div>
               <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-white px-2 h-5 text-[11px] font-medium text-brand-700 ring-1 ring-brand-200">
                 <Sparkles className="h-3 w-3" />
-                Plano Anual · ativo
+                {isAdmin
+                  ? "Admin · Longevify"
+                  : user.isDemo
+                    ? "Modo demo"
+                    : "Plano Anual · ativo"}
               </div>
             </div>
           </div>
