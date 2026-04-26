@@ -44,6 +44,11 @@ export const PLANS: (Plan & { monthly?: PlanMonthlyDisplay })[] = [
     monthly: { monthlyDisplayBRL: 250, strikePriceBRL: 3600 },
     badge: "Oferta",
     cta: "Assinar Individual",
+    stripePriceId: {
+      card: "price_1TQHFwPJIL6gb96P7VRSEBt5",
+      pix: "price_1TQHFwPJIL6gb96P4r5K3U7r",
+      boleto: "price_1TQHFxPJIL6gb96P1qHI9v6H",
+    },
     features: [
       "100+ biomarcadores em 1 coleta/ano",
       "Coleta em domicílio (Profissional vai até você)",
@@ -63,6 +68,11 @@ export const PLANS: (Plan & { monthly?: PlanMonthlyDisplay })[] = [
     highlight: true,
     badge: "Mais popular",
     cta: "Assinar Premium",
+    stripePriceId: {
+      card: "price_1TQHFxPJIL6gb96Ponwu6X2G",
+      pix: "price_1TQHFyPJIL6gb96P1GU0blaq",
+      boleto: "price_1TQHFyPJIL6gb96PdRd43VGa",
+    },
     features: [
       "Tudo do Individual, com 2 coletas/ano",
       "Médico Longevify trimestral (4 consultas)",
@@ -80,6 +90,11 @@ export const PLANS: (Plan & { monthly?: PlanMonthlyDisplay })[] = [
     monthly: { monthlyDisplayBRL: 210, strikePriceBRL: 9000 },
     cta: "Assinar Trio",
     badge: "Em casal/família",
+    stripePriceId: {
+      card: "price_1TQHFzPJIL6gb96PJ43Kbp5b",
+      pix: "price_1TQHFzPJIL6gb96P0a46IS2e",
+      boleto: "price_1TQHFzPJIL6gb96PCfJgj1lT",
+    },
     features: [
       "3 assinaturas Individual completas",
       "Painel da família compartilhado (com permissão)",
@@ -95,6 +110,11 @@ export const PLANS: (Plan & { monthly?: PlanMonthlyDisplay })[] = [
     interval: "year",
     monthly: { monthlyDisplayBRL: 1000 },
     cta: "Falar com a Longevify",
+    stripePriceId: {
+      card: "price_1TQHG0PJIL6gb96PBB8ne3zE",
+      pix: "price_1TQHG0PJIL6gb96PlZSO1hZ5",
+      boleto: "price_1TQHG1PJIL6gb96PyPLMgWdR",
+    },
     features: [
       "Tudo do Premium",
       "Médico Longevify mensal (12 consultas)",
