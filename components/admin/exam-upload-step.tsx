@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { Upload, FileText, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BRDateInput } from "@/components/ui/br-date-input";
 
 interface ExamUploadStepProps {
   fileName?: string;
@@ -120,17 +121,17 @@ export function ExamUploadStep({
             className="h-10 rounded-full border border-border bg-white px-4 text-[14px] outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
           />
         </label>
-        <label className="flex flex-col gap-1.5 text-[13px]">
+        <div className="flex flex-col gap-1.5 text-[13px]">
           <span className="font-medium text-ink">Data da coleta</span>
-          <input
-            type="date"
+          <BRDateInput
             value={collectionDate ?? ""}
-            onChange={(e) =>
-              onChange({ fileName, lab, collectionDate: e.target.value })
+            onChange={(iso) =>
+              onChange({ fileName, lab, collectionDate: iso })
             }
-            className="h-10 rounded-full border border-border bg-white px-4 text-[14px] outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+            max={new Date().toISOString().slice(0, 10)}
+            className="[&_input]:h-10 [&_input]:rounded-full [&_input]:text-[14px]"
           />
-        </label>
+        </div>
       </div>
     </div>
   );

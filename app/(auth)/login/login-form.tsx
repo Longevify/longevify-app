@@ -6,6 +6,7 @@ import { AuthInput } from "@/components/auth/auth-input";
 import { Button } from "@/components/ui/button";
 import {
   enterDemoMode,
+  resendConfirmationEmail,
   signInWithMagicLink,
   signInWithPassword,
   type AuthActionResult,
@@ -27,7 +28,14 @@ export function LoginForm({ demo, next, errorBanner, children }: LoginFormProps)
     AuthActionResult | null,
     FormData
   >(signInWithMagicLink, null);
+  const [resendState, resendAction, resendPending] = useActionState<
+    AuthActionResult | null,
+    FormData
+  >(resendConfirmationEmail, null);
   const [demoPending, startDemo] = useTransition();
+
+  const showResendButton =
+    loginState && !loginState.ok && "emailNotConfirmed" in loginState && loginState.emailNotConfirmed;
 
   return (
     <AuthCard
@@ -71,6 +79,39 @@ export function LoginForm({ demo, next, errorBanner, children }: LoginFormProps)
           {loginPending ? "Entrando..." : "Entrar"}
         </Button>
       </form>
+
+      {/* Reenvio de confirmação — só aparece quando o erro é email not confirmed */}
+      {showResendButton ? (
+        <form action={resendAction} className="mt-3 flex flex-col gap-2">
+          <input
+            type="hidden"
+            name="email"
+            value={
+              loginState && !loginState.ok ? "" : ""
+              // O email vem do campo acima; como é um form separado, usamos
+              // um campo visível para o user confirmar/corrigir.
+            }
+          />
+          <AuthInput
+            label="Reenviar confirmação para o e-mail"
+            type="email"
+            name="email"
+            autoComplete="email"
+            placeholder="voce@exemplo.com"
+          />
+          {resendState?.ok && resendState.message ? (
+            <p className="text-[13px] text-brand-700">{resendState.message}</p>
+          ) : null}
+          {resendState && !resendState.ok ? (
+            <p className="text-[13px] text-[color:var(--color-status-out)]">
+              {resendState.error}
+            </p>
+          ) : null}
+          <Button type="submit" variant="outline" disabled={resendPending} className="text-[13px]">
+            {resendPending ? "Enviando..." : "Reenviar e-mail de confirmacao"}
+          </Button>
+        </form>
+      ) : null}
 
       <div className="my-6 flex items-center gap-3 text-[11px] uppercase tracking-wider text-muted">
         <span className="h-px flex-1 bg-border" />
