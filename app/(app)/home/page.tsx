@@ -1,9 +1,11 @@
 import Link from "next/link";
 import {
   ArrowRight,
+  Calendar,
   CheckCircle2,
   FlaskConical,
   Plus,
+  Sparkles,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,6 +22,12 @@ export default async function HomePage() {
   const user = await getCurrentUser();
   const recommendations = getRecommendedProducts(BIOMARKERS, 3);
   const stats = biomarkersStats();
+
+  // Demo user (mock) ou admin demo: vê o painel completo com dados do João.
+  // Usuário real autenticado: vê empty state até ter o primeiro exame lançado.
+  if (!user.isDemo) {
+    return <NewUserHome firstName={user.firstName} />;
+  }
 
   return (
     <div className="mx-auto w-full max-w-[1280px] px-6 py-10">
@@ -203,5 +211,132 @@ function SummaryStat({
       </span>
       <span className="text-muted">{label}</span>
     </span>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// NewUserHome — empty state pra paciente real que ainda não tem exame.
+// Em vez de mostrar dados mock do João, oferece próximos passos claros.
+// ──────────────────────────────────────────────────────────────────────
+function NewUserHome({ firstName }: { firstName: string }) {
+  return (
+    <div className="mx-auto w-full max-w-[920px] px-6 py-10">
+      <header className="flex flex-col gap-1 pb-8">
+        <span className="text-[13px] text-muted">Olá, {firstName}</span>
+        <h1 className="text-[40px] leading-[1.05] font-semibold tracking-tight">
+          Bem-vindo ao Longevify
+        </h1>
+        <p className="mt-2 max-w-2xl text-[15px] text-muted">
+          Sua plataforma de longevidade ainda está em branco — ela vai ganhar
+          vida assim que você fizer sua primeira coleta. Enquanto isso, alguns
+          passos pra você adiantar.
+        </p>
+      </header>
+
+      {/* Hero: estado da plataforma sem dados ainda */}
+      <Card className="mb-6 flex flex-col items-start gap-3 border-brand-200 bg-brand-50/40 p-6">
+        <span className="grid h-12 w-12 place-items-center rounded-2xl bg-brand-100 text-brand-700">
+          <Sparkles className="h-6 w-6" />
+        </span>
+        <div>
+          <h2 className="text-[20px] font-semibold tracking-tight">
+            Você ainda não tem dados de exames aqui
+          </h2>
+          <p className="mt-1 text-[14px] text-muted">
+            Quando seu primeiro Painel Longevify for processado, esta tela
+            vai mostrar seu Longevify Score, idade biológica, biomarcadores e
+            recomendações personalizadas pra você.
+          </p>
+        </div>
+      </Card>
+
+      {/* Próximos passos — quick wins */}
+      <section className="flex flex-col gap-3">
+        <h2 className="text-[13px] font-medium uppercase tracking-[0.14em] text-muted">
+          Próximos passos
+        </h2>
+
+        <Card className="flex flex-wrap items-center gap-4 px-5 py-4">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-100 text-brand-700">
+            <Calendar className="h-5 w-5" />
+          </span>
+          <div className="flex-1 min-w-[200px]">
+            <div className="text-[15px] font-medium">
+              Agendar sua primeira coleta
+            </div>
+            <div className="text-[13px] text-muted">
+              Coleta domiciliar ou em laboratório parceiro. ~5 dias úteis pra
+              resultado.
+            </div>
+          </div>
+          <Link href="/coleta/agendar">
+            <Button variant="primary" size="md">
+              Agendar coleta
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </Link>
+        </Card>
+
+        <Card className="flex flex-wrap items-center gap-4 px-5 py-4">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600">
+            <FlaskConical className="h-5 w-5" />
+          </span>
+          <div className="flex-1 min-w-[200px]">
+            <div className="text-[15px] font-medium">
+              Conhecer os planos Longevify
+            </div>
+            <div className="text-[13px] text-muted">
+              Individual, Premium, Trio ou Concierge — cada um com cobertura
+              clínica diferente.
+            </div>
+          </div>
+          <Link href="/planos">
+            <Button variant="outline" size="md">
+              Ver planos
+            </Button>
+          </Link>
+        </Card>
+
+        <Card className="flex flex-wrap items-center gap-4 px-5 py-4">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#E7F0FD] text-[#2562A8]">
+            <Plus className="h-5 w-5" />
+          </span>
+          <div className="flex-1 min-w-[200px]">
+            <div className="text-[15px] font-medium">
+              Conectar wearable (opcional)
+            </div>
+            <div className="text-[13px] text-muted">
+              Apple Watch ou Garmin — entendemos sono, atividade e recuperação
+              entre coletas.
+            </div>
+          </div>
+          <Link href="/wearables">
+            <Button variant="outline" size="md">
+              Conectar
+            </Button>
+          </Link>
+        </Card>
+
+        <Card className="flex flex-wrap items-center gap-4 px-5 py-4">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#FCEBD8] text-[#A8651B]">
+            <CheckCircle2 className="h-5 w-5" />
+          </span>
+          <div className="flex-1 min-w-[200px]">
+            <div className="text-[15px] font-medium">
+              Conversar com o Concierge IA
+            </div>
+            <div className="text-[13px] text-muted">
+              Tire dúvidas sobre longevidade, exames e protocolos. Ele já está
+              ativo, mesmo sem seus dados ainda.
+            </div>
+          </div>
+          <Link href="/concierge">
+            <Button variant="outline" size="md">
+              Abrir concierge
+            </Button>
+          </Link>
+        </Card>
+      </section>
+    </div>
   );
 }

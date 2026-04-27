@@ -20,9 +20,14 @@ function isPublic(pathname: string): boolean {
  */
 export async function proxy(request: NextRequest) {
   const { response, user, demo } = await updateSession(request);
+
+  // Encaminha o pathname pro Server Component conseguir tomar decisões
+  // de redirect baseadas em rota (ex: forçar onboarding no primeiro login).
+  const { pathname } = request.nextUrl;
+  response.headers.set("x-pathname", pathname);
+
   if (demo) return response;
 
-  const { pathname } = request.nextUrl;
   if (isPublic(pathname)) return response;
 
   if (!user) {
