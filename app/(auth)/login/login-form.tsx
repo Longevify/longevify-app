@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useTransition } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { AuthCard } from "@/components/auth/auth-card";
 import { AuthInput } from "@/components/auth/auth-input";
 import { Button } from "@/components/ui/button";
@@ -15,11 +15,19 @@ import {
 interface LoginFormProps {
   demo: boolean;
   next: string;
+  prefilledEmail?: string;
   errorBanner?: string | null;
   children: React.ReactNode;
 }
 
-export function LoginForm({ demo, next, errorBanner, children }: LoginFormProps) {
+export function LoginForm({
+  demo,
+  next,
+  prefilledEmail = "",
+  errorBanner,
+  children,
+}: LoginFormProps) {
+  const [email, setEmail] = useState(prefilledEmail);
   const [loginState, loginAction, loginPending] = useActionState<
     AuthActionResult | null,
     FormData
@@ -61,6 +69,8 @@ export function LoginForm({ demo, next, errorBanner, children }: LoginFormProps)
           autoComplete="email"
           required
           placeholder="voce@exemplo.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
         />
         <AuthInput
           label="Senha"
@@ -80,25 +90,11 @@ export function LoginForm({ demo, next, errorBanner, children }: LoginFormProps)
         </Button>
       </form>
 
-      {/* Reenvio de confirmação — só aparece quando o erro é email not confirmed */}
+      {/* Reenvio de confirmação — só aparece quando o erro é email not confirmed.
+          Usa o e-mail já digitado no form de login. */}
       {showResendButton ? (
         <form action={resendAction} className="mt-3 flex flex-col gap-2">
-          <input
-            type="hidden"
-            name="email"
-            value={
-              loginState && !loginState.ok ? "" : ""
-              // O email vem do campo acima; como é um form separado, usamos
-              // um campo visível para o user confirmar/corrigir.
-            }
-          />
-          <AuthInput
-            label="Reenviar confirmação para o e-mail"
-            type="email"
-            name="email"
-            autoComplete="email"
-            placeholder="voce@exemplo.com"
-          />
+          <input type="hidden" name="email" value={email} />
           {resendState?.ok && resendState.message ? (
             <p className="text-[13px] text-brand-700">{resendState.message}</p>
           ) : null}
@@ -107,8 +103,13 @@ export function LoginForm({ demo, next, errorBanner, children }: LoginFormProps)
               {resendState.error}
             </p>
           ) : null}
-          <Button type="submit" variant="outline" disabled={resendPending} className="text-[13px]">
-            {resendPending ? "Enviando..." : "Reenviar e-mail de confirmacao"}
+          <Button
+            type="submit"
+            variant="outline"
+            disabled={resendPending || !email}
+            className="text-[13px]"
+          >
+            {resendPending ? "Enviando..." : "Reenviar e-mail de confirmação"}
           </Button>
         </form>
       ) : null}

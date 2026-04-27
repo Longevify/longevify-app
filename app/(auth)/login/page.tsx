@@ -21,6 +21,7 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{
     next?: string;
+    email?: string;
     error?: string;
     error_description?: string;
   }>;
@@ -32,7 +33,12 @@ export default async function LoginPage({
     : null;
 
   return (
-    <LoginForm demo={demo} next={params.next ?? "/home"} errorBanner={errorBanner}>
+    <LoginForm
+      demo={demo}
+      next={params.next ?? "/home"}
+      prefilledEmail={params.email ?? ""}
+      errorBanner={errorBanner}
+    >
       <p className="text-center">
         Novo por aqui?{" "}
         <Link

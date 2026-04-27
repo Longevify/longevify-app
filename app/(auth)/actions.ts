@@ -6,8 +6,14 @@ import { getServerClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 export type AuthActionResult =
-  | { ok: true; message?: string }
-  | { ok: false; error: string; emailNotConfirmed?: boolean };
+  | { ok: true; message?: string; email?: string }
+  | {
+      ok: false;
+      error: string;
+      emailNotConfirmed?: boolean;
+      emailAlreadyRegistered?: boolean;
+      email?: string;
+    };
 
 const DEMO_COOKIE = "longevify_demo_session";
 
@@ -153,7 +159,7 @@ export async function signUp(
   if (!supabase) return { ok: false, error: "Supabase indisponível." };
 
   const h = await headers();
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -166,11 +172,37 @@ export async function signUp(
       },
     },
   });
-  if (error) return { ok: false, error: translateAuthError(error.message) };
+  if (error) {
+    const lower = error.message.toLowerCase();
+    const alreadyRegistered =
+      lower.includes("user already registered") ||
+      lower.includes("already been registered");
+    return {
+      ok: false,
+      error: translateAuthError(error.message),
+      ...(alreadyRegistered ? { emailAlreadyRegistered: true, email } : {}),
+    };
+  }
+  // Quando "Confirm email" está ON no Supabase, signUp retorna sucesso com
+  // identities vazio se o e-mail já existir (proteção contra enumeração).
+  // Detectamos isso e tratamos como email já cadastrado.
+  const identities = data?.user?.identities ?? [];
+  if (data?.user && identities.length === 0) {
+    return {
+      ok: false,
+      error:
+        "E-mail já cadastrado. Tente entrar com sua senha ou recuperar o acesso.",
+      emailAlreadyRegistered: true,
+      email,
+    };
+  }
   return {
     ok: true,
+    email,
     message:
-      "Conta criada. Se a confirmação por e-mail estiver ativa no Supabase, verifique sua caixa para completar o login.",
+      "Conta criada. Enviamos um link de confirmação para " +
+      email +
+      ". Verifique sua caixa de entrada (e a pasta de spam) antes de entrar.",
   };
 }
 
