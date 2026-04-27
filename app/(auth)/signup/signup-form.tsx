@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { AuthCard } from "@/components/auth/auth-card";
 import { AuthInput } from "@/components/auth/auth-input";
+import { BRDateInput } from "@/components/ui/br-date-input";
 import { Button } from "@/components/ui/button";
 import { signUp, type AuthActionResult } from "../actions";
 
@@ -16,6 +17,7 @@ export function SignupForm({ demo, children }: SignupFormProps) {
     AuthActionResult | null,
     FormData
   >(signUp, null);
+  const [birthDate, setBirthDate] = useState("");
 
   return (
     <AuthCard
@@ -52,11 +54,13 @@ export function SignupForm({ demo, children }: SignupFormProps) {
           required
           placeholder="voce@exemplo.com"
         />
-        <AuthInput
+        <BRDateInput
           label="Data de nascimento"
-          type="date"
           name="birthDate"
+          value={birthDate}
+          onChange={setBirthDate}
           required
+          max={new Date().toISOString().slice(0, 10)}
           hint="Usamos pra calcular sua idade biológica vs cronológica."
         />
         <AuthInput

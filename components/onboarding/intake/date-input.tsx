@@ -1,7 +1,7 @@
 "use client";
 
-import { Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BRDateInput } from "@/components/ui/br-date-input";
 
 interface DateInputProps {
   value?: string; // ISO yyyy-mm-dd
@@ -13,8 +13,8 @@ interface DateInputProps {
 }
 
 /**
- * Date picker amigável (input nativo type="date") com label visual
- * formatada em pt-BR.
+ * Date picker amigável com máscara dd/mm/aaaa em pt-BR.
+ * Internamente usa BRDateInput; emite ISO yyyy-mm-dd via onChange.
  */
 export function DateInput({
   value,
@@ -25,16 +25,12 @@ export function DateInput({
 }: DateInputProps) {
   return (
     <div className={cn("relative", className)}>
-      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted">
-        <Calendar className="h-4 w-4" />
-      </span>
-      <input
-        type="date"
+      <BRDateInput
         value={value ?? ""}
-        onChange={(e) => onChange(e.target.value)}
-        max={max}
+        onChange={onChange}
         min={min}
-        className="h-11 w-full rounded-2xl border border-border bg-brand-50/30 pl-10 pr-3 text-[14px] text-ink outline-none transition-colors focus:border-brand-400 focus:bg-white"
+        max={max}
+        className="[&_input]:rounded-2xl [&_input]:border-border [&_input]:bg-brand-50/30 [&_input]:pl-4 [&_input]:focus:border-brand-400 [&_input]:focus:bg-white"
       />
     </div>
   );

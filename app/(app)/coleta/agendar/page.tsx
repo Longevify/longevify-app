@@ -12,19 +12,31 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CalendarPicker } from "@/components/scheduling/calendar-picker";
 import { LocationPicker } from "@/components/scheduling/location-picker";
+import { AddressForm } from "@/components/scheduling/address-form";
 import {
-  bookSlot,
-  type CollectionLocation,
-} from "@/lib/scheduling/slots";
+  createBooking,
+  type AddressInput,
+  type CreateBookingInput,
+} from "./actions";
+import type { CollectionLocation } from "@/lib/scheduling/slots";
 import { toast } from "@/lib/toast";
 import { formatBRL } from "@/lib/products";
+
+const EMPTY_ADDRESS: AddressInput = {
+  state: "",
+  city: "",
+  street: "",
+  complement: "",
+  reference: "",
+  zip: "",
+};
 
 export default function AgendarColetaPage() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const [weekOffsetDays, setWeekOffsetDays] = useState(0);
   const [location, setLocation] = useState<CollectionLocation>("home");
-  const [address, setAddress] = useState("");
+  const [address, setAddress] = useState<AddressInput>(EMPTY_ADDRESS);
   const [selectedSlotISO, setSelectedSlotISO] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [confirmation, setConfirmation] = useState<{
@@ -39,19 +51,33 @@ export default function AgendarColetaPage() {
   }, [weekOffsetDays, today]);
 
   const selected = selectedSlotISO ? new Date(selectedSlotISO) : null;
+
+  const addressValid =
+    address.state.trim().length > 0 &&
+    address.city.trim().length > 0 &&
+    address.street.trim().length > 0;
+
   const canSubmit =
     Boolean(selectedSlotISO) &&
-    (location !== "home" || address.trim().length > 5);
+    (location !== "home" || addressValid);
 
   async function handleConfirm() {
     if (!selected) return;
     setSubmitting(true);
     try {
-      const res = await bookSlot(
-        selected,
+      const input: CreateBookingInput = {
+        scheduledAtISO: selected.toISOString(),
         location,
-        location === "home" ? address : undefined,
-      );
+        address: location === "home" ? address : undefined,
+      };
+      const res = await createBooking(input);
+      if (!res.ok) {
+        toast.error({
+          title: "Não conseguimos confirmar",
+          description: res.error,
+        });
+        return;
+      }
       setConfirmation({ id: res.id, slotISO: selected.toISOString() });
       toast.success({
         title: "Coleta agendada",
@@ -110,6 +136,7 @@ export default function AgendarColetaPage() {
               onClick={() => {
                 setConfirmation(null);
                 setSelectedSlotISO(null);
+                setAddress(EMPTY_ADDRESS);
               }}
             >
               Agendar outra
@@ -160,13 +187,7 @@ export default function AgendarColetaPage() {
             <h2 className="text-[14px] font-semibold leading-tight">
               Endereço para coleta domiciliar
             </h2>
-            <textarea
-              rows={3}
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="Rua, número, complemento, bairro, cidade"
-              className="resize-y rounded-2xl border border-border bg-brand-50/30 px-4 py-3 text-[14px] text-ink outline-none transition-colors focus:border-brand-400 focus:bg-white"
-            />
+            <AddressForm value={address} onChange={setAddress} />
           </section>
         ) : null}
 

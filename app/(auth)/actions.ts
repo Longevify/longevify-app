@@ -7,7 +7,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 export type AuthActionResult =
   | { ok: true; message?: string }
-  | { ok: false; error: string };
+  | { ok: false; error: string; emailNotConfirmed?: boolean };
 
 const DEMO_COOKIE = "longevify_demo_session";
 
@@ -49,7 +49,14 @@ export async function signInWithPassword(
   if (!supabase) return { ok: false, error: "Supabase indisponível." };
 
   const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return { ok: false, error: translateAuthError(error.message) };
+  if (error) {
+    const isEmailNotConfirmed = error.message.toLowerCase().includes("email not confirmed");
+    return {
+      ok: false,
+      error: translateAuthError(error.message),
+      ...(isEmailNotConfirmed ? { emailNotConfirmed: true } : {}),
+    };
+  }
   redirect(next);
 }
 
@@ -200,6 +207,38 @@ export async function requestPasswordReset(
 }
 
 // ---------------------------------------------------------------------------
+// reenviar e-mail de confirmação
+// ---------------------------------------------------------------------------
+export async function resendConfirmationEmail(
+  _prev: AuthActionResult | null,
+  formData: FormData,
+): Promise<AuthActionResult> {
+  const email = String(formData.get("email") ?? "").trim();
+  if (!email) return { ok: false, error: "Informe seu e-mail." };
+
+  if (!isSupabaseConfigured()) {
+    return { ok: true, message: "Modo demo: Supabase não configurado." };
+  }
+
+  const supabase = await getServerClient();
+  if (!supabase) return { ok: false, error: "Supabase indisponível." };
+
+  const h = await headers();
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email,
+    options: {
+      emailRedirectTo: buildRedirectUrl(h, "/auth/callback"),
+    },
+  });
+  if (error) return { ok: false, error: translateAuthError(error.message) };
+  return {
+    ok: true,
+    message: "E-mail de confirmação reenviado. Verifique sua caixa de entrada.",
+  };
+}
+
+// ---------------------------------------------------------------------------
 // demo bypass — skip auth in demo mode
 // ---------------------------------------------------------------------------
 export async function enterDemoMode(): Promise<void> {
@@ -216,6 +255,8 @@ export async function enterDemoMode(): Promise<void> {
 function translateAuthError(msg: string): string {
   const lower = msg.toLowerCase();
   if (lower.includes("invalid login")) return "E-mail ou senha inválidos.";
+  if (lower.includes("email not confirmed"))
+    return "E-mail ainda não confirmado. Verifique sua caixa de entrada e clique no link que enviamos — ou use o link mágico abaixo para entrar sem senha.";
   if (lower.includes("email rate limit"))
     return "Muitas tentativas. Aguarde alguns minutos e tente novamente.";
   if (lower.includes("user already registered"))

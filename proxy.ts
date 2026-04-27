@@ -34,7 +34,12 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname);
-    return NextResponse.redirect(url);
+    // Copiar cookies do response original pro redirect — sem isso, o token
+    // refreshado por updateSession() é descartado e a sessão parece sempre
+    // expirada, causando o loop de "pede pra logar de novo".
+    const redirectResponse = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((c) => redirectResponse.cookies.set(c));
+    return redirectResponse;
   }
 
   return response;
