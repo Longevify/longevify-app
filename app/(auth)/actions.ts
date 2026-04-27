@@ -293,5 +293,18 @@ function translateAuthError(msg: string): string {
     return "Muitas tentativas. Aguarde alguns minutos e tente novamente.";
   if (lower.includes("user already registered"))
     return "E-mail já cadastrado. Tente entrar ou recuperar a senha.";
+  // SMTP / envio de e-mail (Resend, Sendgrid, etc) — costuma cair aqui quando
+  // o domínio do sender ainda não foi verificado ou o provedor está fora do ar.
+  if (
+    lower.includes("error sending confirmation email") ||
+    lower.includes("error sending magic link") ||
+    lower.includes("error sending recovery email") ||
+    lower.includes("error sending email")
+  )
+    return "Não conseguimos enviar o e-mail agora. Tente novamente em alguns minutos — se persistir, fala com o suporte.";
+  if (lower.includes("for security purposes") && lower.includes("seconds"))
+    return "Aguarde alguns segundos antes de pedir outro e-mail.";
+  if (lower.includes("signup is disabled"))
+    return "Cadastro temporariamente desativado. Tente novamente mais tarde.";
   return msg;
 }
