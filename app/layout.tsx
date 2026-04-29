@@ -41,9 +41,9 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
-  icons: {
-    icon: "/favicon.svg",
-  },
+  // O Next 14+ detecta automaticamente `app/icon.png` e injeta a tag
+  // <link rel="icon" href="/icon.png">. Sem override manual aqui pra
+  // evitar referência a /favicon.svg que não existe mais.
   alternates: {
     canonical: SITE_URL,
   },
