@@ -22,6 +22,7 @@ interface PersistedItem {
   productId: string;
   quantity: number;
   recurring?: boolean;
+  recurringIntervalDays?: number;
 }
 
 function safeReadStorage(): CartItem[] {
@@ -36,7 +37,15 @@ function safeReadStorage(): CartItem[] {
       const product = getProductById(p.productId);
       if (!product) continue;
       const quantity = Math.max(1, Math.floor(p.quantity || 1));
-      items.push({ product, quantity, recurring: Boolean(p.recurring) });
+      items.push({
+        product,
+        quantity,
+        recurring: Boolean(p.recurring),
+        recurringIntervalDays:
+          typeof p.recurringIntervalDays === "number"
+            ? p.recurringIntervalDays
+            : undefined,
+      });
     }
     return items;
   } catch {
@@ -62,6 +71,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       productId: i.product.id,
       quantity: i.quantity,
       recurring: i.recurring,
+      recurringIntervalDays: i.recurringIntervalDays,
     }));
     try {
       window.localStorage.setItem(
@@ -84,6 +94,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         product,
         quantity: normalized.quantity ?? 1,
         recurring: normalized.recurring,
+        recurringIntervalDays: normalized.recurringIntervalDays,
       });
     },
     [],
@@ -100,6 +111,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           product,
           quantity,
           recurring: opts?.recurring,
+          recurringIntervalDays: opts?.recurringIntervalDays,
         });
       }
     },
@@ -120,6 +132,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const setRecurring = useCallback(
     (productId: string, recurring: boolean) => {
       dispatch({ type: "set-recurring", productId, recurring });
+    },
+    [],
+  );
+
+  const setRecurringInterval = useCallback(
+    (productId: string, intervalDays: number) => {
+      dispatch({
+        type: "set-recurring-interval",
+        productId,
+        recurringIntervalDays: Math.max(7, Math.floor(intervalDays)),
+      });
     },
     [],
   );
@@ -165,6 +188,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       removeItem,
       updateQuantity,
       setRecurring,
+      setRecurringInterval,
       clear,
       totalBRL,
       totalRecurringBRL,
@@ -182,6 +206,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       removeItem,
       updateQuantity,
       setRecurring,
+      setRecurringInterval,
       clear,
       totalBRL,
       totalRecurringBRL,

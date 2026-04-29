@@ -6,16 +6,30 @@ import type { Product } from "@/lib/products";
 export interface CartItem {
   product: Product;
   quantity: number;
-  /** quando `true`, o item é tratado como assinatura recorrente (intervalo vem de product.recurrence) */
+  /** quando `true`, o item é tratado como assinatura recorrente */
   recurring?: boolean;
+  /** Override do intervalo (em dias). Quando ausente, usa product.recurrence
+   *  ou a recomendação derivada de `recommendInterval(product)`. */
+  recurringIntervalDays?: number;
 }
 
 export type CartAction =
   | { type: "hydrate"; items: CartItem[] }
-  | { type: "add"; product: Product; quantity: number; recurring?: boolean }
+  | {
+      type: "add";
+      product: Product;
+      quantity: number;
+      recurring?: boolean;
+      recurringIntervalDays?: number;
+    }
   | { type: "remove"; productId: string }
   | { type: "update"; productId: string; quantity: number }
   | { type: "set-recurring"; productId: string; recurring: boolean }
+  | {
+      type: "set-recurring-interval";
+      productId: string;
+      recurringIntervalDays: number;
+    }
   | { type: "clear" };
 
 export interface CartState {
@@ -44,8 +58,9 @@ export function cartReducer(state: CartState, action: CartAction): CartState {
               ? {
                   ...i,
                   quantity: i.quantity + action.quantity,
-                  // se o caller pediu pra virar recorrente, atualiza
                   recurring: action.recurring ?? i.recurring,
+                  recurringIntervalDays:
+                    action.recurringIntervalDays ?? i.recurringIntervalDays,
                 }
               : i,
           ),
@@ -59,6 +74,7 @@ export function cartReducer(state: CartState, action: CartAction): CartState {
             product: action.product,
             quantity: action.quantity,
             recurring: action.recurring ?? false,
+            recurringIntervalDays: action.recurringIntervalDays,
           },
         ],
       };
@@ -69,6 +85,19 @@ export function cartReducer(state: CartState, action: CartAction): CartState {
         items: state.items.map((i) =>
           i.product.id === action.productId
             ? { ...i, recurring: action.recurring }
+            : i,
+        ),
+      };
+    case "set-recurring-interval":
+      return {
+        ...state,
+        items: state.items.map((i) =>
+          i.product.id === action.productId
+            ? {
+                ...i,
+                recurring: true,
+                recurringIntervalDays: action.recurringIntervalDays,
+              }
             : i,
         ),
       };
@@ -103,6 +132,7 @@ export function cartReducer(state: CartState, action: CartAction): CartState {
 export interface AddItemOptions {
   quantity?: number;
   recurring?: boolean;
+  recurringIntervalDays?: number;
 }
 
 export interface CartContextValue {
@@ -114,6 +144,7 @@ export interface CartContextValue {
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   setRecurring: (productId: string, recurring: boolean) => void;
+  setRecurringInterval: (productId: string, intervalDays: number) => void;
   clear: () => void;
   totalBRL: number;
   /** total considerando descontos de assinatura */
