@@ -13,6 +13,10 @@ interface AddToCartButtonProps {
   productName?: string;
   variant?: "primary" | "dark";
   className?: string;
+  /** Quando `true`, adiciona como assinatura recorrente. */
+  recurring?: boolean;
+  /** Intervalo (em dias) da assinatura. Só usado quando `recurring=true`. */
+  intervalDays?: number;
 }
 
 export function AddToCartButton({
@@ -20,6 +24,8 @@ export function AddToCartButton({
   productName,
   variant = "primary",
   className,
+  recurring,
+  intervalDays,
 }: AddToCartButtonProps) {
   const { addItem, openCart } = useCart();
   const [justAdded, setJustAdded] = useState(false);
@@ -39,11 +45,15 @@ export function AddToCartButton({
   }
 
   const handleClick = () => {
-    addItem(product.id);
+    addItem(product.id, {
+      quantity: 1,
+      recurring,
+      recurringIntervalDays: recurring ? intervalDays : undefined,
+    });
     setJustAdded(true);
     window.setTimeout(() => setJustAdded(false), 1500);
     toast.success({
-      title: "Adicionado ao carrinho",
+      title: recurring ? "Assinatura adicionada" : "Adicionado ao carrinho",
       description: product.name,
       action: {
         label: "Ver carrinho",
@@ -51,6 +61,9 @@ export function AddToCartButton({
       },
     });
   };
+
+  const idleLabel = recurring ? "Assinar agora" : "Adicionar ao carrinho";
+  const successLabel = recurring ? "Assinatura criada" : "Adicionado";
 
   return (
     <Button
@@ -63,12 +76,12 @@ export function AddToCartButton({
       {justAdded ? (
         <>
           <Check className="h-4 w-4" />
-          Adicionado
+          {successLabel}
         </>
       ) : (
         <>
           <ShoppingCart className="h-4 w-4" />
-          Adicionar ao carrinho
+          {idleLabel}
         </>
       )}
     </Button>

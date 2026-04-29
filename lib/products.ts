@@ -582,3 +582,103 @@ export function getProductsByCategory(category?: ProductCategory): Product[] {
   if (!category) return PRODUCTS;
   return PRODUCTS.filter((p) => p.category === category);
 }
+
+// ──────────────────────────────────────────────────────────────────
+// Recurrence recommendation
+// ──────────────────────────────────────────────────────────────────
+
+export interface RecurrenceRecommendation {
+  /** Intervalo em dias até a próxima entrega. */
+  intervalDays: number;
+  /** Texto curto pra mostrar no UI (ex: "a cada 60 dias"). */
+  label: string;
+  /** Explicação derivada (ex: "60 cápsulas, 1/dia → 60 dias"). */
+  reasoning: string;
+  /** Desconto sugerido na assinatura (default 15%). */
+  subscriptionDiscountPct: number;
+  /** `true` quando veio do campo `product.recurrence` (curado),
+   *  `false` quando inferimos da posologia + tamanho do frasco. */
+  curated: boolean;
+}
+
+const POSOLOGY_PER_DAY_RE =
+  /(\d+)\s*(?:c[áa]psul[ao]s?|comprimid[ao]s?|tablet[es]*|gomas?|ml|gotas?|sache(?:s|tes)?|sc?oops?)\s*\/\s*dia/i;
+
+function inferDailyDose(posology?: string): number | null {
+  if (!posology) return null;
+  const m = posology.match(POSOLOGY_PER_DAY_RE);
+  if (m) return Math.max(1, Number(m[1]));
+  // fallback: "1 cápsula ao dia", "2 doses por dia"
+  const alt = posology.match(
+    /(\d+)\s*(?:doses?|c[áa]psul[ao]s?)\s+(?:ao|por)\s+dia/i,
+  );
+  if (alt) return Math.max(1, Number(alt[1]));
+  return null;
+}
+
+function inferPackUnits(packageSize?: string): number | null {
+  if (!packageSize) return null;
+  const m = packageSize.match(
+    /(\d+)\s*(?:c[áa]psul[ao]s?|comprimid[ao]s?|tablet[es]*|gomas?|sach[eê]s?|sensores?|unidade(?:s)?|doses?)/i,
+  );
+  if (m) return Math.max(1, Number(m[1]));
+  const raw = packageSize.match(/(\d+)/);
+  return raw ? Math.max(1, Number(raw[1])) : null;
+}
+
+function formatIntervalLabel(days: number): string {
+  if (days <= 0) return "a cada uso";
+  if (days <= 7) return "semanal";
+  if (days >= 28 && days <= 32) return "mensal";
+  if (days >= 58 && days <= 62) return "a cada 2 meses";
+  if (days >= 88 && days <= 92) return "a cada 3 meses";
+  if (days >= 118 && days <= 122) return "a cada 4 meses";
+  return `a cada ${days} dias`;
+}
+
+/**
+ * Devolve a recorrência recomendada pro produto. Prioriza o campo
+ * `product.recurrence` (curado pela equipe). Quando ausente, infere a
+ * partir de `posology` + `packageSize` ("1 cápsula/dia" + "60 cápsulas"
+ * → 60 dias). Devolve `null` se não houver dado suficiente — útil pra
+ * exames/wearables que não são consumíveis.
+ */
+export function recommendInterval(
+  product: Product,
+): RecurrenceRecommendation | null {
+  if (product.recurrence) {
+    return {
+      intervalDays: product.recurrence.intervalDays,
+      label: product.recurrence.label,
+      reasoning:
+        product.posology && product.packageSize
+          ? `${product.packageSize}, posologia ${product.posology}.`
+          : "Recorrência sugerida pela equipe Longevify.",
+      subscriptionDiscountPct: product.recurrence.subscriptionDiscountPct,
+      curated: true,
+    };
+  }
+  const dailyDose = inferDailyDose(product.posology);
+  const packUnits = inferPackUnits(product.packageSize);
+  if (!dailyDose || !packUnits) return null;
+  const days = Math.max(7, Math.round(packUnits / dailyDose));
+  return {
+    intervalDays: days,
+    label: formatIntervalLabel(days),
+    reasoning: `${packUnits} unidades, ${dailyDose}/dia → dura ${days} dias.`,
+    subscriptionDiscountPct: 12,
+    curated: false,
+  };
+}
+
+/**
+ * Opções típicas de frequência mostradas no selector. A recomendada
+ * sempre vem destacada como primeira opção (mesmo que não bata em nenhuma
+ * dessas). O user pode customizar no UI.
+ */
+export const FREQUENCY_PRESETS: ReadonlyArray<{ days: number; label: string }> = [
+  { days: 30, label: "Mensal" },
+  { days: 60, label: "A cada 2 meses" },
+  { days: 90, label: "A cada 3 meses" },
+  { days: 120, label: "A cada 4 meses" },
+];

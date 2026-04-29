@@ -7,8 +7,7 @@ import { BIOMARKERS } from "@/lib/mock-data";
 import { CATEGORY_LABELS, getProductById } from "@/lib/products";
 import { getProductMatchedBiomarkers } from "@/lib/product-recommender";
 import { ProductImage } from "@/components/loja/product-image";
-import { PriceTag } from "@/components/loja/price-tag";
-import { AddToCartButton } from "@/components/loja/add-to-cart-button";
+import { BuySection } from "@/components/loja/buy-section";
 
 export default async function ProductDetailPage({
   params,
@@ -111,44 +110,7 @@ export default async function ProductDetailPage({
             </div>
           )}
 
-          {product.recurrence ? (
-            <Card className="flex flex-col gap-1 border-brand-200 bg-brand-50/40 p-4">
-              <span className="text-[12px] font-medium uppercase tracking-[0.12em] text-brand-700">
-                Disponível como assinatura
-              </span>
-              <p className="text-[14px] text-ink">
-                Recorrência sugerida: <strong>{product.recurrence.label}</strong> ·{" "}
-                {product.recurrence.subscriptionDiscountPct}% de desconto na
-                renovação automática.
-              </p>
-            </Card>
-          ) : null}
-
-          <div className="mt-2 flex flex-col gap-3 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-col gap-0.5">
-              <PriceTag value={product.priceBRL} size="lg" />
-              {product.recurrence ? (
-                <span className="text-[12px] text-muted">
-                  ou{" "}
-                  <strong className="text-ink">
-                    {(() => {
-                      const v = Math.round(
-                        product.priceBRL *
-                          (1 - product.recurrence.subscriptionDiscountPct / 100),
-                      );
-                      return new Intl.NumberFormat("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                        minimumFractionDigits: 0,
-                      }).format(v);
-                    })()}
-                  </strong>{" "}
-                  com assinatura ({product.recurrence.label})
-                </span>
-              ) : null}
-            </div>
-            <AddToCartButton product={product} />
-          </div>
+          <BuySection product={product} />
         </div>
       </div>
 
