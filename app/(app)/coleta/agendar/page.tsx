@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { CalendarPicker } from "@/components/scheduling/calendar-picker";
 import { LocationPicker } from "@/components/scheduling/location-picker";
 import { AddressForm } from "@/components/scheduling/address-form";
+import { CalendarButtons } from "@/components/scheduling/calendar-buttons";
 import {
   createBooking,
   type AddressInput,
@@ -124,6 +125,47 @@ export default function AgendarColetaPage() {
             Código do agendamento:{" "}
             <span className="font-mono">{confirmation.id}</span>
           </div>
+
+          {/* Adicionar ao calendário pessoal — Google Cal + .ics download */}
+          <div className="flex flex-col items-center gap-2 border-t border-border pt-4">
+            <span className="text-[12px] font-medium uppercase tracking-[0.1em] text-muted">
+              Salvar no seu calendário
+            </span>
+            <CalendarButtons
+              event={{
+                id: confirmation.id,
+                title:
+                  location === "home"
+                    ? "Coleta de sangue Longevify (domiciliar)"
+                    : "Coleta de sangue Longevify (laboratório)",
+                description:
+                  location === "home"
+                    ? `Profissional Longevify vai até você. Endereço: ${[
+                        address.street,
+                        address.complement,
+                        address.city,
+                        address.state,
+                      ]
+                        .filter(Boolean)
+                        .join(", ")}.\n\nCódigo: ${confirmation.id}`
+                    : `Coleta no laboratório parceiro Longevify mais próximo.\n\nCódigo: ${confirmation.id}`,
+                location:
+                  location === "home"
+                    ? [
+                        address.street,
+                        address.complement,
+                        address.city,
+                        address.state,
+                      ]
+                        .filter(Boolean)
+                        .join(", ")
+                    : "Laboratório parceiro Longevify",
+                start: confirmation.slotISO,
+                durationMinutes: 30,
+              }}
+            />
+          </div>
+
           <div className="flex flex-wrap gap-2 pt-2">
             <Link href="/home">
               <Button variant="primary" size="md">
