@@ -1,0 +1,241 @@
+import { getServerClient } from "@/lib/supabase/server";
+import { PATIENT, BIOMARKERS, type Biomarker, type Patient } from "@/lib/mock-data";
+import { loadDadosForUser } from "@/lib/dados/server";
+
+export interface ConciergeExtras {
+  /** Texto livre com snapshot do perfil (cidade/UF, condições, medicações,
+   *  alergias, metas) — passa pro system prompt. */
+  profileSummary: string | null;
+
+  /** Snapshot do intake clínico mais recente. */
+  intakeSummary: string | null;
+
+  /** Sumário dos uploads de exames antigos (datas + tipo). */
+  labUploadsSummary: string | null;
+
+  /** Snapshot dos wearables (últimos 7 dias agregados). */
+  wearablesSummary: string | null;
+}
+
+const EMPTY: ConciergeExtras = {
+  profileSummary: null,
+  intakeSummary: null,
+  labUploadsSummary: null,
+  wearablesSummary: null,
+};
+
+/**
+ * Busca contexto rico do user logado pra injetar no system prompt do
+ * Concierge. Em modo demo (sem auth), retorna `null` em todos os campos —
+ * o prompt usa só os mocks do PATIENT.
+ *
+ * Faz tudo em paralelo. Best-effort: se algum lookup falhar, deixa null.
+ */
+export async function loadConciergeContext(): Promise<{
+  patient: Patient;
+  biomarkers: Biomarker[];
+  extras: ConciergeExtras;
+}> {
+  const supabase = await getServerClient();
+  if (!supabase) {
+    return { patient: PATIENT, biomarkers: BIOMARKERS, extras: EMPTY };
+  }
+
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth?.user) {
+    return { patient: PATIENT, biomarkers: BIOMARKERS, extras: EMPTY };
+  }
+
+  const userId = auth.user.id;
+
+  const [profileRes, intakeRes, labsRes, dailyRes, dadosResolved] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select(
+          "first_name, last_name, chronological_age, height_cm, weight_kg, blood_type, city, uf, occupation, goals, conditions, medications, allergies",
+        )
+        .eq("id", userId)
+        .maybeSingle(),
+      supabase
+        .from("intake_responses")
+        .select("variant, responses, updated_at")
+        .eq("patient_id", userId)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("lab_uploads")
+        .select("file_name, taken_at, lab_name, exam_kind, status, parsed_data")
+        .eq("patient_id", userId)
+        .order("taken_at", { ascending: false, nullsFirst: false })
+        .limit(20),
+      supabase
+        .from("daily_health_metrics")
+        .select(
+          "date, sleep_minutes, sleep_efficiency, steps, active_minutes, resting_hr, hrv, vo2max, strain",
+        )
+        .eq("patient_id", userId)
+        .order("date", { ascending: false })
+        .limit(7),
+      loadDadosForUser({ userId, isDemo: false }),
+    ]);
+
+  const profileSummary = formatProfile(profileRes.data);
+  const intakeSummary = formatIntake(intakeRes.data);
+  const labUploadsSummary = formatLabUploads(labsRes.data ?? []);
+  const wearablesSummary = formatWearables(dailyRes.data ?? []);
+
+  return {
+    patient: dadosResolved.patient,
+    biomarkers: dadosResolved.biomarkers.length
+      ? dadosResolved.biomarkers
+      : BIOMARKERS,
+    extras: {
+      profileSummary,
+      intakeSummary,
+      labUploadsSummary,
+      wearablesSummary,
+    },
+  };
+}
+
+// ─── Formatters (privados) ────────────────────────────────────────────────────
+
+function formatProfile(p: Record<string, unknown> | null): string | null {
+  if (!p) return null;
+  const lines: string[] = [];
+  if (p.height_cm) lines.push(`- Altura: ${p.height_cm} cm`);
+  if (p.weight_kg) lines.push(`- Peso: ${p.weight_kg} kg`);
+  if (p.blood_type) lines.push(`- Tipo sanguíneo: ${p.blood_type}`);
+  if (p.city || p.uf)
+    lines.push(`- Localização: ${[p.city, p.uf].filter(Boolean).join(" / ")}`);
+  if (p.occupation) lines.push(`- Profissão: ${p.occupation}`);
+  if (p.goals) lines.push(`- Metas: ${p.goals}`);
+  if (p.conditions) lines.push(`- Condições conhecidas: ${p.conditions}`);
+  if (p.medications) lines.push(`- Medicações em uso: ${p.medications}`);
+  if (p.allergies) lines.push(`- Alergias: ${p.allergies}`);
+  return lines.length > 0 ? lines.join("\n") : null;
+}
+
+function formatIntake(rec: Record<string, unknown> | null): string | null {
+  if (!rec) return null;
+  const responses = rec.responses as
+    | { data?: Record<string, unknown> }
+    | null
+    | undefined;
+  if (!responses?.data) return null;
+  const data = responses.data;
+  const lines: string[] = [];
+
+  // Identity
+  const id = data.identity as Record<string, unknown> | undefined;
+  if (id?.biologicalSex) lines.push(`- Sexo biológico: ${id.biologicalSex}`);
+  if (id?.ethnicity) lines.push(`- Etnia: ${id.ethnicity}`);
+
+  // Lifestyle
+  const ls = data.lifestyle as Record<string, unknown> | undefined;
+  if (ls) {
+    const parts: string[] = [];
+    if (ls.exerciseDaysPerWeek)
+      parts.push(`exercício ${ls.exerciseDaysPerWeek}x/sem`);
+    if (Array.isArray(ls.exerciseTypes) && ls.exerciseTypes.length)
+      parts.push(`tipos: ${(ls.exerciseTypes as string[]).join("/")}`);
+    if (ls.sleepHours) parts.push(`sono ${ls.sleepHours}h`);
+    if (ls.sleepQuality) parts.push(`qualidade do sono ${ls.sleepQuality}/10`);
+    if (ls.perceivedStress) parts.push(`estresse ${ls.perceivedStress}/10`);
+    if (ls.smokingStatus && ls.smokingStatus !== "never")
+      parts.push(`fumo: ${ls.smokingStatus}`);
+    if (ls.alcoholFrequency) parts.push(`álcool: ${ls.alcoholFrequency}`);
+    if (ls.diet) parts.push(`dieta: ${ls.diet}`);
+    if (parts.length) lines.push(`- Estilo de vida: ${parts.join("; ")}`);
+  }
+
+  // Mental
+  const m = data.mental as Record<string, unknown> | undefined;
+  if (m) {
+    const parts: string[] = [];
+    if (m.moodScore) parts.push(`humor ${m.moodScore}/10`);
+    if (m.fatigueFrequency) parts.push(`fadiga ${m.fatigueFrequency}`);
+    if (m.diagnosedDepressionAnxiety)
+      parts.push(`diagnóstico depressão/ansiedade`);
+    if (m.inTherapy) parts.push(`em terapia`);
+    if (parts.length) lines.push(`- Saúde mental: ${parts.join("; ")}`);
+  }
+
+  // Family history
+  const fam = data.family as Record<string, unknown> | undefined;
+  if (fam && Array.isArray(fam.earlyEvents) && fam.earlyEvents.length) {
+    lines.push(
+      `- História familiar (eventos precoces): ${(fam.earlyEvents as string[]).join(", ")}`,
+    );
+  }
+
+  // Goals
+  const g = data.goals as Record<string, unknown> | undefined;
+  if (g?.primaryGoal) lines.push(`- Objetivo primário: ${g.primaryGoal}`);
+  if (g?.freeNote) lines.push(`- Nota do paciente: ${g.freeNote}`);
+
+  return lines.length > 0 ? lines.join("\n") : null;
+}
+
+function formatLabUploads(rows: Array<Record<string, unknown>>): string | null {
+  if (rows.length === 0) return null;
+  const lines: string[] = [];
+  for (const r of rows) {
+    const date = r.taken_at ? String(r.taken_at) : "(sem data)";
+    const lab = r.lab_name ? ` [${r.lab_name}]` : "";
+    const kind = r.exam_kind ? ` ${r.exam_kind}` : "";
+    const fn = String(r.file_name);
+    lines.push(`- ${date}${kind}${lab}: ${fn}`);
+  }
+  return lines.join("\n");
+}
+
+function formatWearables(
+  rows: Array<Record<string, unknown>>,
+): string | null {
+  if (rows.length === 0) return null;
+  // Agregação simples (médias últimos 7 dias)
+  let sleepMin = 0,
+    sleepCount = 0;
+  let steps = 0,
+    stepsCount = 0;
+  let restingHr = 0,
+    rhrCount = 0;
+  let hrv = 0,
+    hrvCount = 0;
+  let vo2max: number | null = null;
+
+  for (const r of rows) {
+    if (typeof r.sleep_minutes === "number") {
+      sleepMin += r.sleep_minutes;
+      sleepCount++;
+    }
+    if (typeof r.steps === "number") {
+      steps += r.steps;
+      stepsCount++;
+    }
+    if (typeof r.resting_hr === "number") {
+      restingHr += r.resting_hr;
+      rhrCount++;
+    }
+    if (typeof r.hrv === "number" || typeof r.hrv === "string") {
+      hrv += Number(r.hrv);
+      hrvCount++;
+    }
+    if (vo2max === null && (typeof r.vo2max === "number" || typeof r.vo2max === "string")) {
+      vo2max = Number(r.vo2max);
+    }
+  }
+
+  const lines: string[] = [];
+  if (sleepCount)
+    lines.push(`- Sono médio: ${Math.round(sleepMin / sleepCount / 60 * 10) / 10}h (${sleepCount}d)`);
+  if (stepsCount) lines.push(`- Passos médios: ${Math.round(steps / stepsCount).toLocaleString("pt-BR")}/dia`);
+  if (rhrCount) lines.push(`- FC repouso média: ${Math.round(restingHr / rhrCount)} bpm`);
+  if (hrvCount) lines.push(`- HRV média: ${Math.round(hrv / hrvCount)} ms`);
+  if (vo2max != null) lines.push(`- VO2max: ${vo2max}`);
+
+  return lines.length > 0 ? lines.join("\n") : null;
+}
