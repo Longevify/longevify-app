@@ -12,6 +12,8 @@ const ERROR_MESSAGES: Record<string, string> = {
     "Esse link de e-mail expirou. Solicite um novo abaixo em 'Esqueci minha senha'.",
   access_denied:
     "Acesso negado. O link pode ter sido usado ou expirado — tenta de novo.",
+  recovery_exchange_failed:
+    "Não conseguimos validar o link de recuperação. Solicite um novo abaixo.",
   default:
     "Algo deu errado na autenticação. Tenta de novo ou solicite um novo link.",
 };
@@ -28,9 +30,15 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
   const demo = !isSupabaseConfigured();
-  const errorBanner = params.error
+  // Prefere mensagem mapeada; se vier um error_description do Supabase
+  // (mais específico), mostra ele em paralelo pra ajudar debug.
+  const baseMsg = params.error
     ? ERROR_MESSAGES[params.error] ?? ERROR_MESSAGES.default
     : null;
+  const errorBanner =
+    baseMsg && params.error_description
+      ? `${baseMsg} (detalhe: ${decodeURIComponent(params.error_description)})`
+      : baseMsg;
 
   return (
     <LoginForm
