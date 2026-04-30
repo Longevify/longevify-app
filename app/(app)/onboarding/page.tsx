@@ -34,6 +34,7 @@ import {
 } from "@/lib/intake/schema";
 import { bookSlot } from "@/lib/scheduling/slots";
 import { toast } from "@/lib/toast";
+import { syncIntake } from "./actions";
 
 // ─── State machine ─────────────────────────────────────────────────────────
 // Steps por variante. "choose" é o splash; "schedule" e "done" são compartilhados.
@@ -114,6 +115,16 @@ export default function OnboardingPage() {
     saveIntake(record);
   }, [record, hydrated]);
 
+  // Sync periódico pro Supabase. Debounced 1.5s pra não martelar a cada
+  // tecla. Best-effort — se falhar, o localStorage ainda preserva tudo.
+  useEffect(() => {
+    if (!hydrated || !record) return;
+    const t = window.setTimeout(() => {
+      void syncIntake(record);
+    }, 1500);
+    return () => window.clearTimeout(t);
+  }, [record, hydrated]);
+
   function patchData(next: Partial<IntakeData>) {
     setRecord((r) => (r ? { ...r, data: { ...r.data, ...next } } : r));
   }
@@ -167,23 +178,30 @@ export default function OnboardingPage() {
         scheduling.location === "home" ? scheduling.address : undefined,
       );
       const completedAt = new Date().toISOString();
-      setRecord((r) =>
-        r
-          ? {
-              ...r,
-              data: {
-                ...r.data,
-                scheduling: {
-                  ...r.data.scheduling,
-                  bookingId: result.id,
-                  bookingConfirmedAt: result.confirmedAt,
-                },
-              },
-              step: "done",
-              completedAt,
-            }
-          : r,
-      );
+      let finalRecord: IntakeRecord | null = null;
+      setRecord((r) => {
+        if (!r) return r;
+        finalRecord = {
+          ...r,
+          data: {
+            ...r.data,
+            scheduling: {
+              ...r.data.scheduling,
+              bookingId: result.id,
+              bookingConfirmedAt: result.confirmedAt,
+            },
+          },
+          step: "done",
+          completedAt,
+        };
+        return finalRecord;
+      });
+      // Sync imediato pro Supabase quando o intake está completo —
+      // garante que profiles.intake_completed_at fica setado (libera o
+      // user do redirect-to-onboarding no layout).
+      if (finalRecord) {
+        void syncIntake(finalRecord);
+      }
       toast.success({
         title: "Coleta agendada",
         description: "Te enviamos a confirmação por email.",
