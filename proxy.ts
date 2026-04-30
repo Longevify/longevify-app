@@ -5,6 +5,10 @@ const PUBLIC_PATHS = new Set<string>([
   "/login",
   "/signup",
   "/reset-password",
+  // /update-password é o destino do email de recovery — o user chega lá
+  // SEM sessão (com `?code=...` pra trocar por sessão temp) e precisa
+  // poder ver a página pra digitar a nova senha.
+  "/update-password",
 ]);
 
 function isPublic(pathname: string): boolean {
