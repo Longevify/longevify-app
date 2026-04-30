@@ -229,11 +229,10 @@ export async function requestPasswordReset(
 
   const h = await headers();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    // Aponta direto pra /update-password — a página é PUBLIC_PATH no
-    // proxy.ts e troca o `?code=...` por sessão temp ali mesmo.
-    // Evita um hop pelo /auth/callback e elimina race-condition de
-    // cookie-set + redirect.
-    redirectTo: buildRedirectUrl(h, "/update-password"),
+    // Rota dedicada server-side (PKCE precisa do verifier que mora nos
+    // cookies do servidor — exchange no browser falha com "Link expirado").
+    // /auth/recovery faz o exchange e redireciona pra /update-password.
+    redirectTo: buildRedirectUrl(h, "/auth/recovery"),
   });
   if (error) return { ok: false, error: translateAuthError(error.message) };
   return {

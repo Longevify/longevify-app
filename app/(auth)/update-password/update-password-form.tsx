@@ -23,47 +23,25 @@ export function UpdatePasswordForm({ children }: { children: React.ReactNode }) 
   const [hasSession, setHasSession] = useState<boolean | null>(null);
   const [userEmail, setUserEmail] = useState<string>("");
 
-  // 1. Se vier `?code=XXX` na URL (link do email de recovery), troca
-  //    pelo session temp.
-  // 2. Senão, verifica se já tem sessão (caso o user atualize a página).
-  // 3. Captura o email do user pra pré-preencher no /login após o sign-out.
+  // O exchange code → session JÁ aconteceu no /auth/recovery (server-side,
+  // PKCE precisa do verifier dos cookies do servidor — não dá pra fazer
+  // no browser). Aqui só verificamos que a sessão existe e capturamos
+  // o email pra pré-preencher no /login depois do sign-out.
   useEffect(() => {
     const supabase = getBrowserClient();
     if (!supabase) {
       setHasSession(true); // demo mode — deixa passar
       return;
     }
-
-    async function init() {
-      // Pega `?code=` se veio do email de recovery
-      const url = new URL(window.location.href);
-      const code = url.searchParams.get("code");
-      const errorCode = url.searchParams.get("error_code");
-      if (errorCode) {
-        setHasSession(false);
-        return;
-      }
-
-      if (code) {
-        const { error: exchangeError } = await supabase!.auth.exchangeCodeForSession(code);
-        if (exchangeError) {
-          setHasSession(false);
-          return;
-        }
-        // Limpa o code da URL pra não vazar e pra refresh não tentar reutilizar
-        url.searchParams.delete("code");
-        window.history.replaceState({}, "", url.toString());
-      }
-
-      const res = (await supabase!.auth.getSession()) as {
+    (
+      supabase.auth.getSession() as Promise<{
         data: { session: { user?: { email?: string } } | null };
-      };
+      }>
+    ).then((res) => {
       const session = res.data.session;
       setHasSession(!!session);
       if (session?.user?.email) setUserEmail(session.user.email);
-    }
-
-    void init();
+    });
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
