@@ -229,7 +229,9 @@ export async function requestPasswordReset(
 
   const h = await headers();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: buildRedirectUrl(h, "/auth/callback"),
+    // ?type=recovery garante que o /auth/callback roteia pra /update-password
+    // em vez de mandar direto pra /home (Supabase não anexa o type sozinho).
+    redirectTo: buildRedirectUrl(h, "/auth/callback?type=recovery"),
   });
   if (error) return { ok: false, error: translateAuthError(error.message) };
   return {
