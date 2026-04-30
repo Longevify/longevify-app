@@ -6,7 +6,7 @@ import { getServerClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 export type AuthActionResult =
-  | { ok: true; message?: string; email?: string }
+  | { ok: true; message?: string; email?: string; redirectTo?: string }
   | {
       ok: false;
       error: string;
@@ -48,7 +48,7 @@ export async function signInWithPassword(
       sameSite: "lax",
       maxAge: 60 * 60 * 24 * 7,
     });
-    redirect(next);
+    return { ok: true, redirectTo: next };
   }
 
   const supabase = await getServerClient();
@@ -63,7 +63,11 @@ export async function signInWithPassword(
       ...(isEmailNotConfirmed ? { emailNotConfirmed: true } : {}),
     };
   }
-  redirect(next);
+  // Em vez de redirect() server-side (que faz soft-nav e perde os cookies
+  // novos da sessão → tela em branco até refresh), devolvemos `redirectTo`
+  // pro client fazer um window.location.replace — full nav que carrega a
+  // sessão corretamente.
+  return { ok: true, redirectTo: next };
 }
 
 // ---------------------------------------------------------------------------

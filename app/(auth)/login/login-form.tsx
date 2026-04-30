@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import { AuthCard } from "@/components/auth/auth-card";
 import { AuthInput } from "@/components/auth/auth-input";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,15 @@ export function LoginForm({
 
   const showResendButton =
     loginState && !loginState.ok && "emailNotConfirmed" in loginState && loginState.emailNotConfirmed;
+
+  // Após login bem-sucedido, faz hard-navigation pra carregar a página
+  // destino com os cookies de sessão recém setados. Soft-nav (router.push
+  // ou next/navigation redirect) renderizaria como deslogado até refresh.
+  useEffect(() => {
+    if (loginState && loginState.ok && loginState.redirectTo) {
+      window.location.replace(loginState.redirectTo);
+    }
+  }, [loginState]);
 
   return (
     <AuthCard
