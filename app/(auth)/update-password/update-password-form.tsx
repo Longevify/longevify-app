@@ -21,8 +21,10 @@ export function UpdatePasswordForm({ children }: { children: React.ReactNode }) 
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [hasSession, setHasSession] = useState<boolean | null>(null);
+  const [userEmail, setUserEmail] = useState<string>("");
 
-  // Confirma que o usuário tem uma sessão de recovery válida.
+  // Confirma que o usuário tem uma sessão de recovery válida + captura o
+  // email do user pra pré-preencher no /login após o sign-out.
   useEffect(() => {
     const supabase = getBrowserClient();
     if (!supabase) {
@@ -30,9 +32,13 @@ export function UpdatePasswordForm({ children }: { children: React.ReactNode }) 
       return;
     }
     (
-      supabase.auth.getSession() as Promise<{ data: { session: unknown } }>
+      supabase.auth.getSession() as Promise<{
+        data: { session: { user?: { email?: string } } | null };
+      }>
     ).then((res) => {
-      setHasSession(!!res.data.session);
+      const session = res.data.session;
+      setHasSession(!!session);
+      if (session?.user?.email) setUserEmail(session.user.email);
     });
   }, []);
 
@@ -52,7 +58,7 @@ export function UpdatePasswordForm({ children }: { children: React.ReactNode }) 
       const supabase = getBrowserClient();
       if (!supabase) {
         setSuccess(true);
-        setTimeout(() => router.push("/home"), 1500);
+        setTimeout(() => router.push("/login"), 1500);
         return;
       }
       const { error: err } = await supabase.auth.updateUser({ password });
@@ -65,8 +71,15 @@ export function UpdatePasswordForm({ children }: { children: React.ReactNode }) 
         setPending(false);
         return;
       }
+      // Desloga a sessão de recovery e força o user a logar de novo com a
+      // senha nova — UX combinada com o pedido do Lucas: redefinir senha →
+      // tela de login → entrar com a senha nova.
+      await supabase.auth.signOut();
       setSuccess(true);
-      setTimeout(() => router.push("/home"), 1800);
+      const next = userEmail
+        ? `/login?email=${encodeURIComponent(userEmail)}`
+        : "/login";
+      setTimeout(() => router.push(next), 1800);
     } catch {
       setError("Algo deu errado. Tenta de novo em alguns segundos.");
       setPending(false);
@@ -118,7 +131,7 @@ export function UpdatePasswordForm({ children }: { children: React.ReactNode }) 
         ) : null}
         {success ? (
           <p className="text-[13px] text-brand-700">
-            Senha atualizada. Redirecionando…
+            Senha atualizada. Te mandando pra tela de login…
           </p>
         ) : null}
         <Button type="submit" disabled={pending || success}>
