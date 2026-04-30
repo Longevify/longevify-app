@@ -1,9 +1,11 @@
 import type { NextRequest } from "next/server";
 import { BIOMARKERS, PATIENT } from "@/lib/mock-data";
 import { buildSystemPrompt } from "@/lib/ai/system-prompt";
+import { loadConciergeContext } from "@/lib/ai/context";
 import { getFallbackReply } from "@/lib/ai/fallback-chat";
 
-export const runtime = "edge";
+// Runtime nodejs (default) — supabase ssr + cookies precisam do node runtime.
+// Nada de edge aqui: a chamada de LLM é IO-bound, edge não traz ganho real.
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -40,7 +42,18 @@ export async function POST(request: NextRequest) {
 
   const messages = Array.isArray(body.messages) ? body.messages : [];
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
-  const systemPrompt = buildSystemPrompt(PATIENT, BIOMARKERS);
+
+  // Carrega contexto real do user logado (Wave 3) — perfil + intake +
+  // biomarcadores reais + uploads + wearables. Fallback pra mocks em demo.
+  const { patient, biomarkers, extras } = await loadConciergeContext().catch(
+    () => ({
+      patient: PATIENT,
+      biomarkers: BIOMARKERS,
+      extras: undefined,
+    }),
+  );
+
+  const systemPrompt = buildSystemPrompt(patient, biomarkers, extras);
 
   const moonshotKey = process.env.MOONSHOT_API_KEY;
   const anthropicKey = process.env.ANTHROPIC_API_KEY;

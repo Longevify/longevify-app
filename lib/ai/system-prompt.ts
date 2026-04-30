@@ -1,4 +1,5 @@
 import type { Biomarker, Patient } from "@/lib/mock-data";
+import type { ConciergeExtras } from "./context";
 
 function statusLabel(status: Biomarker["status"]): string {
   switch (status) {
@@ -40,6 +41,7 @@ function formatBiomarker(b: Biomarker): string {
 export function buildSystemPrompt(
   patient: Patient,
   biomarkers: Biomarker[],
+  extras?: ConciergeExtras,
 ): string {
   const out = biomarkers.filter((b) => b.status === "out");
   const normal = biomarkers.filter((b) => b.status === "normal");
@@ -82,7 +84,23 @@ ${biomarkers.map(formatBiomarker).join("\n\n")}
 
 ## Histórico do Longevify Score
 ${patient.scoreHistory.map((p) => `- ${p.date}: ${p.score}`).join("\n")}
-
+${
+  extras?.profileSummary
+    ? `\n## Dados pessoais do perfil\n${extras.profileSummary}\n`
+    : ""
+}${
+  extras?.intakeSummary
+    ? `\n## Questionário de intake (anamnese)\n${extras.intakeSummary}\n`
+    : ""
+}${
+  extras?.labUploadsSummary
+    ? `\n## Exames antigos anexados pelo paciente\n${extras.labUploadsSummary}\n`
+    : ""
+}${
+  extras?.wearablesSummary
+    ? `\n## Wearables (média 7 dias)\n${extras.wearablesSummary}\n`
+    : ""
+}
 ## Regras de resposta
 1. Sempre que o usuário perguntar sobre um marcador específico, cite o **valor atual**, a **referência** e o **status**.
 2. Quando sugerir intervenções (suplementação, dieta, exercício, sono), dê **1 a 3 ações priorizadas** com dose/duração/janela de reavaliação quando possível.
