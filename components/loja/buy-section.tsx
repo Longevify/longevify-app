@@ -1,6 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { Repeat } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useCart } from "@/lib/cart/store";
+import { toast } from "@/lib/toast";
 import { PriceTag } from "./price-tag";
 import { AddToCartButton } from "./add-to-cart-button";
 import { SubscriptionSelector } from "./subscription-selector";
@@ -22,6 +26,22 @@ export function BuySection({ product }: BuySectionProps) {
   const [intervalDays, setIntervalDays] = useState(
     recommendation?.intervalDays ?? 30,
   );
+
+  const { addItem, openCart } = useCart();
+
+  function handleQuickSubscribe() {
+    if (!recommendation) return;
+    addItem(product.id, {
+      quantity: 1,
+      recurring: true,
+      recurringIntervalDays: recommendation.intervalDays,
+    });
+    toast.success({
+      title: "Assinatura adicionada",
+      description: `${product.name} · ${recommendation.label}`,
+      action: { label: "Ver carrinho", onClick: openCart },
+    });
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -57,11 +77,25 @@ export function BuySection({ product }: BuySectionProps) {
             </span>
           ) : null}
         </div>
-        <AddToCartButton
-          product={product}
-          recurring={recurring}
-          intervalDays={recurring ? intervalDays : undefined}
-        />
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          {recommendation && !recurring ? (
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={handleQuickSubscribe}
+              className="w-full sm:w-auto"
+              aria-label={`Assinar ${product.name} (${recommendation.label})`}
+            >
+              <Repeat className="h-4 w-4" />
+              Assinar ({recommendation.label})
+            </Button>
+          ) : null}
+          <AddToCartButton
+            product={product}
+            recurring={recurring}
+            intervalDays={recurring ? intervalDays : undefined}
+          />
+        </div>
       </div>
     </div>
   );

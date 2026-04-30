@@ -4,6 +4,7 @@ import type { Product, ProductBadge } from "@/lib/products";
 import { ProductImage } from "./product-image";
 import { PriceTag } from "./price-tag";
 import { QuickAddButton } from "./quick-add-button";
+import { QuickSubscribeButton } from "./quick-subscribe-button";
 
 const BADGE_STYLES: Record<ProductBadge, string> = {
   "Mais Vendido": "text-[#D7411F]",
@@ -71,7 +72,7 @@ function DefaultCard({
       )}
     >
       <div className="flex h-full flex-col">
-        {/* Imagem grande quadrada + Quick Add overlay no canto */}
+        {/* Imagem grande quadrada + Quick Add / Subscribe overlay no canto */}
         <div className="relative">
           <ProductImage
             product={product}
@@ -79,6 +80,7 @@ function DefaultCard({
             className="transition-transform duration-200 group-hover:scale-[1.01]"
           />
           <QuickAddButton product={product} overlay />
+          <QuickSubscribeButton product={product} overlay />
         </div>
 
         {/* Texto abaixo da imagem (sem card box, estilo limpo) */}
@@ -168,7 +170,10 @@ function CompactCard({
           ) : null}
           <div className="mt-auto flex items-center justify-between gap-2 pt-1.5">
             <PriceTag value={product.priceBRL} compact />
-            <QuickAddButton product={product} />
+            <div className="flex items-center gap-1.5">
+              <QuickSubscribeButton product={product} />
+              <QuickAddButton product={product} />
+            </div>
           </div>
         </div>
       </div>
