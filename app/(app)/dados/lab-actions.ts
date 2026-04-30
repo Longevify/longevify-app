@@ -1,0 +1,221 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { getServerClient } from "@/lib/supabase/server";
+
+const ALLOWED_MIME = new Set([
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/heic",
+  "image/heif",
+  "image/webp",
+]);
+
+const MAX_BYTES = 20 * 1024 * 1024; // 20 MB — bate com o file_size_limit do bucket
+
+export type ActionResult<T = unknown> =
+  | { ok: true; data?: T }
+  | { ok: false; error: string };
+
+function extFromMime(mime: string, fileName: string): string {
+  if (mime === "application/pdf") return "pdf";
+  if (mime === "image/png") return "png";
+  if (mime === "image/jpeg") return "jpg";
+  if (mime === "image/heic") return "heic";
+  if (mime === "image/heif") return "heif";
+  if (mime === "image/webp") return "webp";
+  // fallback do nome original
+  const m = fileName.match(/\.([a-z0-9]+)$/i);
+  return m ? m[1].toLowerCase() : "bin";
+}
+
+/**
+ * Server action que recebe o File via FormData, sobe pro Supabase Storage
+ * e cria a row em `lab_uploads`.
+ */
+export async function uploadLabFile(
+  formData: FormData,
+): Promise<ActionResult<{ id: string }>> {
+  const supabase = await getServerClient();
+  if (!supabase) {
+    return { ok: false, error: "Supabase indisponível (modo demo)." };
+  }
+
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth?.user) return { ok: false, error: "Não autenticado." };
+
+  const file = formData.get("file");
+  if (!(file instanceof File)) {
+    return { ok: false, error: "Arquivo inválido." };
+  }
+  if (!ALLOWED_MIME.has(file.type)) {
+    return {
+      ok: false,
+      error: `Tipo não suportado (${file.type}). Use PDF, PNG, JPG, HEIC ou WEBP.`,
+    };
+  }
+  if (file.size > MAX_BYTES) {
+    return {
+      ok: false,
+      error: `Arquivo muito grande (${Math.round(file.size / 1024 / 1024)} MB). Máximo 20 MB.`,
+    };
+  }
+  if (file.size === 0) {
+    return { ok: false, error: "Arquivo vazio." };
+  }
+
+  const takenAtRaw = String(formData.get("takenAt") ?? "").trim();
+  const labName = String(formData.get("labName") ?? "").trim() || null;
+  const examKind = String(formData.get("examKind") ?? "").trim() || null;
+  const notes = String(formData.get("notes") ?? "").trim() || null;
+
+  const takenAt =
+    takenAtRaw && /^\d{4}-\d{2}-\d{2}$/.test(takenAtRaw) ? takenAtRaw : null;
+
+  // Path: {uid}/{uuid}.{ext} — bate com a Storage policy do bucket.
+  const ext = extFromMime(file.type, file.name);
+  const objectId = crypto.randomUUID();
+  const storagePath = `${auth.user.id}/${objectId}.${ext}`;
+
+  const arrayBuffer = await file.arrayBuffer();
+  const { error: storageError } = await supabase.storage
+    .from("lab-uploads")
+    .upload(storagePath, arrayBuffer, {
+      contentType: file.type,
+      cacheControl: "3600",
+      upsert: false,
+    });
+
+  if (storageError) {
+    return { ok: false, error: `Storage: ${storageError.message}` };
+  }
+
+  const { data: row, error: dbError } = await supabase
+    .from("lab_uploads")
+    .insert({
+      patient_id: auth.user.id,
+      storage_path: storagePath,
+      file_name: file.name,
+      mime_type: file.type,
+      size_bytes: file.size,
+      taken_at: takenAt,
+      lab_name: labName,
+      exam_kind: examKind,
+      notes,
+      status: "uploaded",
+    })
+    .select("id")
+    .single();
+
+  if (dbError) {
+    // Se o INSERT falhar, tenta limpar o arquivo do storage pra não vazar
+    await supabase.storage.from("lab-uploads").remove([storagePath]);
+    return { ok: false, error: `DB: ${dbError.message}` };
+  }
+
+  revalidatePath("/dados");
+  return { ok: true, data: { id: row.id as string } };
+}
+
+/**
+ * Apaga o upload (storage + row). RLS garante que só o dono pode.
+ */
+export async function deleteLabUpload(id: string): Promise<ActionResult> {
+  const supabase = await getServerClient();
+  if (!supabase) return { ok: false, error: "Supabase indisponível." };
+
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth?.user) return { ok: false, error: "Não autenticado." };
+
+  const { data: row } = await supabase
+    .from("lab_uploads")
+    .select("storage_path, patient_id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!row) return { ok: false, error: "Upload não encontrado." };
+  if (row.patient_id !== auth.user.id) {
+    return { ok: false, error: "Sem permissão." };
+  }
+
+  await supabase.storage
+    .from("lab-uploads")
+    .remove([row.storage_path as string]);
+
+  const { error } = await supabase.from("lab_uploads").delete().eq("id", id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/dados");
+  return { ok: true };
+}
+
+/**
+ * Edita os metadados (date, lab name, exam kind, notes).
+ */
+export async function updateLabUpload(
+  id: string,
+  patch: {
+    takenAt?: string | null;
+    labName?: string | null;
+    examKind?: string | null;
+    notes?: string | null;
+  },
+): Promise<ActionResult> {
+  const supabase = await getServerClient();
+  if (!supabase) return { ok: false, error: "Supabase indisponível." };
+
+  const update: Record<string, unknown> = {};
+  if ("takenAt" in patch) {
+    update.taken_at =
+      patch.takenAt && /^\d{4}-\d{2}-\d{2}$/.test(patch.takenAt)
+        ? patch.takenAt
+        : null;
+  }
+  if ("labName" in patch) update.lab_name = patch.labName?.trim() || null;
+  if ("examKind" in patch) update.exam_kind = patch.examKind?.trim() || null;
+  if ("notes" in patch) update.notes = patch.notes?.trim() || null;
+
+  if (Object.keys(update).length === 0) return { ok: true };
+
+  const { error } = await supabase
+    .from("lab_uploads")
+    .update(update)
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/dados");
+  return { ok: true };
+}
+
+/**
+ * Gera URL assinada (1h) pra o user visualizar/baixar o arquivo.
+ */
+export async function getLabUploadSignedUrl(
+  id: string,
+): Promise<ActionResult<{ url: string }>> {
+  const supabase = await getServerClient();
+  if (!supabase) return { ok: false, error: "Supabase indisponível." };
+
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth?.user) return { ok: false, error: "Não autenticado." };
+
+  const { data: row } = await supabase
+    .from("lab_uploads")
+    .select("storage_path, patient_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (!row) return { ok: false, error: "Upload não encontrado." };
+  if (row.patient_id !== auth.user.id) {
+    return { ok: false, error: "Sem permissão." };
+  }
+
+  const { data, error } = await supabase.storage
+    .from("lab-uploads")
+    .createSignedUrl(row.storage_path as string, 60 * 60);
+
+  if (error || !data) {
+    return { ok: false, error: error?.message ?? "Erro ao gerar URL." };
+  }
+  return { ok: true, data: { url: data.signedUrl } };
+}
