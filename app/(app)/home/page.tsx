@@ -17,6 +17,8 @@ import { BIOMARKERS, PATIENT, biomarkersStats } from "@/lib/mock-data";
 import { getRecommendedProducts } from "@/lib/product-recommender";
 import { formatDatePtBR } from "@/lib/utils";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { getUserBookings } from "@/lib/scheduling/bookings";
+import { BookingCard } from "@/components/scheduling/booking-card";
 
 export default async function HomePage() {
   const user = await getCurrentUser();
@@ -217,8 +219,14 @@ function SummaryStat({
 // ──────────────────────────────────────────────────────────────────────
 // NewUserHome — empty state pra paciente real que ainda não tem exame.
 // Em vez de mostrar dados mock do João, oferece próximos passos claros.
+// Quando o user já tem coleta agendada, troca o card "Agendar primeira
+// coleta" por um card destacado com a próxima coleta + atalho pra ver
+// todas em /coleta.
 // ──────────────────────────────────────────────────────────────────────
-function NewUserHome({ firstName }: { firstName: string }) {
+async function NewUserHome({ firstName }: { firstName: string }) {
+  const { upcoming } = await getUserBookings();
+  const nextBooking = upcoming[0] ?? null;
+
   return (
     <div className="mx-auto w-full max-w-[920px] px-6 py-10">
       <header className="flex flex-col gap-1 pb-8">
@@ -250,32 +258,52 @@ function NewUserHome({ firstName }: { firstName: string }) {
         </div>
       </Card>
 
+      {/* Próxima coleta — destaque quando já tem agendamento */}
+      {nextBooking ? (
+        <section className="mb-6 flex flex-col gap-3">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="text-[13px] font-medium uppercase tracking-[0.14em] text-muted">
+              Sua próxima coleta
+            </h2>
+            <Link
+              href="/coleta"
+              className="inline-flex items-center gap-1 text-[13px] font-medium text-brand-700 hover:text-brand-900"
+            >
+              Ver todas <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+          <BookingCard booking={nextBooking} />
+        </section>
+      ) : null}
+
       {/* Próximos passos — quick wins */}
       <section className="flex flex-col gap-3">
         <h2 className="text-[13px] font-medium uppercase tracking-[0.14em] text-muted">
           Próximos passos
         </h2>
 
-        <Card className="flex flex-wrap items-center gap-4 px-5 py-4">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-100 text-brand-700">
-            <Calendar className="h-5 w-5" />
-          </span>
-          <div className="flex-1 min-w-[200px]">
-            <div className="text-[15px] font-medium">
-              Agendar sua primeira coleta
+        {nextBooking ? null : (
+          <Card className="flex flex-wrap items-center gap-4 px-5 py-4">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-100 text-brand-700">
+              <Calendar className="h-5 w-5" />
+            </span>
+            <div className="flex-1 min-w-[200px]">
+              <div className="text-[15px] font-medium">
+                Agendar sua primeira coleta
+              </div>
+              <div className="text-[13px] text-muted">
+                Coleta domiciliar ou em laboratório parceiro. ~5 dias úteis pra
+                resultado.
+              </div>
             </div>
-            <div className="text-[13px] text-muted">
-              Coleta domiciliar ou em laboratório parceiro. ~5 dias úteis pra
-              resultado.
-            </div>
-          </div>
-          <Link href="/coleta/agendar">
-            <Button variant="primary" size="md">
-              Agendar coleta
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </Link>
-        </Card>
+            <Link href="/coleta/agendar">
+              <Button variant="primary" size="md">
+                Agendar coleta
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </Card>
+        )}
 
         <Card className="flex flex-wrap items-center gap-4 px-5 py-4">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600">
