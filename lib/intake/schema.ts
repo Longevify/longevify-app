@@ -105,6 +105,9 @@ export type CollectionLocationKind = "home" | "lab";
 
 export interface IntakeIdentity {
   fullName?: string;
+  /** Como o user prefere ser chamado pelo Concierge / app (ex: "Lu", "Dr. Lucas").
+   *  Se vazio, fallback pro firstName do profile. */
+  preferredName?: string;
   birthDate?: string; // ISO yyyy-mm-dd
   biologicalSex?: BiologicalSex;
   ethnicity?: Ethnicity;
