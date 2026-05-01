@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { getServerClient } from "@/lib/supabase/server";
 import { PATIENT } from "@/lib/mock-data";
 
@@ -47,8 +48,16 @@ function ageFromBirthDate(birthDate: string | null): number | null {
  * Retorna o usuário autenticado (Supabase) com o profile da tabela `profiles`.
  * Em modo demo (sem Supabase configurado, ou sem sessão), devolve o paciente
  * mock pra UI continuar renderizando.
+ *
+ * `cache()` do React deduplica chamadas dentro de UMA mesma render tree —
+ * crítico pra evitar race condition no refresh de token: se o layout chama
+ * getCurrentUser() e a page também, sem cache cada um faz seu próprio
+ * supabase.auth.getUser(), que pode rotacionar refresh tokens em paralelo
+ * e clear da sessão silenciosamente.
  */
-export async function getCurrentUser(): Promise<CurrentUser> {
+export const getCurrentUser = cache(_getCurrentUser);
+
+async function _getCurrentUser(): Promise<CurrentUser> {
   const supabase = await getServerClient();
   if (!supabase) return DEMO_USER;
 
