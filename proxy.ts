@@ -18,33 +18,25 @@ function isPublic(pathname: string): boolean {
 }
 
 /**
- * Next 16 proxy (formerly `middleware.ts`). Enforces auth for all matched
- * routes when Supabase is configured; in demo mode it refreshes nothing
- * and lets every request through so the app keeps working against mock data.
+ * Next 16 proxy (formerly `middleware.ts`).
+ *
+ * Estratégia: SEMPRE deixa passar. updateSession() ainda roda pra refrescar
+ * tokens da Supabase (mantém sessão viva), mas não bloqueia rotas baseado em
+ * auth. As páginas individuais decidem o que mostrar via `getCurrentUser()`
+ * — que retorna DEMO_USER quando não há sessão.
+ *
+ * Por que? O bounce-to-/login causava loops perceptíveis pro user ("logar 2
+ * vezes") por causa de races no refresh de tokens em RSC fetches paralelos.
+ * RLS protege os dados no DB, então deixar páginas renderizarem sem auth
+ * só mostra UI vazia/demo — nada vaza.
  */
 export async function proxy(request: NextRequest) {
-  const { response, user, demo } = await updateSession(request);
+  const { response } = await updateSession(request);
 
   // Encaminha o pathname pro Server Component conseguir tomar decisões
   // de redirect baseadas em rota (ex: forçar onboarding no primeiro login).
   const { pathname } = request.nextUrl;
   response.headers.set("x-pathname", pathname);
-
-  if (demo) return response;
-
-  if (isPublic(pathname)) return response;
-
-  if (!user) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("next", pathname);
-    // Copiar cookies do response original pro redirect — sem isso, o token
-    // refreshado por updateSession() é descartado e a sessão parece sempre
-    // expirada, causando o loop de "pede pra logar de novo".
-    const redirectResponse = NextResponse.redirect(url);
-    response.cookies.getAll().forEach((c) => redirectResponse.cookies.set(c));
-    return redirectResponse;
-  }
 
   return response;
 }
