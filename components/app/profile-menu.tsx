@@ -107,7 +107,7 @@ export function ProfileMenu() {
             "shadow-[0_24px_64px_-24px_rgba(13,40,24,.28)]",
           )}
         >
-          {/* Header — quem é o usuário */}
+          {/* Header — quem é o usuário + logoff rápido */}
           <div className="flex items-start gap-3 rounded-xl bg-brand-50/60 p-3">
             <Avatar name={fullName} className="h-10 w-10" />
             <div className="min-w-0 flex-1">
@@ -124,6 +124,16 @@ export function ProfileMenu() {
                     : "Plano Anual · ativo"}
               </div>
             </div>
+            {/* Logoff direto — sem precisar rolar a lista. */}
+            <Link
+              href="/logout"
+              onClick={() => setOpen(false)}
+              aria-label="Sair da conta"
+              title="Sair"
+              className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted hover:bg-[#FDECEC] hover:text-[#B6333A]"
+            >
+              <LogOut className="h-4 w-4" />
+            </Link>
           </div>
 
           {/* Resumo de saúde — espelha o que vê na home */}
