@@ -70,7 +70,7 @@ export function MedicalExtractor({
         <div className="mb-2 flex items-center gap-2">
           <Sparkles className="h-3.5 w-3.5 text-brand-600" />
           <span className="text-[12px] font-medium uppercase tracking-[0.12em] text-muted">
-            Análise médica via OpenMed
+            Análise médica
           </span>
         </div>
         <textarea
@@ -85,7 +85,7 @@ export function MedicalExtractor({
         />
         <div className="mt-2 flex items-center justify-between gap-2">
           <span className="text-[11px] text-muted">
-            Modelos OpenMed (Apache 2.0) via HuggingFace · multilíngue
+            Análise automática multilíngue · seus dados ficam privados
           </span>
           <Button
             onClick={analyze}
@@ -101,7 +101,7 @@ export function MedicalExtractor({
             ) : (
               <>
                 <Sparkles className="h-3.5 w-3.5" />
-                Analisar com OpenMed
+                Analisar histórico
               </>
             )}
           </Button>
@@ -132,7 +132,7 @@ export function MedicalExtractor({
             color="bg-[#DFF5E9] text-[#0E7B45]"
           />
           <EntityGroup
-            title="Dados sensíveis (PII)"
+            title="Dados pessoais"
             entities={result.pii}
             empty="Nenhum dado pessoal detectado"
             color="bg-[#E7ECFD] text-[#3B44C2]"
@@ -142,8 +142,8 @@ export function MedicalExtractor({
 
       {result && totalFound === 0 ? (
         <p className="text-[12px] text-muted">
-          O modelo não encontrou entidades específicas. Tente um texto mais
-          detalhado ou em português.
+          Nada específico identificado. Tente um texto mais detalhado ou em
+          português.
         </p>
       ) : null}
     </div>

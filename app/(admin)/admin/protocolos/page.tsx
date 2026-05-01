@@ -18,7 +18,7 @@ export default function ProtocolosStubPage() {
         <span className="grid h-12 w-12 place-items-center rounded-full bg-brand-100 text-brand-700">
           <ClipboardList className="h-5 w-5" />
         </span>
-        <h2 className="text-[16px] font-semibold">Em breve — Wave 2</h2>
+        <h2 className="text-[16px] font-semibold">Em breve</h2>
         <p className="max-w-md text-[13px] text-muted">
           Montagem visual de protocolos, associação a pacientes e export em PDF
           ainda estão em desenvolvimento. Por enquanto o protocolo é editado
