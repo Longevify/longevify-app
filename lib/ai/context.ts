@@ -3,6 +3,10 @@ import { PATIENT, BIOMARKERS, type Biomarker, type Patient } from "@/lib/mock-da
 import { loadDadosForUser } from "@/lib/dados/server";
 
 export interface ConciergeExtras {
+  /** Nome de tratamento que o user escolheu no intake ("Como você prefere
+   *  ser chamado?"). Override do firstName quando presente. */
+  preferredName: string | null;
+
   /** Texto livre com snapshot do perfil (cidade/UF, condições, medicações,
    *  alergias, metas) — passa pro system prompt. */
   profileSummary: string | null;
@@ -18,6 +22,7 @@ export interface ConciergeExtras {
 }
 
 const EMPTY: ConciergeExtras = {
+  preferredName: null,
   profileSummary: null,
   intakeSummary: null,
   labUploadsSummary: null,
@@ -85,6 +90,7 @@ export async function loadConciergeContext(): Promise<{
   const intakeSummary = formatIntake(intakeRes.data);
   const labUploadsSummary = formatLabUploads(labsRes.data ?? []);
   const wearablesSummary = formatWearables(dailyRes.data ?? []);
+  const preferredName = extractPreferredName(intakeRes.data);
 
   return {
     patient: dadosResolved.patient,
@@ -92,6 +98,7 @@ export async function loadConciergeContext(): Promise<{
       ? dadosResolved.biomarkers
       : BIOMARKERS,
     extras: {
+      preferredName,
       profileSummary,
       intakeSummary,
       labUploadsSummary,
@@ -101,6 +108,16 @@ export async function loadConciergeContext(): Promise<{
 }
 
 // ─── Formatters (privados) ────────────────────────────────────────────────────
+
+function extractPreferredName(rec: Record<string, unknown> | null): string | null {
+  if (!rec) return null;
+  const responses = rec.responses as
+    | { data?: { identity?: { preferredName?: string } } }
+    | null
+    | undefined;
+  const name = responses?.data?.identity?.preferredName?.trim();
+  return name && name.length > 0 ? name : null;
+}
 
 function formatProfile(p: Record<string, unknown> | null): string | null {
   if (!p) return null;

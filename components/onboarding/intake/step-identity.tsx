@@ -27,6 +27,20 @@ export function StepIdentity({ data, onPatch }: Props) {
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <IntakeQuestion
+          label="Como você prefere ser chamado(a)?"
+          hint="O Concierge IA e o app vão usar esse nome. Pode ser apelido, primeiro nome ou como achar melhor."
+          full
+        >
+          <TextInput
+            value={id.preferredName ?? ""}
+            onChange={(preferredName) =>
+              onPatch({ identity: { ...id, preferredName } })
+            }
+            placeholder="Lu, Lucas, Dr. Valle…"
+          />
+        </IntakeQuestion>
+
         <IntakeQuestion label="Data de nascimento" full>
           <DateInput
             value={id.birthDate}

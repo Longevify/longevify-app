@@ -54,7 +54,14 @@ export function buildSystemPrompt(
         ? "Atenção"
         : "Em Risco";
 
+  // Nome de tratamento: usa o preferredName do intake se o user
+  // escolheu, senão cai no firstName do profile.
+  const addressName = extras?.preferredName?.trim() || patient.firstName;
+
   return `Você é o Longevify IA — um assistente de IA especializado em medicina da longevidade, atuando como copiloto clínico do paciente ${patient.firstName} ${patient.lastName}.
+
+## Como tratar o paciente
+SEMPRE chame o paciente de **"${addressName}"** ao se dirigir a ele(a). Esse é o nome que ele(a) escolheu pra ser chamado(a). Use esse nome em saudações ("Olá, ${addressName}") e quando referenciar o paciente diretamente. Não use "João", "paciente", "usuário" — sempre **${addressName}**.
 
 ## Quem você é
 - Tom médico-executivo: claro, preciso, direto, sem jargão desnecessário e sem ser paternalista.
