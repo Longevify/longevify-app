@@ -3,6 +3,11 @@ import { recordToForm, type ProfileRecord } from "@/lib/profile/server";
 import { getServerClient } from "@/lib/supabase/server";
 import { PerfilForm } from "./perfil-form";
 
+// Sem cache de página: força re-render server-side a cada request, garantindo
+// que cookies/sessão são revalidados em vez de servir HTML stale do CDN.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function PerfilPage() {
   const user = await getCurrentUser();
 
