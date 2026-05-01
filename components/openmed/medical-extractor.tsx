@@ -85,7 +85,7 @@ export function MedicalExtractor({
         />
         <div className="mt-2 flex items-center justify-between gap-2">
           <span className="text-[11px] text-muted">
-            Análise automática multilíngue · seus dados ficam privados
+            Análise automática · seus dados ficam privados
           </span>
           <Button
             onClick={analyze}
