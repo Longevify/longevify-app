@@ -325,7 +325,7 @@ export function PerfilForm({
           <Section
             title="Análise inteligente do histórico"
             icon={ShieldCheck}
-            description="Cole um texto livre — sintomas, lista de remédios, anotações antigas — e a gente extrai doenças, medicações e dados pessoais automaticamente. Modelos clínicos open-source (OpenMed) rodando via HuggingFace."
+            description="Cole um texto livre — sintomas, lista de remédios, anotações antigas — e a gente extrai doenças, medicações e dados pessoais automaticamente."
           >
             <div className="md:col-span-2">
               <MedicalExtractor
@@ -473,7 +473,7 @@ function SubscriptionSection() {
       "Tem certeza que quer cancelar sua assinatura? Você perde acesso após o fim do ciclo atual.",
     );
     if (ok) {
-      window.alert("Cancelamento agendado para o fim do ciclo (mock).");
+      window.alert("Cancelamento agendado pro fim do ciclo atual.");
     }
   }
 

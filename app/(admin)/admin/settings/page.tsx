@@ -8,7 +8,7 @@ export default function SettingsStubPage() {
   function handleReset() {
     if (
       !window.confirm(
-        "Resetar storage admin? Os pacientes e exames lançados localmente serão substituídos pelos dados de seed.",
+        "Restaurar dados iniciais? Os pacientes e exames cadastrados durante o teste serão substituídos pelos dados de exemplo originais.",
       )
     )
       return;
@@ -34,23 +34,23 @@ export default function SettingsStubPage() {
         <span className="grid h-12 w-12 place-items-center rounded-full bg-brand-100 text-brand-700">
           <SettingsIcon className="h-5 w-5" />
         </span>
-        <h2 className="text-[16px] font-semibold">Em breve — Wave 2</h2>
+        <h2 className="text-[16px] font-semibold">Em breve</h2>
         <p className="max-w-md text-[13px] text-muted">
-          Preferências da clínica, equipe e integração com Supabase chegam na
-          próxima wave.
+          Preferências da clínica, gestão de equipe e integrações vão aparecer
+          aqui na próxima atualização.
         </p>
       </div>
 
       <div className="rounded-[16px] border border-border bg-surface p-5">
         <h2 className="text-[13px] font-semibold uppercase tracking-wider text-muted">
-          Dev & QA
+          Manutenção
         </h2>
         <p className="mt-2 text-[13px] text-muted">
-          O painel usa localStorage como adapter na Wave 1. Você pode resetar o
-          estado local para os dados de seed.
+          Use este botão pra restaurar o painel ao estado inicial caso algo
+          fique com problema visual ou os dados de demonstração precisem voltar.
         </p>
         <Button variant="outline" className="mt-4 gap-2" onClick={handleReset}>
-          <RefreshCw className="h-4 w-4" /> Resetar storage
+          <RefreshCw className="h-4 w-4" /> Restaurar dados iniciais
         </Button>
       </div>
     </div>
