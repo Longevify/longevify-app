@@ -5,6 +5,15 @@ import { Footer } from "@/components/app/footer";
 import { UserProvider } from "@/lib/auth/user-context";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
+// Todas as rotas autenticadas precisam render fresh a cada request.
+// Sem isso, o Vercel/Next pode servir HTML em cache que parece "logado"
+// mesmo após a sessão Supabase expirar — o user vê /home renderizada
+// mas, ao clicar num link tipo /perfil, o proxy roda fresh, não acha
+// sessão válida e manda pra /login. Resultado: "ele me pede pra logar
+// duas vezes". force-dynamic + revalidate=0 quebram esse cache.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 /**
  * Rotas que NÃO devem forçar onboarding mesmo se intake estiver pendente.
  * /onboarding (óbvio), logout (sair), perfil (visualizar dados).
