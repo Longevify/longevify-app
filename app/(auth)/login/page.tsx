@@ -1,10 +1,17 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { LoginForm } from "./login-form";
 
 export const metadata = {
   title: "Entrar — Longevify",
 };
+
+// Sem cache — precisamos checar auth fresh em cada hit pra evitar
+// flash de /login pra users já autenticados.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 // Mensagens amigáveis pra erros de auth comuns que vêm do callback
 const ERROR_MESSAGES: Record<string, string> = {
@@ -30,6 +37,18 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
   const demo = !isSupabaseConfigured();
+
+  // Se o user já está autenticado, manda direto pra rota destino.
+  // Resolve o "loga 2 vezes" causado quando o proxy bounceia user
+  // já válido pra /login (race no refresh de cookies). Se não vier
+  // explicit ?error=, e o user JÁ tem sessão, segue direto.
+  if (!demo && !params.error) {
+    const user = await getCurrentUser();
+    if (!user.isDemo) {
+      redirect(params.next ?? "/home");
+    }
+  }
+
   // Prefere mensagem mapeada; se vier um error_description do Supabase
   // (mais específico), mostra ele em paralelo pra ajudar debug.
   const baseMsg = params.error
