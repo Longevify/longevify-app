@@ -1,14 +1,36 @@
 import Link from "next/link";
-import { Check, Sparkles } from "lucide-react";
+import { Check, CheckCircle2, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { PLANS, type Plan } from "@/lib/billing/plans";
+import { PLANS } from "@/lib/billing/plans";
 import { formatBRL } from "@/lib/products";
 import { cn } from "@/lib/utils";
+import { getCurrentUser } from "@/lib/auth/current-user";
 
 type PlanWithMonthly = (typeof PLANS)[number];
 
-export default function PlanosPage() {
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+/**
+ * Identifica qual plano o user tá pagando atualmente.
+ *
+ * TODO (Wave 4): trocar pela leitura real de subscriptions Stripe quando
+ * o webhook de billing começar a popular uma tabela `subscriptions`.
+ * Por ora, fallback heurístico: usuários ativos têm o plano `highlight`
+ * (Premium). Demo/não-logado: nenhum plano marcado como atual.
+ */
+async function getCurrentPlanId(): Promise<string | null> {
+  const user = await getCurrentUser();
+  if (user.isDemo) return null;
+  // Heurística temporária: assume Premium pra qualquer user real.
+  const fallback = PLANS.find((p) => p.highlight) ?? PLANS[0];
+  return fallback.id;
+}
+
+export default async function PlanosPage() {
+  const currentPlanId = await getCurrentPlanId();
+
   return (
     <div className="mx-auto w-full max-w-[1280px] px-6 py-10">
       <header className="pb-8">
@@ -17,23 +39,26 @@ export default function PlanosPage() {
           Planos Longevify
         </h1>
         <p className="mt-3 max-w-2xl text-[15px] text-muted">
-          Escolha como quer cuidar da sua saúde. Todos os planos são anuais e
-          incluem coleta de sangue, plataforma e Concierge IA.
+          Cobrança mensal — você pode cancelar a qualquer momento. Todos os
+          planos incluem coleta de sangue, plataforma e Concierge IA.
         </p>
       </header>
 
-      <div className="mb-8 inline-flex items-center gap-1 rounded-full border border-border bg-white p-1">
-        <span className="rounded-full bg-brand-900 px-4 py-1.5 text-[13px] font-medium text-white">
-          Anual
-        </span>
-        <span className="px-4 py-1.5 text-[13px] font-medium text-muted/70">
-          Mensal — em breve
-        </span>
-      </div>
+      {currentPlanId ? (
+        <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50/60 px-3 py-1.5 text-[13px] font-medium text-brand-800">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          Plano atual:{" "}
+          {PLANS.find((p) => p.id === currentPlanId)?.name ?? "—"}
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         {PLANS.map((plan) => (
-          <PlanCard key={plan.id} plan={plan} />
+          <PlanCard
+            key={plan.id}
+            plan={plan}
+            isCurrent={plan.id === currentPlanId}
+          />
         ))}
       </div>
 
@@ -48,15 +73,15 @@ export default function PlanosPage() {
           />
           <FAQ
             question="Posso cancelar a qualquer momento?"
-            answer="Sim. O cancelamento pode ser feito direto na plataforma. Se cancelar antes do uso da segunda coleta, devolvemos a parte proporcional do valor pago."
+            answer="Sim. O cancelamento pode ser feito direto na plataforma — a cobrança mensal para no fim do ciclo atual e você mantém acesso até lá."
           />
           <FAQ
             question="Quais formas de pagamento?"
-            answer="Cartão de crédito em até 12x sem juros, Pix à vista com 5% de desconto ou boleto à vista. O processamento é feito via Stripe."
+            answer="Cartão de crédito (cobrança mensal recorrente), Pix mensal ou boleto mensal."
           />
           <FAQ
             question="Posso trocar de plano depois?"
-            answer="Pode. O upgrade é cobrado prorata e o downgrade entra em vigor no próximo ciclo de renovação."
+            answer="Pode. O upgrade é cobrado prorata e o downgrade entra em vigor no próximo ciclo de cobrança."
           />
         </div>
       </section>
@@ -64,19 +89,38 @@ export default function PlanosPage() {
   );
 }
 
-function PlanCard({ plan }: { plan: PlanWithMonthly }) {
-  const monthlyDisplay = plan.monthly?.monthlyDisplayBRL ?? Math.round(plan.priceBRL / 12);
-  const strike = plan.monthly?.strikePriceBRL;
+function PlanCard({
+  plan,
+  isCurrent,
+}: {
+  plan: PlanWithMonthly;
+  isCurrent: boolean;
+}) {
+  // Preço mensal de exibição. Prioriza o monthlyDisplayBRL curado;
+  // senão deriva de priceBRL/12 como fallback.
+  const monthlyPrice =
+    plan.monthly?.monthlyDisplayBRL ?? Math.round(plan.priceBRL / 12);
+  const strike = plan.monthly?.strikePriceBRL
+    ? Math.round(plan.monthly.strikePriceBRL / 12)
+    : null;
+
   return (
     <Card
       className={cn(
         "relative flex flex-col gap-4 p-5",
-        plan.highlight
-          ? "border-brand-500 bg-white shadow-[0_24px_60px_-32px_rgba(13,40,24,.32)] ring-1 ring-brand-500"
-          : "bg-white",
+        isCurrent
+          ? "border-brand-700 bg-brand-50/40 ring-2 ring-brand-700"
+          : plan.highlight
+            ? "border-brand-500 bg-white shadow-[0_24px_60px_-32px_rgba(13,40,24,.32)] ring-1 ring-brand-500"
+            : "bg-white",
       )}
     >
-      {plan.badge ? (
+      {isCurrent ? (
+        <span className="absolute -top-3 left-5 inline-flex items-center gap-1 rounded-full bg-brand-700 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white">
+          <CheckCircle2 className="h-3 w-3" />
+          Plano atual
+        </span>
+      ) : plan.badge ? (
         <span
           className={cn(
             "absolute -top-3 left-5 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em]",
@@ -97,19 +141,18 @@ function PlanCard({ plan }: { plan: PlanWithMonthly }) {
 
       <div className="flex flex-col gap-1 border-y border-border py-4">
         <div className="flex items-baseline gap-1.5">
+          {strike ? (
+            <span className="text-[14px] text-muted/70 line-through">
+              {formatBRL(strike)}
+            </span>
+          ) : null}
           <span className="text-[30px] font-semibold tabular-nums leading-none">
-            {formatBRL(monthlyDisplay)}
+            {formatBRL(monthlyPrice)}
           </span>
           <span className="text-[12px] text-muted">/mês</span>
         </div>
         <span className="text-[11.5px] text-muted">
-          Cobrado anualmente por {formatBRL(plan.priceBRL)}
-          {strike ? (
-            <>
-              {" "}
-              <span className="text-muted/70 line-through">{formatBRL(strike)}</span>
-            </>
-          ) : null}
+          Cobrança mensal · cancele quando quiser
         </span>
       </div>
 
@@ -122,9 +165,11 @@ function PlanCard({ plan }: { plan: PlanWithMonthly }) {
             <span
               className={cn(
                 "mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full",
-                plan.highlight
-                  ? "bg-brand-500 text-white"
-                  : "bg-brand-100 text-brand-700",
+                isCurrent
+                  ? "bg-brand-700 text-white"
+                  : plan.highlight
+                    ? "bg-brand-500 text-white"
+                    : "bg-brand-100 text-brand-700",
               )}
             >
               <Check className="h-2.5 w-2.5" strokeWidth={3} />
@@ -134,15 +179,22 @@ function PlanCard({ plan }: { plan: PlanWithMonthly }) {
         ))}
       </ul>
 
-      <Link href={`/planos/${plan.id}`} className="mt-auto">
-        <Button
-          variant={plan.highlight ? "primary" : "outline"}
-          size="md"
-          className="w-full"
-        >
-          {plan.cta}
+      {isCurrent ? (
+        <Button variant="outline" size="md" className="mt-auto w-full" disabled>
+          <CheckCircle2 className="h-4 w-4" />
+          Seu plano ativo
         </Button>
-      </Link>
+      ) : (
+        <Link href={`/planos/${plan.id}`} className="mt-auto">
+          <Button
+            variant={plan.highlight ? "primary" : "outline"}
+            size="md"
+            className="w-full"
+          >
+            {plan.cta}
+          </Button>
+        </Link>
+      )}
     </Card>
   );
 }
@@ -155,3 +207,4 @@ function FAQ({ question, answer }: { question: string; answer: string }) {
     </Card>
   );
 }
+

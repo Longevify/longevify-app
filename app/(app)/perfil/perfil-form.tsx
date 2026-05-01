@@ -139,7 +139,7 @@ export function PerfilForm({
             </div>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 h-6 text-[11px] font-medium text-brand-700">
               <ShieldCheck className="h-3 w-3" />
-              Plano Anual ativo
+              Plano ativo
             </span>
             <Button variant="outline" size="sm" className="mt-2">
               Trocar foto
@@ -497,14 +497,14 @@ function SubscriptionSection() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <SubRow
           label="Plano atual"
-          value={`Plano ${currentPlan.name} Anual`}
+          value={`Plano ${currentPlan.name}`}
           highlight
         />
-        <SubRow label="Renovação" value="12 de mar de 2027" />
+        <SubRow label="Próxima cobrança" value="dia 12 de cada mês" />
         <SubRow label="Forma de pagamento" value="Cartão Visa final 4242" />
         <SubRow
-          label="Próxima cobrança"
-          value={`${formatBRL(currentPlan.priceBRL)} / ano`}
+          label="Valor mensal"
+          value={`${formatBRL(currentPlan.monthly?.monthlyDisplayBRL ?? Math.round(currentPlan.priceBRL / 12))} / mês`}
         />
       </div>
 
