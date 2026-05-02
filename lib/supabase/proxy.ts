@@ -33,9 +33,16 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
+  // Usa getSession() em vez de getUser(): só lê o JWT do cookie, sem
+  // rebater na auth API e sem disparar refresh. Crítico pra evitar
+  // race com chamadas paralelas de getUser nas páginas (RSC fetches
+  // simultâneos rotacionam refresh tokens em paralelo, um deles falha
+  // e clear da sessão).
+  // Trade-off: tokens não refrescam aqui — o cliente browser fica
+  // responsável por isso (createBrowserClient auto-refresca em background).
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  return { response, user, demo: false };
+  return { response, user: session?.user ?? null, demo: false };
 }
