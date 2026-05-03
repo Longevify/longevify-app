@@ -1,43 +1,49 @@
 import { NextResponse } from "next/server";
-import { getServerClient } from "@/lib/supabase/server";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+import { SUPABASE_URL, SUPABASE_ANON_KEY, isSupabaseConfigured } from "@/lib/supabase/env";
+import { getUserIdFromCookie } from "@/lib/auth/jwt";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 /**
- * Endpoint usado pelo client pra "se auto-curar" quando o SSR renderiza
- * em modo demo mas o user TEM sessão válida (race no proxy/middleware).
+ * Retorna o perfil do user logado pra hidratar o /perfil client-side
+ * quando o SSR não conseguir.
  *
- * Retorna o perfil completo do user logado em camelCase, pronto pra
- * preencher o form do /perfil. 401 se não autenticado de verdade.
+ * Estratégia ZERO-AUTH-SUPABASE: lê o user_id direto do cookie de auth
+ * (decodifica JWT sem chamar supabase.auth.*). Evita refresh + race
+ * condition que estava clearando cookies em produção.
  */
 export async function GET() {
-  const supabase = await getServerClient();
-  if (!supabase) {
+  if (!isSupabaseConfigured()) {
     return NextResponse.json(
       { ok: false, error: "supabase-not-configured" },
       { status: 503, headers: { "Cache-Control": "no-store" } },
     );
   }
 
-  // SÓ getSession — getUser dispara hit na auth API que pode rotacionar
-  // tokens em race e clearar cookies. Se cookie não tem session válida,
-  // retornamos 401 sem tentar refresh (cliente pode re-logar se precisar).
-  let userId: string | null = null;
-  let userEmail: string | null = null;
-
-  const { data: sessionData } = await supabase.auth.getSession();
-  if (sessionData.session?.user) {
-    userId = sessionData.session.user.id;
-    userEmail = sessionData.session.user.email ?? null;
-  }
-
+  const { userId, email } = await getUserIdFromCookie();
   if (!userId) {
     return NextResponse.json(
-      { ok: false, error: "not-authenticated" },
+      { ok: false, error: "no-session-cookie" },
       { status: 401, headers: { "Cache-Control": "no-store" } },
     );
   }
+
+  // Cria supabase client SEM tocar em auth — só pra fazer query.
+  // RLS valida o JWT da request via cookies.
+  const cookieStore = await cookies();
+  const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll() {
+        // no-op — não queremos que supabase escreva cookies aqui
+      },
+    },
+  });
 
   const { data: profile, error } = await supabase
     .from("profiles")
@@ -49,7 +55,7 @@ export async function GET() {
 
   if (error) {
     return NextResponse.json(
-      { ok: false, error: error.message },
+      { ok: false, error: error.message, debug: { userId, hasEmail: !!email } },
       { status: 500, headers: { "Cache-Control": "no-store" } },
     );
   }
@@ -60,7 +66,7 @@ export async function GET() {
       profile: {
         firstName: profile?.first_name ?? "",
         lastName: profile?.last_name ?? "",
-        email: userEmail ?? "",
+        email: email ?? "",
         phone: profile?.phone ?? "",
         chronologicalAge: profile?.chronological_age ?? 0,
         cpf: profile?.cpf ?? "",
