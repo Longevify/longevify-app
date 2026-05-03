@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import { SUPABASE_URL, SUPABASE_ANON_KEY, isSupabaseConfigured } from "@/lib/supabase/env";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { getUserIdFromCookie } from "@/lib/auth/jwt";
+import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -23,7 +22,7 @@ export async function GET() {
     );
   }
 
-  const { userId, email } = await getUserIdFromCookie();
+  const { userId, email, accessToken } = await getUserIdFromCookie();
   if (!userId) {
     return NextResponse.json(
       { ok: false, error: "no-session-cookie" },
@@ -31,19 +30,10 @@ export async function GET() {
     );
   }
 
-  // Cria supabase client SEM tocar em auth — só pra fazer query.
-  // RLS valida o JWT da request via cookies.
-  const cookieStore = await cookies();
-  const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll();
-      },
-      setAll() {
-        // no-op — não queremos que supabase escreva cookies aqui
-      },
-    },
-  });
+  // Cliente Supabase com JWT explícito no header Authorization.
+  // RLS valida assinatura no Postgres e usa auth.uid() = id pra liberar
+  // a row do profile do user.
+  const supabase = await createSupabaseWithJwt(accessToken);
 
   const { data: profile, error } = await supabase
     .from("profiles")

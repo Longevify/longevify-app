@@ -1,9 +1,8 @@
 import "server-only";
 import { cache } from "react";
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
-import { SUPABASE_URL, SUPABASE_ANON_KEY, isSupabaseConfigured } from "@/lib/supabase/env";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { getUserIdFromCookie } from "./jwt";
+import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
 import { PATIENT } from "@/lib/mock-data";
 
 export interface CurrentUser {
@@ -63,26 +62,19 @@ export const getCurrentUser = cache(_getCurrentUser);
 async function _getCurrentUser(): Promise<CurrentUser> {
   if (!isSupabaseConfigured()) return DEMO_USER;
 
-  // ZERO-AUTH-SUPABASE: extrai user_id do JWT do cookie sem chamar
-  // supabase.auth.* — evita refresh + race que clear cookies.
-  const { userId, email } = await getUserIdFromCookie();
+  // ZERO-AUTH-SUPABASE: extrai user_id + access_token do JWT do cookie
+  // sem chamar supabase.auth.* — evita refresh + race que clear cookies.
+  const { userId, email, accessToken } = await getUserIdFromCookie();
   if (!userId) return DEMO_USER;
 
   const userEmail = email;
   const userMetadata: Record<string, unknown> = {};
 
-  // Cliente Supabase só pra query — RLS valida JWT no DB level.
-  const cookieStore = await cookies();
-  const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll();
-      },
-      setAll() {
-        /* no-op — não escrever cookies aqui */
-      },
-    },
-  });
+  // Cliente com JWT explícito no header Authorization. Sem isso a query
+  // sai sem auth e RLS bloqueia silenciosamente — o profile real volta
+  // null e o user vira "demo" pro layout, com nome do email e
+  // intakeCompletedAt=null (loop pra /onboarding).
+  const supabase = await createSupabaseWithJwt(accessToken);
 
   // Busca dados extras do profile. Os campos `birth_date` e `intake_completed_at`
   // existem após a migração 0002 — fazemos defensive read pra não quebrar caso

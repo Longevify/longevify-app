@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/supabase/env";
 import { getUserIdFromCookie } from "@/lib/auth/jwt";
+import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -29,20 +28,13 @@ export async function GET() {
 
   const jwtResult = await getUserIdFromCookie();
 
-  // Roda a mesma query que /perfil/page.tsx faz pra ver se retorna data
+  // Roda a mesma query que /perfil/page.tsx faz pra ver se retorna data.
+  // AGORA com JWT explícito no header Authorization — sem isso o RLS
+  // bloqueia silenciosamente.
   let profileQueryResult: Record<string, unknown> = { skipped: "no userId" };
   if (jwtResult.userId) {
     try {
-      const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll();
-          },
-          setAll() {
-            /* no-op */
-          },
-        },
-      });
+      const supabase = await createSupabaseWithJwt(jwtResult.accessToken);
       const { data, error, status, statusText } = await supabase
         .from("profiles")
         .select("first_name, last_name, height_cm, weight_kg, intake_completed_at")
@@ -56,6 +48,7 @@ export async function GET() {
           : null,
         httpStatus: status,
         httpStatusText: statusText,
+        usedJwt: !!jwtResult.accessToken,
       };
     } catch (e) {
       profileQueryResult = {

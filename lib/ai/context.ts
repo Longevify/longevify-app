@@ -1,7 +1,6 @@
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
-import { SUPABASE_URL, SUPABASE_ANON_KEY, isSupabaseConfigured } from "@/lib/supabase/env";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { getUserIdFromCookie } from "@/lib/auth/jwt";
+import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
 import { PATIENT, BIOMARKERS, type Biomarker, type Patient } from "@/lib/mock-data";
 import { loadDadosForUser } from "@/lib/dados/server";
 
@@ -48,23 +47,15 @@ export async function loadConciergeContext(): Promise<{
     return { patient: PATIENT, biomarkers: BIOMARKERS, extras: EMPTY };
   }
 
-  // ZERO-AUTH-SUPABASE: extrai user_id direto do JWT do cookie
-  const { userId } = await getUserIdFromCookie();
+  // ZERO-AUTH-SUPABASE: extrai user_id + access_token direto do JWT do cookie
+  const { userId, accessToken } = await getUserIdFromCookie();
   if (!userId) {
     return { patient: PATIENT, biomarkers: BIOMARKERS, extras: EMPTY };
   }
 
-  const cookieStore = await cookies();
-  const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll();
-      },
-      setAll() {
-        /* no-op */
-      },
-    },
-  });
+  // Cliente com JWT explícito — sem isso queries vão sem Authorization
+  // header e RLS bloqueia tudo silenciosamente (gotData=false).
+  const supabase = await createSupabaseWithJwt(accessToken);
 
   const [profileRes, intakeRes, labsRes, dailyRes, dadosResolved] =
     await Promise.all([
