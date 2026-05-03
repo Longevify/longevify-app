@@ -5,19 +5,26 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./env";
 
 /**
  * Cria um Supabase server client cravando o access_token JWT como header
- * `Authorization: Bearer ...` global.
+ * `Authorization: Bearer ...` global, e DESLIGANDO o auto-refresh de
+ * sessão.
  *
- * Por que: o `createServerClient` do `@supabase/ssr` lê cookies e expõe
- * `auth.getSession()`, mas quando você só faz query (`.from().select()`)
- * sem chamar `auth.*` antes, ele NÃO injeta automaticamente o JWT no
- * header da request. Resultado: PostgREST recebe só a anon key, o RLS
- * vê `auth.uid() IS NULL`, e a query devolve zero linhas (sem erro,
- * porque RLS é silencioso).
+ * Por que: o `createServerClient` do `@supabase/ssr`, ao executar
+ * queries, periodicamente tenta refrescar o access_token usando o
+ * refresh_token. O auth server do Supabase consome o refresh_token
+ * antigo (one-time-use). Se a gente não persiste o novo via setAll
+ * (pages não podem escrever cookies de modo confiável), o próximo
+ * refresh falha e o supabase **CLEAR os cookies de auth** —
+ * efetivamente deslogando o user no meio da navegação.
  *
- * Esse helper força o cabeçalho — assim toda query carrega o JWT do
- * user e o RLS bate `auth.uid() = id` corretamente. setAll é no-op
- * porque não queremos escrever cookies aqui (evita race com outros
- * caminhos de auth).
+ * SOLUÇÃO: já temos o access_token válido na mão (extraído do
+ * cookie via getUserIdFromCookie). Cravamos como Bearer header e
+ * dizemos pro client `autoRefreshToken: false` + `persistSession:
+ * false`. O client vira um wrapper REST puro de PostgREST com
+ * identidade do user — zero gerenciamento de sessão.
+ *
+ * Refresh continua funcionando do lado do BROWSER via
+ * createBrowserClient (que tem locking interno pra evitar race) e
+ * via supabase.auth.signInWithPassword no fluxo de login.
  */
 export async function createSupabaseWithJwt(accessToken: string | null) {
   const cookieStore = await cookies();
@@ -31,11 +38,22 @@ export async function createSupabaseWithJwt(accessToken: string | null) {
         return cookieStore.getAll();
       },
       setAll() {
-        /* no-op — não escrevemos cookies aqui */
+        /* no-op — autoRefreshToken=false garante que setAll nunca é
+         * chamado em paths normais, mas mantemos no-op por segurança */
       },
     },
     global: {
       headers,
+    },
+    auth: {
+      // CRÍTICO: sem isso, o client tenta refresh proativo nas queries,
+      // consome o refresh_token, falha em persistir, e na próxima
+      // tentativa CLEAR os cookies (= logout silencioso do user).
+      autoRefreshToken: false,
+      persistSession: false,
+      // detectSessionInUrl: false porque estamos em server-side (não
+      // tem URL hash) e a gente não quer que ele tente parsear nada.
+      detectSessionInUrl: false,
     },
   });
 }
