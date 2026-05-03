@@ -93,8 +93,33 @@ export async function loadConciergeContext(): Promise<{
   const wearablesSummary = formatWearables(dailyRes.data ?? []);
   const preferredName = extractPreferredName(intakeRes.data);
 
+  // Sobrescreve nome/idade do PATIENT mock pelos dados REAIS do profile
+  // do user (se existirem). Sem isso, quando user não tem exames seedados
+  // em `exams`, dadosResolved.patient cai no MOCK_PATIENT (= "João Silva")
+  // e o Concierge cumprimentaria com nome errado.
+  const profile = profileRes.data as
+    | {
+        first_name?: string | null;
+        last_name?: string | null;
+        chronological_age?: number | null;
+      }
+    | null;
+  const realFirstName = profile?.first_name?.trim() || null;
+  const realLastName = profile?.last_name?.trim() || null;
+  const realAge =
+    typeof profile?.chronological_age === "number"
+      ? profile.chronological_age
+      : null;
+
+  const patient: Patient = {
+    ...dadosResolved.patient,
+    firstName: realFirstName ?? dadosResolved.patient.firstName,
+    lastName: realLastName ?? dadosResolved.patient.lastName,
+    chronologicalAge: realAge ?? dadosResolved.patient.chronologicalAge,
+  };
+
   return {
-    patient: dadosResolved.patient,
+    patient,
     biomarkers: dadosResolved.biomarkers.length
       ? dadosResolved.biomarkers
       : BIOMARKERS,
