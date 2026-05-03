@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { recordToForm, type ProfileRecord } from "@/lib/profile/server";
 import { getServerClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { PerfilForm } from "./perfil-form";
 
 // Sem cache de página: força re-render server-side a cada request, garantindo
@@ -11,17 +12,27 @@ export const revalidate = 0;
 export default async function PerfilPage() {
   const user = await getCurrentUser();
 
-  // Demo: pré-preenche com PATIENT mock + retorna sem hit no Supabase
+  // Demo handling depende se Supabase tá configurado:
+  //  - SE NÃO está (dev sem env vars): mostra PATIENT mock pra UI fazer
+  //    sentido sem backend.
+  //  - SE ESTÁ mas o user caiu em demo (race no SSR — sessão não lida):
+  //    passa form vazio e deixa o self-heal client-side buscar
+  //    /api/me/profile e preencher com dados reais. Garante que "João
+  //    Silva" não vaza pra users reais nem por 1 frame.
   if (user.isDemo) {
-    return (
-      <PerfilForm
-        initial={{
+    const realDemoMode = !isSupabaseConfigured();
+    const initial = realDemoMode
+      ? {
           ...recordToForm(null, user.email ?? "joao.silva@longevify.co"),
           firstName: user.firstName,
           lastName: user.lastName,
           email: user.email ?? "joao.silva@longevify.co",
           chronologicalAge: user.chronologicalAge ?? 0,
-        }}
+        }
+      : recordToForm(null, ""); // self-heal vai preencher
+    return (
+      <PerfilForm
+        initial={initial}
         isDemo={true}
         longevifyScore={null}
         biologicalAge={null}
