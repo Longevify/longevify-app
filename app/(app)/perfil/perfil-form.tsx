@@ -30,7 +30,6 @@ import {
 } from "@/lib/profile/storage";
 import type { ProfileFormShape } from "@/lib/profile/server";
 import { saveProfile as saveProfileAction } from "./actions";
-import { getBrowserClient } from "@/lib/supabase/browser";
 
 interface PerfilFormProps {
   initial: ProfileFormShape;
@@ -81,26 +80,20 @@ export function PerfilForm({
     );
   }, []);
 
-  // SELF-HEAL: se o SSR renderizou como isDemo=true (race no proxy ou
-  // refresh de cookie falhou no server), mas o cliente browser TEM
-  // sessão válida, busca o perfil real via /api/me/profile e atualiza
-  // o form. Garante que "logo errado" no server vira "perfil real" no
-  // client sem o user precisar refrescar manual.
+  // SELF-HEAL: se o SSR renderizou isDemo=true, tenta buscar o perfil
+  // via /api/me/profile. Cookies de auth são HTTP-only — browser JS
+  // não consegue ver a sessão direto, mas a API endpoint roda
+  // server-side e CONSEGUE ler. Se o user tem sessão válida, a API
+  // retorna o profile; senão 401 e a gente respeita o demo mesmo.
   useEffect(() => {
     if (!isDemo) return; // server já entregou perfil real, nada a fazer
-
-    const supabase = getBrowserClient();
-    if (!supabase) return; // demo mode real (sem Supabase config)
+    if (typeof window === "undefined") return;
 
     let cancelled = false;
     (async () => {
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData.session?.user) return; // não tem sessão de verdade
-      if (cancelled) return;
-
       try {
         const res = await fetch("/api/me/profile", { cache: "no-store" });
-        if (!res.ok) return;
+        if (!res.ok) return; // 401 = real demo (sem sessão server-side)
         const json = (await res.json()) as {
           ok: boolean;
           profile?: ProfileFormShape;
@@ -109,7 +102,7 @@ export function PerfilForm({
         setData((current) => mergeNonEmpty(current, json.profile!));
         setEffectiveIsDemo(false);
       } catch {
-        /* silently ignore — server-side render já cobre o caso normal */
+        /* silently ignore */
       }
     })();
 
