@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { getUserIdFromCookie } from "@/lib/auth/jwt";
 import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
@@ -7,10 +7,34 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 /**
- * Endpoint público de debug — mostra o que o servidor vê dos cookies de
- * auth. Não expõe valores de tokens, só nomes + booleans + user_id.
+ * Endpoint de debug — mostra o que o servidor vê dos cookies de auth +
+ * roda a mesma query que /perfil/page.tsx faz. Útil pra diagnosticar
+ * problemas de sessão/RLS.
+ *
+ * HARDENING:
+ * - NUNCA retorna o `accessToken` cru — só `accessTokenLength` e
+ *   `accessTokenPrefix` (primeiros 12 chars). Se alguém leakar o JSON,
+ *   o token continua privado.
+ * - Gate opcional via env `DEBUG_TOKEN`: se setado, requer
+ *   `?token=...` matching. Se não setado, endpoint roda livre
+ *   (assumindo que só é útil pra dev/staging).
+ *
+ * TODO: remover esse endpoint quando o bug de auth ficar estável e
+ * a gente não precisar mais investigar produção.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // Gate opcional — se DEBUG_TOKEN tá setado, exige match
+  const debugToken = process.env.DEBUG_TOKEN;
+  if (debugToken) {
+    const provided = req.nextUrl.searchParams.get("token");
+    if (provided !== debugToken) {
+      return NextResponse.json(
+        { ok: false, error: "forbidden" },
+        { status: 403, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+  }
+
   const cookieStore = await cookies();
   const all = cookieStore.getAll();
   const cookieNames = all.map((c) => c.name);
@@ -28,9 +52,19 @@ export async function GET() {
 
   const jwtResult = await getUserIdFromCookie();
 
+  // SAFE jwt projection — NUNCA inclui o token cru
+  const jwtSafe = {
+    userId: jwtResult.userId,
+    email: jwtResult.email,
+    expiresAt: jwtResult.expiresAt,
+    hasAccessToken: !!jwtResult.accessToken,
+    accessTokenLength: jwtResult.accessToken?.length ?? null,
+    accessTokenPrefix: jwtResult.accessToken?.slice(0, 12) ?? null,
+  };
+
   // Roda a mesma query que /perfil/page.tsx faz pra ver se retorna data.
-  // AGORA com JWT explícito no header Authorization — sem isso o RLS
-  // bloqueia silenciosamente.
+  // Com JWT explícito no header Authorization — sem isso o RLS bloqueia
+  // silenciosamente.
   let profileQueryResult: Record<string, unknown> = { skipped: "no userId" };
   if (jwtResult.userId) {
     try {
@@ -67,7 +101,7 @@ export async function GET() {
         supabase_auth_cookies: supabaseAuthCookies,
         supabase_auth_details: supabaseAuthCookieDetails,
       },
-      jwt: jwtResult,
+      jwt: jwtSafe,
       profileQuery: profileQueryResult,
     },
     { headers: { "Cache-Control": "no-store" } },
