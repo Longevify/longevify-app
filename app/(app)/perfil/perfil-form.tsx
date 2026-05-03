@@ -30,6 +30,7 @@ import {
 } from "@/lib/profile/storage";
 import type { ProfileFormShape } from "@/lib/profile/server";
 import { saveProfile as saveProfileAction } from "./actions";
+import { getBrowserClient } from "@/lib/supabase/browser";
 
 interface PerfilFormProps {
   initial: ProfileFormShape;
@@ -65,6 +66,7 @@ export function PerfilForm({
   latestExamDate,
 }: PerfilFormProps) {
   const [data, setData] = useState<ProfileFormShape>(initial);
+  const [effectiveIsDemo, setEffectiveIsDemo] = useState(isDemo);
   const [saved, setSaved] = useState<null | "ok" | "error">(null);
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [pending, startTransition] = useTransition();
@@ -79,6 +81,43 @@ export function PerfilForm({
     );
   }, []);
 
+  // SELF-HEAL: se o SSR renderizou como isDemo=true (race no proxy ou
+  // refresh de cookie falhou no server), mas o cliente browser TEM
+  // sessão válida, busca o perfil real via /api/me/profile e atualiza
+  // o form. Garante que "logo errado" no server vira "perfil real" no
+  // client sem o user precisar refrescar manual.
+  useEffect(() => {
+    if (!isDemo) return; // server já entregou perfil real, nada a fazer
+
+    const supabase = getBrowserClient();
+    if (!supabase) return; // demo mode real (sem Supabase config)
+
+    let cancelled = false;
+    (async () => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session?.user) return; // não tem sessão de verdade
+      if (cancelled) return;
+
+      try {
+        const res = await fetch("/api/me/profile", { cache: "no-store" });
+        if (!res.ok) return;
+        const json = (await res.json()) as {
+          ok: boolean;
+          profile?: ProfileFormShape;
+        };
+        if (cancelled || !json.ok || !json.profile) return;
+        setData((current) => mergeNonEmpty(current, json.profile!));
+        setEffectiveIsDemo(false);
+      } catch {
+        /* silently ignore — server-side render já cobre o caso normal */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isDemo]);
+
   function update<K extends keyof ProfileFormShape>(
     key: K,
     value: ProfileFormShape[K],
@@ -92,7 +131,7 @@ export function PerfilForm({
     // Persiste localmente (UX rápido + offline)
     saveProfileLocal(data);
 
-    if (isDemo) {
+    if (effectiveIsDemo) {
       setSaved("ok");
       window.setTimeout(() => setSaved(null), 2200);
       return;
@@ -150,7 +189,7 @@ export function PerfilForm({
             <h3 className="text-[13px] uppercase tracking-[0.14em] text-muted">
               Saúde recente
             </h3>
-            {isDemo ? (
+            {effectiveIsDemo ? (
               <>
                 <Row label="Longevify Score" value={`${PATIENT.longevifyScore}`} />
                 <Row
