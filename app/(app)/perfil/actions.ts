@@ -23,8 +23,9 @@ export async function saveProfile(
     return { ok: false, error: "Supabase indisponível (modo demo)." };
   }
 
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth?.user) {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const auth = { user: sessionData?.session?.user ?? null };
+  if (!auth.user) {
     return { ok: false, error: "Você precisa estar logado." };
   }
 

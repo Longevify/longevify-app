@@ -20,7 +20,9 @@ export async function GET() {
     );
   }
 
-  // Tenta getSession primeiro (não dispara refresh, sem race)
+  // SÓ getSession — getUser dispara hit na auth API que pode rotacionar
+  // tokens em race e clearar cookies. Se cookie não tem session válida,
+  // retornamos 401 sem tentar refresh (cliente pode re-logar se precisar).
   let userId: string | null = null;
   let userEmail: string | null = null;
 
@@ -28,13 +30,6 @@ export async function GET() {
   if (sessionData.session?.user) {
     userId = sessionData.session.user.id;
     userEmail = sessionData.session.user.email ?? null;
-  } else {
-    // Fallback pro getUser que pode refrescar
-    const { data: userData } = await supabase.auth.getUser();
-    if (userData?.user) {
-      userId = userData.user.id;
-      userEmail = userData.user.email ?? null;
-    }
   }
 
   if (!userId) {

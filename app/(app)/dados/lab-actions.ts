@@ -42,8 +42,8 @@ export async function uploadLabFile(
     return { ok: false, error: "Supabase indisponível (modo demo)." };
   }
 
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth?.user) return { ok: false, error: "Não autenticado." };
+  const { data: __sd } = await supabase.auth.getSession(); const auth = { user: __sd?.session?.user ?? null };
+  if (!auth.user) return { ok: false, error: "Não autenticado." };
 
   const file = formData.get("file");
   if (!(file instanceof File)) {
@@ -125,8 +125,8 @@ export async function deleteLabUpload(id: string): Promise<ActionResult> {
   const supabase = await getServerClient();
   if (!supabase) return { ok: false, error: "Supabase indisponível." };
 
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth?.user) return { ok: false, error: "Não autenticado." };
+  const { data: __sd } = await supabase.auth.getSession(); const auth = { user: __sd?.session?.user ?? null };
+  if (!auth.user) return { ok: false, error: "Não autenticado." };
 
   const { data: row } = await supabase
     .from("lab_uploads")
@@ -197,8 +197,8 @@ export async function getLabUploadSignedUrl(
   const supabase = await getServerClient();
   if (!supabase) return { ok: false, error: "Supabase indisponível." };
 
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth?.user) return { ok: false, error: "Não autenticado." };
+  const { data: __sd } = await supabase.auth.getSession(); const auth = { user: __sd?.session?.user ?? null };
+  if (!auth.user) return { ok: false, error: "Não autenticado." };
 
   const { data: row } = await supabase
     .from("lab_uploads")

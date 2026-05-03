@@ -61,28 +61,20 @@ async function _getCurrentUser(): Promise<CurrentUser> {
   const supabase = await getServerClient();
   if (!supabase) return DEMO_USER;
 
-  // Tentamos getSession() primeiro — não dispara refresh nem hit na auth API,
-  // então não compete com refreshes paralelos da middleware. Se não tiver
-  // sessão válida no cookie, caímos no getUser() (que pode refrescar).
+  // SÓ getSession — getUser dispara hit na auth API e PODE rotacionar
+  // tokens em race com outras chamadas paralelas, clearando cookies de
+  // sessão. Se cookie não tem session válida, é DEMO_USER mesmo.
   let userId: string | undefined;
   let userEmail: string | null = null;
   let userMetadata: Record<string, unknown> = {};
 
   const { data: sessionData } = await supabase.auth.getSession();
   const sessionUser = sessionData.session?.user;
-  if (sessionUser) {
-    userId = sessionUser.id;
-    userEmail = sessionUser.email ?? null;
-    userMetadata = (sessionUser.user_metadata ?? {}) as Record<string, unknown>;
-  } else {
-    // Fallback: tenta getUser (pode refrescar token). Se ainda assim não
-    // tiver user, é DEMO_USER mesmo.
-    const { data: auth } = await supabase.auth.getUser();
-    if (!auth?.user) return DEMO_USER;
-    userId = auth.user.id;
-    userEmail = auth.user.email ?? null;
-    userMetadata = (auth.user.user_metadata ?? {}) as Record<string, unknown>;
-  }
+  if (!sessionUser) return DEMO_USER;
+
+  userId = sessionUser.id;
+  userEmail = sessionUser.email ?? null;
+  userMetadata = (sessionUser.user_metadata ?? {}) as Record<string, unknown>;
 
   // Busca dados extras do profile. Os campos `birth_date` e `intake_completed_at`
   // existem após a migração 0002 — fazemos defensive read pra não quebrar caso

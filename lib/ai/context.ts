@@ -46,12 +46,13 @@ export async function loadConciergeContext(): Promise<{
     return { patient: PATIENT, biomarkers: BIOMARKERS, extras: EMPTY };
   }
 
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth?.user) {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const sessionUser = sessionData?.session?.user;
+  if (!sessionUser) {
     return { patient: PATIENT, biomarkers: BIOMARKERS, extras: EMPTY };
   }
 
-  const userId = auth.user.id;
+  const userId = sessionUser.id;
 
   const [profileRes, intakeRes, labsRes, dailyRes, dadosResolved] =
     await Promise.all([
