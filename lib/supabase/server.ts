@@ -1,33 +1,23 @@
 import { cookies } from "next/headers";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { SUPABASE_ANON_KEY, SUPABASE_URL, isSupabaseConfigured } from "./env";
-import { getUserIdFromCookie } from "@/lib/auth/jwt";
 
 /**
  * Server-side Supabase client for RSC / server actions / route handlers.
  * Returns `null` in demo mode. Uses Next 16 async `cookies()` API.
  *
- * Por que injeta o JWT manualmente: em alguns code paths o
- * `@supabase/ssr` não envia o `Authorization: Bearer` automaticamente
- * a partir dos cookies — o request sai só com a anon key, RLS bate
- * `auth.uid() IS NULL` e devolve zero linhas (sem erro). Forçar o
- * header garante que toda query carrega a identidade do user.
- *
- * Esse helper continua aceitando setAll real (ao contrário de
- * server-with-jwt.ts), pra preservar o comportamento esperado em
- * server actions onde queremos refresh de cookies.
+ * IMPORTANTE — não chame outro helper que faça `await cookies()` antes
+ * de criar esse client. Em Next 16, ler cookies múltiplas vezes em
+ * uma server action quebra silenciosamente o canal de escrita do
+ * `setAll` (setado pelo supabase ssr no signInWithPassword), e o
+ * Set-Cookie nunca chega ao browser. Esse helper FICA leve de
+ * propósito. Pra queries que precisam de JWT explícito (RLS read
+ * paths que não passam por supabase.auth.*), usa
+ * `createSupabaseWithJwt()` em `lib/supabase/server-with-jwt.ts`.
  */
 export async function getServerClient() {
   if (!isSupabaseConfigured()) return null;
   const cookieStore = await cookies();
-
-  // Pega o access_token do cookie pra injetar como Authorization header.
-  // Best-effort: se não tiver cookie, segue o jogo (anon).
-  const { accessToken } = await getUserIdFromCookie();
-
-  const globalConfig = accessToken
-    ? { headers: { Authorization: `Bearer ${accessToken}` } }
-    : undefined;
 
   return createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     cookies: {
@@ -46,6 +36,5 @@ export async function getServerClient() {
         }
       },
     },
-    ...(globalConfig ? { global: globalConfig } : {}),
   });
 }
