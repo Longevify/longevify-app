@@ -1,6 +1,9 @@
 import "server-only";
 import { cache } from "react";
-import { getServerClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
+import { SUPABASE_URL, SUPABASE_ANON_KEY, isSupabaseConfigured } from "@/lib/supabase/env";
+import { getUserIdFromCookie } from "./jwt";
 import { PATIENT } from "@/lib/mock-data";
 
 export interface CurrentUser {
@@ -58,23 +61,28 @@ function ageFromBirthDate(birthDate: string | null): number | null {
 export const getCurrentUser = cache(_getCurrentUser);
 
 async function _getCurrentUser(): Promise<CurrentUser> {
-  const supabase = await getServerClient();
-  if (!supabase) return DEMO_USER;
+  if (!isSupabaseConfigured()) return DEMO_USER;
 
-  // SÓ getSession — getUser dispara hit na auth API e PODE rotacionar
-  // tokens em race com outras chamadas paralelas, clearando cookies de
-  // sessão. Se cookie não tem session válida, é DEMO_USER mesmo.
-  let userId: string | undefined;
-  let userEmail: string | null = null;
-  let userMetadata: Record<string, unknown> = {};
+  // ZERO-AUTH-SUPABASE: extrai user_id do JWT do cookie sem chamar
+  // supabase.auth.* — evita refresh + race que clear cookies.
+  const { userId, email } = await getUserIdFromCookie();
+  if (!userId) return DEMO_USER;
 
-  const { data: sessionData } = await supabase.auth.getSession();
-  const sessionUser = sessionData.session?.user;
-  if (!sessionUser) return DEMO_USER;
+  const userEmail = email;
+  const userMetadata: Record<string, unknown> = {};
 
-  userId = sessionUser.id;
-  userEmail = sessionUser.email ?? null;
-  userMetadata = (sessionUser.user_metadata ?? {}) as Record<string, unknown>;
+  // Cliente Supabase só pra query — RLS valida JWT no DB level.
+  const cookieStore = await cookies();
+  const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll() {
+        /* no-op — não escrever cookies aqui */
+      },
+    },
+  });
 
   // Busca dados extras do profile. Os campos `birth_date` e `intake_completed_at`
   // existem após a migração 0002 — fazemos defensive read pra não quebrar caso

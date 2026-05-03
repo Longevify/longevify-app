@@ -1,136 +1,72 @@
-"use client";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
+import { isSupabaseConfigured, SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/supabase/env";
+import { getUserIdFromCookie } from "@/lib/auth/jwt";
+import { PATIENT } from "@/lib/mock-data";
+import { ConciergeView } from "./concierge-view";
 
-import { useCallback, useMemo, useState } from "react";
-import { Card } from "@/components/ui/card";
-import { ChatWindow } from "@/components/concierge/chat-window";
-import type { ChatMessage } from "@/components/concierge/message-bubble";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-const SUGGESTIONS = [
-  "Por que meu LDL está alto?",
-  "Como melhorar meu sono?",
-  "Minha tireoide está ok?",
-  "O que a idade biológica 25 significa?",
-  "Quais suplementos me ajudam mais?",
-  "Meu score pode chegar a 90?",
-];
+/**
+ * Server wrapper que busca o nome real do user pra passar pra view do
+ * Concierge. Sem isso, a saudação inicial usava "João" hardcoded.
+ *
+ * Prioridade do nome:
+ *   1. preferredName (intake — se user escolheu)
+ *   2. profile.first_name (signup)
+ *   3. PATIENT.firstName ("João") só em modo demo legítimo
+ */
+export default async function ConciergePage() {
+  let firstName: string | null = null;
+  let preferredName: string | null = null;
 
-const INITIAL_GREETING: ChatMessage = {
-  id: "assistant-initial",
-  role: "assistant",
-  content:
-    "Oi João! Seus últimos exames mostraram um Longevify Score 70 (On Track) e idade biológica 25 — 2 anos mais jovem que a cronológica. O principal marcador fora da faixa ideal é o LDL (103 mg/dL). O que você quer olhar primeiro?",
-};
+  if (isSupabaseConfigured()) {
+    // ZERO-AUTH-SUPABASE: extrai user_id do JWT do cookie
+    const { userId } = await getUserIdFromCookie();
+    if (userId) {
+      const cookieStore = await cookies();
+      const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll() {
+            /* no-op */
+          },
+        },
+      });
+      const [profileRes, intakeRes] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("first_name")
+          .eq("id", userId)
+          .maybeSingle(),
+        supabase
+          .from("intake_responses")
+          .select("responses")
+          .eq("patient_id", userId)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
 
-function nextId(prefix: string): string {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
+      const fn = (profileRes.data?.first_name as string | undefined)?.trim();
+      if (fn) firstName = fn;
 
-export default function ConciergePage() {
-  const [messages, setMessages] = useState<ChatMessage[]>([INITIAL_GREETING]);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [streamingId, setStreamingId] = useState<string | null>(null);
+      const responses = intakeRes.data?.responses as
+        | { data?: { identity?: { preferredName?: string } } }
+        | undefined
+        | null;
+      const pn = responses?.data?.identity?.preferredName?.trim();
+      if (pn) preferredName = pn;
+    }
+  } else {
+    // Modo demo legítimo — sem Supabase configurado
+    firstName = PATIENT.firstName;
+  }
 
-  const send = useCallback(
-    async (text: string) => {
-      if (!text.trim() || isStreaming) return;
+  const addressName = preferredName ?? firstName;
 
-      const userMsg: ChatMessage = {
-        id: nextId("u"),
-        role: "user",
-        content: text.trim(),
-      };
-      const assistantId = nextId("a");
-      const assistantMsg: ChatMessage = {
-        id: assistantId,
-        role: "assistant",
-        content: "",
-      };
-
-      const historyForApi = [...messages, userMsg].map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
-
-      setMessages((prev) => [...prev, userMsg, assistantMsg]);
-      setIsStreaming(true);
-      setStreamingId(assistantId);
-
-      try {
-        const res = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: historyForApi }),
-        });
-
-        if (!res.ok || !res.body) {
-          throw new Error(`api error ${res.status}`);
-        }
-
-        const contentType = res.headers.get("content-type") ?? "";
-
-        if (contentType.includes("application/json")) {
-          const data = (await res.json()) as { content?: string };
-          const full = data.content ?? "";
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId ? { ...m, content: full } : m,
-            ),
-          );
-        } else {
-          const reader = res.body.getReader();
-          const decoder = new TextDecoder();
-          let acc = "";
-          for (;;) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            acc += decoder.decode(value, { stream: true });
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantId ? { ...m, content: acc } : m,
-              ),
-            );
-          }
-        }
-      } catch {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantId
-              ? {
-                  ...m,
-                  content:
-                    "Tive um problema momentâneo pra responder. Tenta reformular a pergunta ou reenviar em alguns segundos.",
-                }
-              : m,
-          ),
-        );
-      } finally {
-        setIsStreaming(false);
-        setStreamingId(null);
-      }
-    },
-    [isStreaming, messages],
-  );
-
-  const suggestions = useMemo(() => SUGGESTIONS, []);
-
-  return (
-    <div className="mx-auto flex h-[calc(100vh-64px)] w-full max-w-[900px] flex-col px-6 py-8">
-      <header className="pb-6">
-        <span className="text-[13px] text-muted">
-          Seu copiloto de longevidade — pergunte sobre seus resultados
-        </span>
-        <h1 className="text-[32px] font-semibold tracking-tight">Concierge</h1>
-      </header>
-
-      <Card className="flex flex-1 flex-col overflow-hidden">
-        <ChatWindow
-          messages={messages}
-          onSend={send}
-          isStreaming={isStreaming}
-          streamingId={streamingId}
-          suggestions={suggestions}
-        />
-      </Card>
-    </div>
-  );
+  return <ConciergeView addressName={addressName} />;
 }

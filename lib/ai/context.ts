@@ -1,4 +1,7 @@
-import { getServerClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
+import { SUPABASE_URL, SUPABASE_ANON_KEY, isSupabaseConfigured } from "@/lib/supabase/env";
+import { getUserIdFromCookie } from "@/lib/auth/jwt";
 import { PATIENT, BIOMARKERS, type Biomarker, type Patient } from "@/lib/mock-data";
 import { loadDadosForUser } from "@/lib/dados/server";
 
@@ -41,18 +44,27 @@ export async function loadConciergeContext(): Promise<{
   biomarkers: Biomarker[];
   extras: ConciergeExtras;
 }> {
-  const supabase = await getServerClient();
-  if (!supabase) {
+  if (!isSupabaseConfigured()) {
     return { patient: PATIENT, biomarkers: BIOMARKERS, extras: EMPTY };
   }
 
-  const { data: sessionData } = await supabase.auth.getSession();
-  const sessionUser = sessionData?.session?.user;
-  if (!sessionUser) {
+  // ZERO-AUTH-SUPABASE: extrai user_id direto do JWT do cookie
+  const { userId } = await getUserIdFromCookie();
+  if (!userId) {
     return { patient: PATIENT, biomarkers: BIOMARKERS, extras: EMPTY };
   }
 
-  const userId = sessionUser.id;
+  const cookieStore = await cookies();
+  const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll() {
+        /* no-op */
+      },
+    },
+  });
 
   const [profileRes, intakeRes, labsRes, dailyRes, dadosResolved] =
     await Promise.all([
