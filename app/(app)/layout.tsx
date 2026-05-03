@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { TopNav } from "@/components/app/top-nav";
 import { Footer } from "@/components/app/footer";
 import { UserProvider } from "@/lib/auth/user-context";
-import { SessionKeeper } from "@/components/auth/session-keeper";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
 // Todas as rotas autenticadas precisam render fresh a cada request.
@@ -45,7 +44,10 @@ export default async function AppLayout({
 
   return (
     <UserProvider user={user}>
-      <SessionKeeper />
+      {/* SessionKeeper removido — estava causando router.refresh em loop
+          quando cookies httpOnly server vs cookies regulares browser
+          conflitavam. Sessão é mantida via cookie do supabase ssr,
+          que persiste entre requests sem precisar de refresh client. */}
       <div className="flex min-h-screen flex-col">
         <TopNav />
         <main className="flex-1">{children}</main>
