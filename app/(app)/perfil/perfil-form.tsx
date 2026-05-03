@@ -85,6 +85,10 @@ export function PerfilForm({
   // não consegue ver a sessão direto, mas a API endpoint roda
   // server-side e CONSEGUE ler. Se o user tem sessão válida, a API
   // retorna o profile; senão 401 e a gente respeita o demo mesmo.
+  //
+  // IMPORTANTE: faz REPLACE total, não merge. Senão o "João Silva"
+  // do PATIENT mock (initial demo) sobrescreveria os campos vazios
+  // do profile real, deixando o user com nome errado pra sempre.
   useEffect(() => {
     if (!isDemo) return; // server já entregou perfil real, nada a fazer
     if (typeof window === "undefined") return;
@@ -93,16 +97,32 @@ export function PerfilForm({
     (async () => {
       try {
         const res = await fetch("/api/me/profile", { cache: "no-store" });
+        if (process.env.NODE_ENV !== "production") {
+          // eslint-disable-next-line no-console
+          console.log("[perfil self-heal] /api/me/profile:", res.status);
+        }
         if (!res.ok) return; // 401 = real demo (sem sessão server-side)
         const json = (await res.json()) as {
           ok: boolean;
           profile?: ProfileFormShape;
         };
         if (cancelled || !json.ok || !json.profile) return;
-        setData((current) => mergeNonEmpty(current, json.profile!));
+        // Server real é fonte de verdade. Intake/localStorage só
+        // preenchem o que o server não tem (ex: rascunho ainda não salvo).
+        // Não mescla com initial (que pode conter "João" do demo).
+        const intakeDefaults = profileDefaultsFromIntake();
+        const persisted = loadProfileLocal();
+        const final = mergeNonEmpty(
+          json.profile,
+          intakeDefaults,
+          persisted,
+          json.profile, // server vence local em campos preenchidos no DB
+        );
+        setData(final);
         setEffectiveIsDemo(false);
-      } catch {
-        /* silently ignore */
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error("[perfil self-heal] erro:", err);
       }
     })();
 
