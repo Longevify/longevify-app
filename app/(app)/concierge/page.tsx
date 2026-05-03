@@ -1,7 +1,6 @@
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
-import { isSupabaseConfigured, SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/supabase/env";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { getUserIdFromCookie } from "@/lib/auth/jwt";
+import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
 import { PATIENT } from "@/lib/mock-data";
 import { ConciergeView } from "./concierge-view";
 
@@ -22,20 +21,12 @@ export default async function ConciergePage() {
   let preferredName: string | null = null;
 
   if (isSupabaseConfigured()) {
-    // ZERO-AUTH-SUPABASE: extrai user_id do JWT do cookie
-    const { userId } = await getUserIdFromCookie();
+    // ZERO-AUTH-SUPABASE: extrai user_id + access_token do JWT do cookie
+    const { userId, accessToken } = await getUserIdFromCookie();
     if (userId) {
-      const cookieStore = await cookies();
-      const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll();
-          },
-          setAll() {
-            /* no-op */
-          },
-        },
-      });
+      // JWT explícito no header — sem isso RLS bloqueia silenciosamente
+      // e voltamos pro fallback "Oi!" sem nome.
+      const supabase = await createSupabaseWithJwt(accessToken);
       const [profileRes, intakeRes] = await Promise.all([
         supabase
           .from("profiles")

@@ -1,12 +1,11 @@
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import {
   recordToForm,
   type ProfileRecord,
   type ProfileFormShape,
 } from "@/lib/profile/server";
-import { isSupabaseConfigured, SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/supabase/env";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { getUserIdFromCookie } from "@/lib/auth/jwt";
+import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
 import { PATIENT } from "@/lib/mock-data";
 import { PerfilForm } from "./perfil-form";
 
@@ -39,7 +38,7 @@ export default async function PerfilPage() {
     );
   }
 
-  const { userId, email } = await getUserIdFromCookie();
+  const { userId, email, accessToken } = await getUserIdFromCookie();
   let initial: ProfileFormShape = recordToForm(null, email ?? "");
   let longevifyScore: number | null = null;
   let biologicalAge: number | null = null;
@@ -48,20 +47,10 @@ export default async function PerfilPage() {
 
   if (userId) {
     hasRealUser = true;
-    const cookieStore = await cookies();
-    // Cliente Supabase pra query — RLS no DB valida o JWT do cookie.
-    // setAll vazio: não queremos que supabase escreva cookies aqui
-    // (evita o write que acontece em refresh proativo).
-    const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll() {
-          /* no-op — não escrever cookies aqui */
-        },
-      },
-    });
+    // Supabase client com JWT explícito — sem isso o `.from().select()`
+    // sai sem Authorization header, RLS bloqueia silenciosamente, e a
+    // query devolve null mesmo com profile existindo no DB.
+    const supabase = await createSupabaseWithJwt(accessToken);
 
     const [profileRes, scoreRes, examRes] = await Promise.all([
       supabase

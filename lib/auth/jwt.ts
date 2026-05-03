@@ -20,6 +20,7 @@ export async function getUserIdFromCookie(): Promise<{
   userId: string | null;
   email: string | null;
   expiresAt: number | null;
+  accessToken: string | null;
 }> {
   try {
     const cookieStore = await cookies();
@@ -35,7 +36,7 @@ export async function getUserIdFromCookie(): Promise<{
       }
     }
     if (authChunks.length === 0) {
-      return { userId: null, email: null, expiresAt: null };
+      return { userId: null, email: null, expiresAt: null, accessToken: null };
     }
 
     // Reconstrói o valor (chunks vêm sufixados .0, .1, .2 — sort + concat)
@@ -76,24 +77,37 @@ export async function getUserIdFromCookie(): Promise<{
         session.user?.email ?? (decoded?.email as string | undefined) ?? null;
       const expiresAt =
         session.expires_at ?? (decoded?.exp as number | undefined) ?? null;
-      return { userId, email, expiresAt };
+      return {
+        userId,
+        email,
+        expiresAt,
+        accessToken: session.access_token,
+      };
     }
 
     // Formato legado: array tipo [access_token, refresh_token, ...]
     if (Array.isArray(payload)) {
       const accessToken = typeof payload[0] === "string" ? payload[0] : null;
-      if (!accessToken) return { userId: null, email: null, expiresAt: null };
+      if (!accessToken) {
+        return {
+          userId: null,
+          email: null,
+          expiresAt: null,
+          accessToken: null,
+        };
+      }
       const decoded = decodeJwt(accessToken);
       return {
         userId: (decoded?.sub as string | undefined) ?? null,
         email: (decoded?.email as string | undefined) ?? null,
         expiresAt: (decoded?.exp as number | undefined) ?? null,
+        accessToken,
       };
     }
 
-    return { userId: null, email: null, expiresAt: null };
+    return { userId: null, email: null, expiresAt: null, accessToken: null };
   } catch {
-    return { userId: null, email: null, expiresAt: null };
+    return { userId: null, email: null, expiresAt: null, accessToken: null };
   }
 }
 
