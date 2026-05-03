@@ -70,8 +70,9 @@ export async function getUserBookings(): Promise<BookingsBuckets> {
   const supabase = await getServerClient();
   if (!supabase) return { upcoming: [], past: [] };
 
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth?.user) return { upcoming: [], past: [] };
+  const { data: sessionData } = await supabase.auth.getSession();
+  const auth = { user: sessionData?.session?.user ?? null };
+  if (!auth.user) return { upcoming: [], past: [] };
 
   const { data, error } = await supabase
     .from("collection_bookings")
@@ -117,8 +118,9 @@ export async function cancelBooking(
   const supabase = await getServerClient();
   if (!supabase) return { ok: true }; // demo
 
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth?.user) return { ok: false, error: "unauthorized" };
+  const { data: sessionData } = await supabase.auth.getSession();
+  const auth = { user: sessionData?.session?.user ?? null };
+  if (!auth.user) return { ok: false, error: "unauthorized" };
 
   const { error } = await supabase
     .from("collection_bookings")

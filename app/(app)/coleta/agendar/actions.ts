@@ -49,8 +49,9 @@ export async function createBooking(
     return { ok: true, demo: true, id: `demo-${Date.now()}` };
   }
 
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth?.user) {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const auth = { user: sessionData?.session?.user ?? null };
+  if (!auth.user) {
     return { ok: false, error: "unauthorized" };
   }
 

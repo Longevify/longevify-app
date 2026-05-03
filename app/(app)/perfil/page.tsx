@@ -48,10 +48,16 @@ export default async function PerfilPage() {
   let hasRealUser = false;
 
   if (supabase) {
-    // getUser direto pra pegar o user ID + email
-    const { data: authData } = await supabase.auth.getUser();
-    const userId = authData?.user?.id;
-    const userEmail = authData?.user?.email ?? "";
+    // CRÍTICO: usar getSession, NÃO getUser. getUser bate na auth API
+    // pra validar o JWT e PODE disparar refresh — em race com outros
+    // refreshes (proxy, API endpoints, prefetches) o supabase-ssr clear
+    // os cookies de sessão silenciosamente. Resultado: cada hit em
+    // /perfil deslogava o user.
+    // getSession só lê o access_token do cookie. RLS no DB valida a
+    // assinatura do JWT — sem comprometer segurança.
+    const { data: sessionData } = await supabase.auth.getSession();
+    const userId = sessionData?.session?.user?.id;
+    const userEmail = sessionData?.session?.user?.email ?? "";
 
     if (userId) {
       hasRealUser = true;

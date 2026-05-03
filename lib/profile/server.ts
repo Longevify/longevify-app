@@ -127,8 +127,9 @@ export async function loadProfileForCurrentUser(): Promise<{
   const supabase = await getServerClient();
   if (!supabase) return null;
 
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth?.user) return null;
+  const { data: sessionData } = await supabase.auth.getSession();
+  const auth = { user: sessionData?.session?.user ?? null };
+  if (!auth.user) return null;
 
   const { data: rec } = await supabase
     .from("profiles")

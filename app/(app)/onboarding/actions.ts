@@ -26,8 +26,9 @@ export async function syncIntake(
     return { ok: false, error: "Supabase indisponível (modo demo)." };
   }
 
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth?.user) return { ok: false, error: "Não autenticado." };
+  const { data: sessionData } = await supabase.auth.getSession();
+  const auth = { user: sessionData?.session?.user ?? null };
+  if (!auth.user) return { ok: false, error: "Não autenticado." };
 
   const userId = auth.user.id;
 

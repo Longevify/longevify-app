@@ -24,8 +24,7 @@ export async function getServerRepositories(): Promise<Repositories> {
   if (!isSupabaseConfigured()) return createMockRepositories();
   const supabase = await getServerClient();
   if (!supabase) return createMockRepositories();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: sessionData } = await supabase.auth.getSession();
+  const user = sessionData?.session?.user ?? null;
   return createSupabaseRepositories(supabase, user?.id ?? null);
 }

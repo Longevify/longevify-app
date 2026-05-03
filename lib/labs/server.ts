@@ -49,8 +49,9 @@ export async function listLabUploadsForCurrentUser(): Promise<LabUpload[]> {
   const supabase = await getServerClient();
   if (!supabase) return [];
 
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth?.user) return [];
+  const { data: sessionData } = await supabase.auth.getSession();
+  const auth = { user: sessionData?.session?.user ?? null };
+  if (!auth.user) return [];
 
   const { data, error } = await supabase
     .from("lab_uploads")
