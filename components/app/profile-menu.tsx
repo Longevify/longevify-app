@@ -126,11 +126,12 @@ export function ProfileMenu() {
             </div>
             {/* Logoff direto — POST pra evitar prefetch do Next deslogar
                 em background. GET no /logout é inerte (route handler
-                respeita HTTP method). */}
+                respeita HTTP method). Sem onClick(setOpen) — form
+                navega pra /login ao submeter, dropdown some junto
+                naturalmente. */}
             <form action="/logout" method="post" className="contents">
               <button
                 type="submit"
-                onClick={() => setOpen(false)}
                 aria-label="Sair da conta"
                 title="Sair"
                 className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted hover:bg-[#FDECEC] hover:text-[#B6333A]"
@@ -208,12 +209,12 @@ export function ProfileMenu() {
             })}
           </nav>
 
-          {/* Logout — POST pra evitar prefetch silencioso */}
+          {/* Logout — POST pra evitar prefetch silencioso. Sem
+              onClick(setOpen) porque form navega pra /login. */}
           <div className="mt-1 border-t border-border/70 pt-1">
             <form action="/logout" method="post">
               <button
                 type="submit"
-                onClick={() => setOpen(false)}
                 className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium text-[#B6333A] hover:bg-[#FDECEC]"
               >
                 <LogOut className="h-4 w-4" />
