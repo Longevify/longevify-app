@@ -1,6 +1,17 @@
 import "server-only";
 import { cookies } from "next/headers";
 
+export interface ExtractedJwtSession {
+  userId: string | null;
+  email: string | null;
+  expiresAt: number | null;
+  accessToken: string | null;
+  /** Nome direto do user_metadata do JWT (vem do signup). Fallback bom
+   *  pra UI quando o profile do DB não tá acessível (ex: JWT expirado). */
+  firstName: string | null;
+  lastName: string | null;
+}
+
 /**
  * Helper que lê o user_id do access_token cookie do Supabase SEM chamar
  * supabase.auth.* — evita disparar refresh/race que clear cookies.
@@ -9,19 +20,30 @@ import { cookies } from "next/headers";
  *  1. Lê o cookie sb-{ref}-auth-token (ou variantes) do Next cookieStore
  *  2. Faz parse do valor JSON (supabase ssr armazena array com session)
  *  3. Decodifica o JWT do access_token (só base64 decode, sem verify)
- *  4. Retorna o `sub` claim = user_id
+ *  4. CHECA EXPIRY — se JWT expirou, retorna como deslogado (null)
+ *  5. Retorna o `sub` claim = user_id, email, accessToken, e
+ *     user_metadata.first_name/last_name pra fallback de UI
  *
  * Por que sem verify: o JWT é validado pelo PostgreSQL via RLS quando
  * fazemos queries — Supabase Postgres tem o JWT secret e checa a
  * assinatura em cada query. Forge falha no DB level. Aqui só
  * precisamos do user_id pra montar a query, sem risco de segurança.
+ *
+ * Por que checar expiry: se a gente não checa, JWT expirado retorna
+ * userId/accessToken válidos pro código, mas todas as queries falham
+ * com "JWT expired" (RLS reject). Resultado é um estado zumbi
+ * (logado-mas-não-funciona) que parece broken pro user. Melhor
+ * tratar como deslogado e forçar re-login.
  */
-export async function getUserIdFromCookie(): Promise<{
-  userId: string | null;
-  email: string | null;
-  expiresAt: number | null;
-  accessToken: string | null;
-}> {
+export async function getUserIdFromCookie(): Promise<ExtractedJwtSession> {
+  const empty: ExtractedJwtSession = {
+    userId: null,
+    email: null,
+    expiresAt: null,
+    accessToken: null,
+    firstName: null,
+    lastName: null,
+  };
   try {
     const cookieStore = await cookies();
     const all = cookieStore.getAll();
@@ -35,9 +57,7 @@ export async function getUserIdFromCookie(): Promise<{
         authChunks.push(c);
       }
     }
-    if (authChunks.length === 0) {
-      return { userId: null, email: null, expiresAt: null, accessToken: null };
-    }
+    if (authChunks.length === 0) return empty;
 
     // Reconstrói o valor (chunks vêm sufixados .0, .1, .2 — sort + concat)
     authChunks.sort((a, b) => a.name.localeCompare(b.name));
@@ -58,6 +78,13 @@ export async function getUserIdFromCookie(): Promise<{
       payload = JSON.parse(raw);
     }
 
+    let accessToken: string | null = null;
+    let userId: string | null = null;
+    let email: string | null = null;
+    let expiresAt: number | null = null;
+    let firstName: string | null = null;
+    let lastName: string | null = null;
+
     // Formato "session"-like: { access_token, refresh_token, user: {...} }
     if (
       payload &&
@@ -67,47 +94,57 @@ export async function getUserIdFromCookie(): Promise<{
     ) {
       const session = payload as {
         access_token: string;
-        user?: { id?: string; email?: string };
+        user?: {
+          id?: string;
+          email?: string;
+          user_metadata?: { first_name?: string; last_name?: string };
+        };
         expires_at?: number;
       };
-      const decoded = decodeJwt(session.access_token);
-      const userId =
-        session.user?.id ?? (decoded?.sub as string | undefined) ?? null;
-      const email =
-        session.user?.email ?? (decoded?.email as string | undefined) ?? null;
-      const expiresAt =
-        session.expires_at ?? (decoded?.exp as number | undefined) ?? null;
-      return {
-        userId,
-        email,
-        expiresAt,
-        accessToken: session.access_token,
-      };
-    }
-
-    // Formato legado: array tipo [access_token, refresh_token, ...]
-    if (Array.isArray(payload)) {
-      const accessToken = typeof payload[0] === "string" ? payload[0] : null;
-      if (!accessToken) {
-        return {
-          userId: null,
-          email: null,
-          expiresAt: null,
-          accessToken: null,
-        };
-      }
+      accessToken = session.access_token;
       const decoded = decodeJwt(accessToken);
-      return {
-        userId: (decoded?.sub as string | undefined) ?? null,
-        email: (decoded?.email as string | undefined) ?? null,
-        expiresAt: (decoded?.exp as number | undefined) ?? null,
-        accessToken,
-      };
+      userId =
+        session.user?.id ?? (decoded?.sub as string | undefined) ?? null;
+      email =
+        session.user?.email ?? (decoded?.email as string | undefined) ?? null;
+      expiresAt =
+        session.expires_at ?? (decoded?.exp as number | undefined) ?? null;
+      firstName =
+        session.user?.user_metadata?.first_name ??
+        ((decoded?.user_metadata as { first_name?: string } | undefined)
+          ?.first_name ??
+          null);
+      lastName =
+        session.user?.user_metadata?.last_name ??
+        ((decoded?.user_metadata as { last_name?: string } | undefined)
+          ?.last_name ??
+          null);
+    } else if (Array.isArray(payload)) {
+      // Formato legado: array tipo [access_token, refresh_token, ...]
+      accessToken = typeof payload[0] === "string" ? payload[0] : null;
+      if (!accessToken) return empty;
+      const decoded = decodeJwt(accessToken);
+      userId = (decoded?.sub as string | undefined) ?? null;
+      email = (decoded?.email as string | undefined) ?? null;
+      expiresAt = (decoded?.exp as number | undefined) ?? null;
+      const meta = decoded?.user_metadata as
+        | { first_name?: string; last_name?: string }
+        | undefined;
+      firstName = meta?.first_name ?? null;
+      lastName = meta?.last_name ?? null;
+    } else {
+      return empty;
     }
 
-    return { userId: null, email: null, expiresAt: null, accessToken: null };
+    // CHECA EXPIRY — se JWT expirou, trata como deslogado.
+    // Margem de 30s pra evitar borderline (clock skew).
+    if (expiresAt && expiresAt * 1000 < Date.now() - 30_000) {
+      return empty;
+    }
+
+    return { userId, email, expiresAt, accessToken, firstName, lastName };
   } catch {
-    return { userId: null, email: null, expiresAt: null, accessToken: null };
+    return empty;
   }
 }
 

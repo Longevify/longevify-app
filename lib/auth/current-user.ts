@@ -62,13 +62,18 @@ export const getCurrentUser = cache(_getCurrentUser);
 async function _getCurrentUser(): Promise<CurrentUser> {
   if (!isSupabaseConfigured()) return DEMO_USER;
 
-  // ZERO-AUTH-SUPABASE: extrai user_id + access_token do JWT do cookie
+  // ZERO-AUTH-SUPABASE: extrai user_id + access_token + nome do JWT
   // sem chamar supabase.auth.* — evita refresh + race que clear cookies.
-  const { userId, email, accessToken } = await getUserIdFromCookie();
+  const {
+    userId,
+    email,
+    accessToken,
+    firstName: jwtFirstName,
+    lastName: jwtLastName,
+  } = await getUserIdFromCookie();
   if (!userId) return DEMO_USER;
 
   const userEmail = email;
-  const userMetadata: Record<string, unknown> = {};
 
   // Cliente com JWT explícito no header Authorization. Sem isso a query
   // sai sem auth e RLS bloqueia silenciosamente — o profile real volta
@@ -87,30 +92,24 @@ async function _getCurrentUser(): Promise<CurrentUser> {
     .eq("id", userId)
     .maybeSingle();
 
-  const meta = userMetadata;
-
+  // Nome cascata: profile DB > JWT user_metadata > email prefix > "Usuário"
+  // JWT metadata tem first_name/last_name que vêm do signup, então é
+  // bom fallback antes de cair no email prefix (que dá avatar "E" pra
+  // eulucasvalle@... em vez de "LV").
   const firstName =
     (profile?.first_name as string | undefined) ||
-    (meta.first_name as string | undefined) ||
+    jwtFirstName ||
     userEmail?.split("@")[0] ||
     "Usuário";
   const lastName =
-    (profile?.last_name as string | undefined) ||
-    (meta.last_name as string | undefined) ||
-    "";
+    (profile?.last_name as string | undefined) || jwtLastName || "";
 
-  const birthDate =
-    (profile?.birth_date as string | undefined) ||
-    (meta.birth_date as string | undefined) ||
-    null;
+  const birthDate = (profile?.birth_date as string | undefined) || null;
 
   const chronologicalAge =
     ageFromBirthDate(birthDate) ??
     (typeof profile?.chronological_age === "number"
       ? (profile.chronological_age as number)
-      : null) ??
-    (meta.chronological_age
-      ? Number(meta.chronological_age) || null
       : null);
 
   return {
