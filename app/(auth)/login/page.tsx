@@ -33,6 +33,7 @@ export default async function LoginPage({
     email?: string;
     error?: string;
     error_description?: string;
+    confirmed?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -42,7 +43,9 @@ export default async function LoginPage({
   // Resolve o "loga 2 vezes" causado quando o proxy bounceia user
   // já válido pra /login (race no refresh de cookies). Se não vier
   // explicit ?error=, e o user JÁ tem sessão, segue direto.
-  if (!demo && !params.error) {
+  // Exceção: se ?confirmed=1 (vindo do callback de email confirmation),
+  // mostra a mensagem de confirmação e deixa o user logar manualmente.
+  if (!demo && !params.error && !params.confirmed) {
     const user = await getCurrentUser();
     if (!user.isDemo) {
       redirect(params.next ?? "/home");
@@ -59,12 +62,16 @@ export default async function LoginPage({
       ? `${baseMsg} (detalhe: ${decodeURIComponent(params.error_description)})`
       : baseMsg;
 
+  // Banner de sucesso quando o user acabou de confirmar o email
+  const confirmedBanner = params.confirmed === "1";
+
   return (
     <LoginForm
       demo={demo}
       next={params.next ?? "/home"}
       prefilledEmail={params.email ?? ""}
       errorBanner={errorBanner}
+      confirmedBanner={confirmedBanner}
     >
       <p className="text-center">
         Novo por aqui?{" "}

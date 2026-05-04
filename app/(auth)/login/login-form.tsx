@@ -17,6 +17,7 @@ interface LoginFormProps {
   next: string;
   prefilledEmail?: string;
   errorBanner?: string | null;
+  confirmedBanner?: boolean;
   children: React.ReactNode;
 }
 
@@ -25,6 +26,7 @@ export function LoginForm({
   next,
   prefilledEmail = "",
   errorBanner,
+  confirmedBanner = false,
   children,
 }: LoginFormProps) {
   const [email, setEmail] = useState(prefilledEmail);
@@ -64,6 +66,19 @@ export function LoginForm({
       }
       footer={children}
     >
+      {confirmedBanner ? (
+        <div className="mb-4 flex items-start gap-3 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-[13px] text-brand-800">
+          <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-brand-700 text-white">
+            ✓
+          </span>
+          <div>
+            <div className="font-semibold">E-mail confirmado!</div>
+            <div className="mt-0.5 text-brand-700">
+              Sua conta está ativa. Faça login abaixo para entrar na plataforma.
+            </div>
+          </div>
+        </div>
+      ) : null}
       {errorBanner ? (
         <div className="mb-4 rounded-xl border border-[#FBE1E1] bg-[#FBE1E1]/40 px-4 py-3 text-[13px] text-[#B6333A]">
           {errorBanner}
