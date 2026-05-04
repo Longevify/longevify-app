@@ -51,3 +51,22 @@ next-env.d.ts
 
 # local Claude state
 .claude/
+
+# mobile (Capacitor)
+mobile/node_modules/
+mobile/ios/App/Pods/
+mobile/ios/App/Podfile.lock
+mobile/ios/App/App.xcodeproj/xcuserdata/
+mobile/ios/App/App.xcworkspace/xcuserdata/
+mobile/ios/DerivedData/
+mobile/android/.gradle/
+mobile/android/build/
+mobile/android/app/build/
+mobile/android/local.properties
+mobile/android/.idea/
+mobile/android/*.iml
+mobile/android/app/release/
+mobile/android/app/.cxx/
+mobile/android/captures/
+mobile/www/
+
