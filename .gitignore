@@ -55,7 +55,8 @@ next-env.d.ts
 # mobile (Capacitor)
 mobile/node_modules/
 mobile/ios/App/Pods/
-mobile/ios/App/Podfile.lock
+# Podfile.lock: debate — commitamos pra reproducibilidade de build
+# mobile/ios/App/Podfile.lock
 mobile/ios/App/App.xcodeproj/xcuserdata/
 mobile/ios/App/App.xcworkspace/xcuserdata/
 mobile/ios/DerivedData/
@@ -68,5 +69,8 @@ mobile/android/*.iml
 mobile/android/app/release/
 mobile/android/app/.cxx/
 mobile/android/captures/
+# www/ é placeholder gerado — nao commitar conteudo gerado
 mobile/www/
+# python cache
+mobile/scripts/__pycache__/
 

@@ -1,6 +1,9 @@
 /**
  * Health bridge — HealthKit (iOS) + Health Connect (Android)
- * Uses @capacitor-community/health
+ * Uses capacitor-health (npm: capacitor-health, v8.x)
+ *
+ * Plugin docs: https://www.npmjs.com/package/capacitor-health
+ * Supported on iOS 13+ (HealthKit) and Android (Health Connect SDK)
  */
 
 import { registerPlugin } from '@capacitor/core';
@@ -51,9 +54,17 @@ export interface HealthPlugin {
   isAvailable(): Promise<{ available: boolean }>;
 }
 
+// capacitor-health registers itself as 'Health'
 const Health = registerPlugin<HealthPlugin>('Health', {
-  web: () =>
-    import('@capacitor-community/health').then((m) => new m.HealthWeb()),
+  web: async () => {
+    // No web implementation — return a stub that reports unavailable
+    return {
+      isAvailable: async () => ({ available: false }),
+      requestAuthorization: async () => ({ authorized: false }),
+      query: async () => ({ data: [] }),
+      store: async () => { /* noop */ },
+    } as unknown as HealthPlugin;
+  },
 });
 
 const READ_TYPES: HealthDataType[] = [
