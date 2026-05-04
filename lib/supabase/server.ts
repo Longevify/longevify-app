@@ -14,7 +14,21 @@ import { SUPABASE_ANON_KEY, SUPABASE_URL, isSupabaseConfigured } from "./env";
  * propósito. Pra queries que precisam de JWT explícito (RLS read
  * paths que não passam por supabase.auth.*), usa
  * `createSupabaseWithJwt()` em `lib/supabase/server-with-jwt.ts`.
+ *
+ * COOKIE OPTIONS: forçamos httpOnly+secure+sameSite=lax. O default
+ * do @supabase/ssr 0.10.2 é httpOnly: FALSE, sem secure — Safari
+ * trata cookies não-httpOnly como "JS-set client cookies" e ITP
+ * pode deletá-los após algumas horas. httpOnly real evita esse
+ * tracking-prevention e melhora segurança (XSS não pode ler).
  */
+const COOKIE_OPTIONS: CookieOptions = {
+  httpOnly: true,
+  secure: true,
+  sameSite: "lax",
+  path: "/",
+  maxAge: 60 * 60 * 24 * 365, // 1 ano (refresh_token TTL)
+};
+
 export async function getServerClient() {
   if (!isSupabaseConfigured()) return null;
   const cookieStore = await cookies();
@@ -27,7 +41,16 @@ export async function getServerClient() {
       setAll(cookiesToSet) {
         try {
           for (const { name, value, options } of cookiesToSet) {
-            cookieStore.set(name, value, options as CookieOptions);
+            // Override defaults com nossos COOKIE_OPTIONS hardcoded.
+            // supabase ssr passa options.maxAge baseado no tipo de
+            // cookie (auth-token vs delete) — preservamos isso, mas
+            // forçamos httpOnly/secure/sameSite/path nossos.
+            cookieStore.set(name, value, {
+              ...options,
+              ...COOKIE_OPTIONS,
+              // se supabase manda maxAge=0 (delete), respeita
+              maxAge: options?.maxAge === 0 ? 0 : COOKIE_OPTIONS.maxAge,
+            });
           }
         } catch {
           // `set` can fail when invoked from a Server Component — the proxy
@@ -36,5 +59,6 @@ export async function getServerClient() {
         }
       },
     },
+    cookieOptions: COOKIE_OPTIONS,
   });
 }
