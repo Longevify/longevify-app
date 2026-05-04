@@ -136,22 +136,43 @@ export function ProfileMenu() {
             </Link>
           </div>
 
-          {/* Resumo de saúde — espelha o que vê na home */}
+          {/* Resumo de saúde — só mostra dados reais. Pra user real
+              sem exame, mostra placeholders honestos em vez do mock
+              do João (Score 70, idade 25, etc) que estavam hardcoded
+              e davam impressão de "conta demo". */}
           <div className="mt-2 grid grid-cols-3 gap-2 rounded-xl bg-brand-50/40 p-3 text-center">
-            <Stat label="Score" value={String(PATIENT.longevifyScore)} />
-            <Stat
-              label="Idade biol."
-              value={String(PATIENT.biologicalAge)}
-              hint={`${PATIENT.chronologicalAge} cron.`}
-            />
-            <Stat
-              label="Último exame"
-              value={formatDatePtBR(PATIENT.latestExamDate).replace(
-                /\sde\s\d{4}$/,
-                "",
-              )}
-              tiny
-            />
+            {user.isDemo ? (
+              <>
+                <Stat label="Score" value={String(PATIENT.longevifyScore)} />
+                <Stat
+                  label="Idade biol."
+                  value={String(PATIENT.biologicalAge)}
+                  hint={`${PATIENT.chronologicalAge} cron.`}
+                />
+                <Stat
+                  label="Último exame"
+                  value={formatDatePtBR(PATIENT.latestExamDate).replace(
+                    /\sde\s\d{4}$/,
+                    "",
+                  )}
+                  tiny
+                />
+              </>
+            ) : (
+              <>
+                <Stat label="Score" value="—" />
+                <Stat
+                  label="Idade biol."
+                  value="—"
+                  hint={
+                    user.chronologicalAge
+                      ? `${user.chronologicalAge} cron.`
+                      : undefined
+                  }
+                />
+                <Stat label="Último exame" value="—" tiny />
+              </>
+            )}
           </div>
 
           {/* Items */}
