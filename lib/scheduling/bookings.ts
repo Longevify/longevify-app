@@ -1,4 +1,7 @@
 import "server-only";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { getUserIdFromCookie } from "@/lib/auth/jwt";
+import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
 import { getServerClient } from "@/lib/supabase/server";
 
 export type BookingStatus = "scheduled" | "completed" | "cancelled" | "no_show";
@@ -65,21 +68,27 @@ function mapRow(row: DbRow): CollectionBooking {
  * com data >= agora) e "passadas" (qualquer outra coisa).
  *
  * Em modo demo (sem Supabase configurado), retorna ambas vazias.
+ *
+ * IMPORTANTE: usa o JWT helper (zero-auth-supabase) em vez de
+ * supabase.auth.getSession(). Esta função roda em RENDER paths
+ * (chamada por /home), e supabase.auth.getSession() dispara refresh
+ * proativo que, em race com outras chamadas, CLEAR cookies e
+ * desloga o user no meio da navegação.
  */
 export async function getUserBookings(): Promise<BookingsBuckets> {
-  const supabase = await getServerClient();
-  if (!supabase) return { upcoming: [], past: [] };
+  if (!isSupabaseConfigured()) return { upcoming: [], past: [] };
 
-  const { data: sessionData } = await supabase.auth.getSession();
-  const auth = { user: sessionData?.session?.user ?? null };
-  if (!auth.user) return { upcoming: [], past: [] };
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId) return { upcoming: [], past: [] };
+
+  const supabase = await createSupabaseWithJwt(accessToken);
 
   const { data, error } = await supabase
     .from("collection_bookings")
     .select(
       "id, scheduled_at, location, status, address_state, address_city, address_street, address_complement, address_reference, address_zip, notes, created_at",
     )
-    .eq("patient_id", auth.user.id)
+    .eq("patient_id", userId)
     .order("scheduled_at", { ascending: false });
 
   if (error || !data) {
@@ -111,22 +120,26 @@ export async function getUserBookings(): Promise<BookingsBuckets> {
 /**
  * Cancela uma coleta (status: scheduled → cancelled). RLS já garante que
  * o user só pode cancelar as próprias.
+ *
+ * Server action — usa getServerClient (que aceita writes de cookies pra
+ * caso o supabase ssr precise refrescar). userId vem do JWT helper.
  */
 export async function cancelBooking(
   bookingId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const supabase = await getServerClient();
-  if (!supabase) return { ok: true }; // demo
+  if (!isSupabaseConfigured()) return { ok: true }; // demo
 
-  const { data: sessionData } = await supabase.auth.getSession();
-  const auth = { user: sessionData?.session?.user ?? null };
-  if (!auth.user) return { ok: false, error: "unauthorized" };
+  const { userId } = await getUserIdFromCookie();
+  if (!userId) return { ok: false, error: "unauthorized" };
+
+  const supabase = await getServerClient();
+  if (!supabase) return { ok: false, error: "supabase-unavailable" };
 
   const { error } = await supabase
     .from("collection_bookings")
     .update({ status: "cancelled" })
     .eq("id", bookingId)
-    .eq("patient_id", auth.user.id)
+    .eq("patient_id", userId)
     .eq("status", "scheduled");
 
   if (error) return { ok: false, error: error.message };

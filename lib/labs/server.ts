@@ -1,5 +1,7 @@
 import "server-only";
-import { getServerClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { getUserIdFromCookie } from "@/lib/auth/jwt";
+import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
 
 export interface LabUpload {
   id: string;
@@ -44,21 +46,24 @@ function rowToLabUpload(row: Record<string, unknown>): LabUpload {
 /**
  * Lista os uploads de exames do user logado, ordenados por takenAt
  * (quando informado) ou createdAt (fallback).
+ *
+ * Usa JWT helper (zero-auth-supabase) — supabase.auth.getSession()
+ * dispara refresh proativo que clear cookies em race.
  */
 export async function listLabUploadsForCurrentUser(): Promise<LabUpload[]> {
-  const supabase = await getServerClient();
-  if (!supabase) return [];
+  if (!isSupabaseConfigured()) return [];
 
-  const { data: sessionData } = await supabase.auth.getSession();
-  const auth = { user: sessionData?.session?.user ?? null };
-  if (!auth.user) return [];
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId) return [];
+
+  const supabase = await createSupabaseWithJwt(accessToken);
 
   const { data, error } = await supabase
     .from("lab_uploads")
     .select(
       "id, patient_id, storage_path, file_name, mime_type, size_bytes, taken_at, lab_name, exam_kind, notes, status, extracted_text, parsed_data, exam_id, created_at, updated_at",
     )
-    .eq("patient_id", auth.user.id)
+    .eq("patient_id", userId)
     .order("taken_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false });
 
