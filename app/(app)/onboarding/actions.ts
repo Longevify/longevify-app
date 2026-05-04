@@ -1,7 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getServerClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { getUserIdFromCookie } from "@/lib/auth/jwt";
+import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
 import type { IntakeRecord } from "@/lib/intake/schema";
 
 export type SyncIntakeResult =
@@ -21,16 +23,14 @@ export type SyncIntakeResult =
 export async function syncIntake(
   record: IntakeRecord,
 ): Promise<SyncIntakeResult> {
-  const supabase = await getServerClient();
-  if (!supabase) {
+  if (!isSupabaseConfigured()) {
     return { ok: false, error: "Supabase indisponível (modo demo)." };
   }
 
-  const { data: sessionData } = await supabase.auth.getSession();
-  const auth = { user: sessionData?.session?.user ?? null };
-  if (!auth.user) return { ok: false, error: "Não autenticado." };
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId) return { ok: false, error: "Não autenticado." };
 
-  const userId = auth.user.id;
+  const supabase = await createSupabaseWithJwt(accessToken);
 
   // 1) Upsert intake_responses
   // A tabela tem (patient_id, variant) como chave lógica, mas não há

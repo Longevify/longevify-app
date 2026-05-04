@@ -1,5 +1,7 @@
 import "server-only";
-import { getServerClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { getUserIdFromCookie } from "@/lib/auth/jwt";
+import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
 
 /**
  * Forma canônica do perfil que vai pro DB.
@@ -124,23 +126,22 @@ export async function loadProfileForCurrentUser(): Promise<{
   form: ProfileFormShape;
   isDemo: boolean;
 } | null> {
-  const supabase = await getServerClient();
-  if (!supabase) return null;
+  if (!isSupabaseConfigured()) return null;
 
-  const { data: sessionData } = await supabase.auth.getSession();
-  const auth = { user: sessionData?.session?.user ?? null };
-  if (!auth.user) return null;
+  const { userId, email, accessToken } = await getUserIdFromCookie();
+  if (!userId) return null;
 
+  const supabase = await createSupabaseWithJwt(accessToken);
   const { data: rec } = await supabase
     .from("profiles")
     .select(
       "first_name, last_name, phone, cpf, height_cm, weight_kg, blood_type, city, uf, occupation, language, goals, conditions, medications, allergies, birth_date, chronological_age",
     )
-    .eq("id", auth.user.id)
+    .eq("id", userId)
     .maybeSingle();
 
   return {
-    form: recordToForm(rec as Partial<ProfileRecord> | null, auth.user.email ?? ""),
+    form: recordToForm(rec as Partial<ProfileRecord> | null, email ?? ""),
     isDemo: false,
   };
 }

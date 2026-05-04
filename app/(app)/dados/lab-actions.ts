@@ -1,7 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getServerClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { getUserIdFromCookie } from "@/lib/auth/jwt";
+import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
 
 const ALLOWED_MIME = new Set([
   "application/pdf",
@@ -37,13 +39,14 @@ function extFromMime(mime: string, fileName: string): string {
 export async function uploadLabFile(
   formData: FormData,
 ): Promise<ActionResult<{ id: string }>> {
-  const supabase = await getServerClient();
-  if (!supabase) {
+  if (!isSupabaseConfigured()) {
     return { ok: false, error: "Supabase indisponível (modo demo)." };
   }
 
-  const { data: __sd } = await supabase.auth.getSession(); const auth = { user: __sd?.session?.user ?? null };
-  if (!auth.user) return { ok: false, error: "Não autenticado." };
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId) return { ok: false, error: "Não autenticado." };
+
+  const supabase = await createSupabaseWithJwt(accessToken);
 
   const file = formData.get("file");
   if (!(file instanceof File)) {
@@ -76,7 +79,7 @@ export async function uploadLabFile(
   // Path: {uid}/{uuid}.{ext} — bate com a Storage policy do bucket.
   const ext = extFromMime(file.type, file.name);
   const objectId = crypto.randomUUID();
-  const storagePath = `${auth.user.id}/${objectId}.${ext}`;
+  const storagePath = `${userId}/${objectId}.${ext}`;
 
   const arrayBuffer = await file.arrayBuffer();
   const { error: storageError } = await supabase.storage
@@ -94,7 +97,7 @@ export async function uploadLabFile(
   const { data: row, error: dbError } = await supabase
     .from("lab_uploads")
     .insert({
-      patient_id: auth.user.id,
+      patient_id: userId,
       storage_path: storagePath,
       file_name: file.name,
       mime_type: file.type,
@@ -122,11 +125,14 @@ export async function uploadLabFile(
  * Apaga o upload (storage + row). RLS garante que só o dono pode.
  */
 export async function deleteLabUpload(id: string): Promise<ActionResult> {
-  const supabase = await getServerClient();
-  if (!supabase) return { ok: false, error: "Supabase indisponível." };
+  if (!isSupabaseConfigured()) {
+    return { ok: false, error: "Supabase indisponível." };
+  }
 
-  const { data: __sd } = await supabase.auth.getSession(); const auth = { user: __sd?.session?.user ?? null };
-  if (!auth.user) return { ok: false, error: "Não autenticado." };
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId) return { ok: false, error: "Não autenticado." };
+
+  const supabase = await createSupabaseWithJwt(accessToken);
 
   const { data: row } = await supabase
     .from("lab_uploads")
@@ -135,7 +141,7 @@ export async function deleteLabUpload(id: string): Promise<ActionResult> {
     .maybeSingle();
 
   if (!row) return { ok: false, error: "Upload não encontrado." };
-  if (row.patient_id !== auth.user.id) {
+  if (row.patient_id !== userId) {
     return { ok: false, error: "Sem permissão." };
   }
 
@@ -162,8 +168,12 @@ export async function updateLabUpload(
     notes?: string | null;
   },
 ): Promise<ActionResult> {
-  const supabase = await getServerClient();
-  if (!supabase) return { ok: false, error: "Supabase indisponível." };
+  if (!isSupabaseConfigured()) {
+    return { ok: false, error: "Supabase indisponível." };
+  }
+
+  const { accessToken } = await getUserIdFromCookie();
+  const supabase = await createSupabaseWithJwt(accessToken);
 
   const update: Record<string, unknown> = {};
   if ("takenAt" in patch) {
@@ -194,11 +204,14 @@ export async function updateLabUpload(
 export async function getLabUploadSignedUrl(
   id: string,
 ): Promise<ActionResult<{ url: string }>> {
-  const supabase = await getServerClient();
-  if (!supabase) return { ok: false, error: "Supabase indisponível." };
+  if (!isSupabaseConfigured()) {
+    return { ok: false, error: "Supabase indisponível." };
+  }
 
-  const { data: __sd } = await supabase.auth.getSession(); const auth = { user: __sd?.session?.user ?? null };
-  if (!auth.user) return { ok: false, error: "Não autenticado." };
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId) return { ok: false, error: "Não autenticado." };
+
+  const supabase = await createSupabaseWithJwt(accessToken);
 
   const { data: row } = await supabase
     .from("lab_uploads")
@@ -206,7 +219,7 @@ export async function getLabUploadSignedUrl(
     .eq("id", id)
     .maybeSingle();
   if (!row) return { ok: false, error: "Upload não encontrado." };
-  if (row.patient_id !== auth.user.id) {
+  if (row.patient_id !== userId) {
     return { ok: false, error: "Sem permissão." };
   }
 

@@ -1,6 +1,8 @@
 "use server";
 
-import { getServerClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { getUserIdFromCookie } from "@/lib/auth/jwt";
+import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
 
 export type AddressInput = {
   state: string;   // UF (2 letras)
@@ -42,21 +44,20 @@ export async function createBooking(
     }
   }
 
-  const supabase = await getServerClient();
-
   // Modo demo: Supabase não configurado
-  if (!supabase) {
+  if (!isSupabaseConfigured()) {
     return { ok: true, demo: true, id: `demo-${Date.now()}` };
   }
 
-  const { data: sessionData } = await supabase.auth.getSession();
-  const auth = { user: sessionData?.session?.user ?? null };
-  if (!auth.user) {
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId) {
     return { ok: false, error: "unauthorized" };
   }
 
+  const supabase = await createSupabaseWithJwt(accessToken);
+
   const row: Record<string, string | null> = {
-    patient_id: auth.user.id,
+    patient_id: userId,
     scheduled_at: scheduledAtISO,
     location,
     address_state: address?.state ?? null,
