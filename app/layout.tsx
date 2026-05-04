@@ -1,8 +1,10 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "@/lib/cart/provider";
 import { ToastViewport } from "@/components/ui/toast";
+import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
+import { PWAInstallPrompt } from "@/components/pwa/install-prompt";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -41,6 +43,13 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
+  // PWA / iOS Safari Add-to-Home-Screen
+  appleWebApp: {
+    capable: true,
+    title: "Longevify",
+    statusBarStyle: "black-translucent",
+  },
+  // Manifest é exposto automaticamente via app/manifest.ts em /manifest.webmanifest
   // O Next 14+ detecta automaticamente `app/icon.png` e injeta a tag
   // <link rel="icon" href="/icon.png">. Sem override manual aqui pra
   // evitar referência a /favicon.svg que não existe mais.
@@ -73,6 +82,24 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * Viewport export — separado de metadata por convenção Next 16.
+ * theme-color brand-700 controla cor da barra de status mobile + chrome
+ * window decorations no PWA standalone.
+ */
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#1f5d3f" },
+    { media: "(prefers-color-scheme: dark)", color: "#0d2818" },
+  ],
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  // Permite zoom — acessibilidade. Apple WebKit aceita.
+  userScalable: true,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
@@ -83,6 +110,8 @@ export default function RootLayout({
           {children}
           <ToastViewport />
         </CartProvider>
+        <ServiceWorkerRegister />
+        <PWAInstallPrompt />
       </body>
     </html>
   );

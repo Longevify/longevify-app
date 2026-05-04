@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2732 2732">
+  <rect width="2732" height="2732" fill="#0d2818"/>
+  <g transform="translate(1366,1300)">
+    <rect x="-220" y="-220" width="440" height="440" rx="80" fill="#1f5d3f"/>
+    <text x="0" y="100" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif" font-size="280" font-weight="700" fill="#ffffff" text-anchor="middle" letter-spacing="-12">L</text>
+  </g>
+  <text x="1366" y="1700" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif" font-size="80" font-weight="600" fill="#ffffff" text-anchor="middle" letter-spacing="-1">Longevify</text>
+</svg>
