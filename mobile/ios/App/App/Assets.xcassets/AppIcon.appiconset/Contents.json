@@ -1,0 +1,83 @@
+{
+  "images": [
+    {
+      "filename": "Icon-20.png",
+      "idiom": "universal",
+      "scale": "1x"
+    },
+    {
+      "filename": "Icon-20@2x.png",
+      "idiom": "universal",
+      "scale": "2x"
+    },
+    {
+      "filename": "Icon-20@3x.png",
+      "idiom": "universal",
+      "scale": "3x"
+    },
+    {
+      "filename": "Icon-29.png",
+      "idiom": "universal",
+      "scale": "1x"
+    },
+    {
+      "filename": "Icon-29@2x.png",
+      "idiom": "universal",
+      "scale": "2x"
+    },
+    {
+      "filename": "Icon-29@3x.png",
+      "idiom": "universal",
+      "scale": "3x"
+    },
+    {
+      "filename": "Icon-40.png",
+      "idiom": "universal",
+      "scale": "1x"
+    },
+    {
+      "filename": "Icon-40@2x.png",
+      "idiom": "universal",
+      "scale": "2x"
+    },
+    {
+      "filename": "Icon-40@3x.png",
+      "idiom": "universal",
+      "scale": "3x"
+    },
+    {
+      "filename": "Icon-60@2x.png",
+      "idiom": "universal",
+      "scale": "2x"
+    },
+    {
+      "filename": "Icon-60@3x.png",
+      "idiom": "universal",
+      "scale": "3x"
+    },
+    {
+      "filename": "Icon-76.png",
+      "idiom": "universal",
+      "scale": "1x"
+    },
+    {
+      "filename": "Icon-76@2x.png",
+      "idiom": "universal",
+      "scale": "2x"
+    },
+    {
+      "filename": "Icon-83.5@2x.png",
+      "idiom": "universal",
+      "scale": "2x"
+    },
+    {
+      "filename": "Icon-1024.png",
+      "idiom": "universal",
+      "scale": "1x"
+    }
+  ],
+  "info": {
+    "author": "longevify-scripts",
+    "version": 1
+  }
+}
