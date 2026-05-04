@@ -8,32 +8,37 @@ import {
 
 /**
  * Supabase redirects the user here after email confirmation, magic link click,
- * or password recovery. We swap the OAuth `code` for a session cookie and send
- * the user to the right place based on the flow type.
+ * or password recovery.
  *
- *   type=recovery → /update-password (set new password)
- *   type=invite/signup/magiclink/anything else → /home (default)
+ * Aceita DOIS formatos de email do Supabase:
+ *  - Formato legado/PKCE: `?code=...` → exchangeCodeForSession
+ *  - Formato moderno (OTP): `?token_hash=...&type=email|signup|recovery|...`
+ *    → verifyOtp(type, token_hash)
  *
- * Errors from Supabase (?error=access_denied&error_code=otp_expired etc.) are
- * forwarded to /login with a query param so the form can show a message.
+ * Após sucesso:
+ *   - type=recovery → /update-password (forma nova senha)
+ *   - signup/email confirmation → /login?confirmed=1 (mostra banner
+ *     "email validado, faça login" — evita auto-login silencioso que
+ *     pode falhar e deixar user em estado zumbi)
+ *   - magiclink → /home (auto login esperado)
  *
- * IMPORTANTE: O client é criado aqui (em vez de usar getServerClient) para que
- * os cookies escritos por exchangeCodeForSession sejam injetados diretamente no
- * NextResponse.redirect — se usarmos getServerClient(), os cookies vão para o
- * cookie store implícito do Next e NÃO são copiados para o redirect response,
- * fazendo a sessão se perder imediatamente após o callback.
+ * Errors do Supabase (?error=access_denied&error_code=otp_expired etc)
+ * vão pra /login com query param pra form mostrar mensagem.
+ *
+ * IMPORTANTE: client criado aqui (em vez de getServerClient) pra que
+ * cookies escritos pelo exchange/verifyOtp sejam injetados no
+ * NextResponse.redirect — caso contrário cookies vão pro cookie store
+ * implícito do Next e NÃO são copiados pra o redirect response.
  */
 export async function GET(request: NextRequest) {
   const url = request.nextUrl.clone();
   const code = url.searchParams.get("code");
+  const tokenHash = url.searchParams.get("token_hash");
   const type = url.searchParams.get("type");
   const errorCode = url.searchParams.get("error_code");
   const errorDescription = url.searchParams.get("error_description");
-  const next =
-    url.searchParams.get("next") ??
-    (type === "recovery" ? "/update-password" : "/home");
 
-  // Forward auth errors to /login (e.g. expired link, denied access).
+  // Forward auth errors to /login (link expirado, denied access, etc)
   if (errorCode || errorDescription) {
     url.pathname = "/login";
     url.search = "";
@@ -43,28 +48,64 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  url.pathname = next;
+  // Decide pra onde redirecionar baseado no tipo do link.
+  // Signup/email confirmation: vai pra /login com flag confirmed=1
+  // (banner "email validado") — auto-login é arriscado se a sessão não
+  // persistir corretamente (vimos isso no bug do prefetch /logout).
+  // Recovery: /update-password (precisa setar nova senha).
+  // Magiclink: /home (auto-login esperado).
+  const isEmailConfirmation =
+    type === "signup" || type === "email" || type === "email_change";
+  const isRecovery = type === "recovery";
+  const next =
+    url.searchParams.get("next") ??
+    (isRecovery
+      ? "/update-password"
+      : isEmailConfirmation
+        ? "/login?confirmed=1"
+        : "/home");
+
+  url.pathname = next.split("?")[0];
   url.search = "";
+  // Re-aplica query params do `next` se tiver
+  const nextQuery = next.includes("?") ? next.split("?")[1] : "";
+  if (nextQuery) {
+    for (const [k, v] of new URLSearchParams(nextQuery).entries()) {
+      url.searchParams.set(k, v);
+    }
+  }
   const redirectResponse = NextResponse.redirect(url);
 
-  if (code && isSupabaseConfigured()) {
-    // Criamos o client apontando os cookies diretamente para o redirect response,
-    // assim exchangeCodeForSession escreve o token de sessão no response que volta
-    // pro browser — garantindo persistência da sessão após o callback.
-    const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          for (const { name, value, options } of cookiesToSet) {
-            redirectResponse.cookies.set({ name, value, ...options });
-          }
-        },
-      },
-    });
+  if (!isSupabaseConfigured()) return redirectResponse;
+  if (!code && !tokenHash) return redirectResponse;
 
+  const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet) {
+        for (const { name, value, options } of cookiesToSet) {
+          redirectResponse.cookies.set({ name, value, ...options });
+        }
+      },
+    },
+  });
+
+  if (code) {
+    // Formato legado/PKCE
     await supabase.auth.exchangeCodeForSession(code);
+  } else if (tokenHash && type) {
+    // Formato moderno: verifyOtp pra confirmação de email/recovery
+    // type pode ser: signup | email | email_change | recovery | invite | magiclink
+    const otpType = type as
+      | "signup"
+      | "email"
+      | "email_change"
+      | "recovery"
+      | "invite"
+      | "magiclink";
+    await supabase.auth.verifyOtp({ token_hash: tokenHash, type: otpType });
   }
 
   return redirectResponse;
