@@ -5,6 +5,7 @@ import { CartProvider } from "@/lib/cart/provider";
 import { ToastViewport } from "@/components/ui/toast";
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
 import { PWAInstallPrompt } from "@/components/pwa/install-prompt";
+import { SplashController } from "@/components/native/splash-controller";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -112,6 +113,7 @@ export default function RootLayout({
         </CartProvider>
         <ServiceWorkerRegister />
         <PWAInstallPrompt />
+        <SplashController />
       </body>
     </html>
   );
