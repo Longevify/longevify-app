@@ -1,5 +1,6 @@
 import { isSupabaseConfigured } from "@/lib/supabase/env";
-import { getServerClient } from "@/lib/supabase/server";
+import { getUserIdFromCookie } from "@/lib/auth/jwt";
+import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
 import { createMockRepositories } from "./adapters/mock";
 import { createSupabaseRepositories } from "./adapters/supabase";
 import type { Repositories } from "./repositories";
@@ -19,12 +20,14 @@ export function getRepositories(): Repositories {
  * Server-side repositories resolved for the current authenticated user. Falls
  * back to mock data when Supabase is not configured (demo mode) or when the
  * current request has no session.
+ *
+ * Usa JWT helper — supabase.auth.getSession() dispara refresh que
+ * clear cookies em race condition.
  */
 export async function getServerRepositories(): Promise<Repositories> {
   if (!isSupabaseConfigured()) return createMockRepositories();
-  const supabase = await getServerClient();
-  if (!supabase) return createMockRepositories();
-  const { data: sessionData } = await supabase.auth.getSession();
-  const user = sessionData?.session?.user ?? null;
-  return createSupabaseRepositories(supabase, user?.id ?? null);
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId) return createMockRepositories();
+  const supabase = await createSupabaseWithJwt(accessToken);
+  return createSupabaseRepositories(supabase, userId);
 }

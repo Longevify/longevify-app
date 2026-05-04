@@ -1,5 +1,7 @@
 import "server-only";
-import { getServerClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { getUserIdFromCookie } from "@/lib/auth/jwt";
+import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
 import {
   BIOMARKERS as MOCK_BIOMARKERS,
   PATIENT as MOCK_PATIENT,
@@ -32,10 +34,14 @@ export async function loadDadosForUser(opts: {
     return { patient: MOCK_PATIENT, biomarkers: MOCK_BIOMARKERS, hasExams: true };
   }
 
-  const supabase = await getServerClient();
-  if (!supabase) {
+  if (!isSupabaseConfigured()) {
     return { patient: MOCK_PATIENT, biomarkers: [], hasExams: false };
   }
+
+  // Read path — usa JWT helper (sem auto-refresh) pra não disparar
+  // race que clear cookies durante navegação.
+  const { accessToken } = await getUserIdFromCookie();
+  const supabase = await createSupabaseWithJwt(accessToken);
 
   const [examsRes, defsRes, scoreRes, profileRes] = await Promise.all([
     supabase
