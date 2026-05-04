@@ -50,6 +50,23 @@ export async function GET(req: NextRequest) {
       valuePrefix: c.value.slice(0, 30),
     }));
 
+  // RAW header dump — pra diagnosticar caso Next's cookies() não esteja
+  // parseando direito ou Vercel esteja stripando.
+  const rawCookieHeader = req.headers.get("cookie") ?? "";
+  const rawCookieHeaderLength = rawCookieHeader.length;
+  const rawCookieNames = rawCookieHeader
+    ? rawCookieHeader.split(";").map((c) => c.trim().split("=")[0])
+    : [];
+  const allRequestHeaders: Record<string, string> = {};
+  req.headers.forEach((value, key) => {
+    // omit huge cookie value, but show its size
+    if (key.toLowerCase() === "cookie") {
+      allRequestHeaders[key] = `[${value.length} chars]`;
+    } else {
+      allRequestHeaders[key] = value.slice(0, 100);
+    }
+  });
+
   const jwtResult = await getUserIdFromCookie();
 
   // SAFE jwt projection — NUNCA inclui o token cru
@@ -101,6 +118,12 @@ export async function GET(req: NextRequest) {
         supabase_auth_cookies: supabaseAuthCookies,
         supabase_auth_details: supabaseAuthCookieDetails,
       },
+      rawCookieHeader: {
+        length: rawCookieHeaderLength,
+        present: rawCookieHeaderLength > 0,
+        names: rawCookieNames,
+      },
+      requestHeaders: allRequestHeaders,
       jwt: jwtSafe,
       profileQuery: profileQueryResult,
     },
