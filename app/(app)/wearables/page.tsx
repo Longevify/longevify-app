@@ -2,6 +2,7 @@
 
 import { Activity, Heart, Moon, TrendingUp } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ConnectAppleHealth } from "@/components/native/connect-apple-health";
 import { ConnectModal } from "@/components/wearables/connect-modal";
 import { ConnectionStatus } from "@/components/wearables/connection-status";
 import { DeviceCard } from "@/components/wearables/device-card";
@@ -284,6 +285,14 @@ export default function WearablesPage() {
           {toast}
         </div>
       ) : null}
+
+      {/* Apple Health connect — só aparece em iOS nativo (Capacitor),
+          retorna null em browser web. Renderiza no topo porque é o
+          caminho de conexão MAIS RICO disponível (HRV, sono, peso,
+          VO2max etc do Apple Watch). */}
+      <div className="mb-6">
+        <ConnectAppleHealth />
+      </div>
 
       <section className="mb-10 flex flex-col gap-4">
         <div className="flex items-baseline justify-between gap-4">
