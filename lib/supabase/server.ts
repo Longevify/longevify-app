@@ -40,24 +40,6 @@ export async function getServerClient() {
       },
       setAll(cookiesToSet) {
         try {
-          // TEMP DEBUG: log + stack trace pra identificar QUEM tá
-          // chamando setAll (especialmente deletes).
-          const stack = new Error("setAll-stack").stack;
-          // eslint-disable-next-line no-console
-          console.log(
-            `[supabase-setAll] writing ${cookiesToSet.length} cookies:`,
-            cookiesToSet.map((c) => ({
-              name: c.name,
-              valueLength: c.value.length,
-              maxAge: c.options?.maxAge,
-              path: c.options?.path,
-              httpOnly: c.options?.httpOnly,
-              secure: c.options?.secure,
-              sameSite: c.options?.sameSite,
-            })),
-            "STACK:",
-            stack?.split("\n").slice(1, 12).join("\n"),
-          );
           for (const { name, value, options } of cookiesToSet) {
             // Override defaults com nossos COOKIE_OPTIONS hardcoded.
             // supabase ssr passa options.maxAge baseado no tipo de
@@ -70,12 +52,10 @@ export async function getServerClient() {
               maxAge: options?.maxAge === 0 ? 0 : COOKIE_OPTIONS.maxAge,
             });
           }
-        } catch (err) {
+        } catch {
           // `set` can fail when invoked from a Server Component — the proxy
           // handler refreshes the session separately, so this is safe to
           // ignore in that context.
-          // eslint-disable-next-line no-console
-          console.error("[supabase-setAll] error:", err);
         }
       },
     },

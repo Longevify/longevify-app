@@ -65,13 +65,6 @@ async function _getCurrentUser(): Promise<CurrentUser> {
   // ZERO-AUTH-SUPABASE: extrai user_id + access_token do JWT do cookie
   // sem chamar supabase.auth.* — evita refresh + race que clear cookies.
   const { userId, email, accessToken } = await getUserIdFromCookie();
-  // eslint-disable-next-line no-console
-  console.log("[getCurrentUser]", {
-    hasUserId: !!userId,
-    userId: userId?.slice(0, 8),
-    email,
-    hasAccessToken: !!accessToken,
-  });
   if (!userId) return DEMO_USER;
 
   const userEmail = email;
