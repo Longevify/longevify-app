@@ -7,33 +7,43 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 /**
- * Endpoint de debug — mostra o que o servidor vê dos cookies de auth +
- * roda a mesma query que /perfil/page.tsx faz. Útil pra diagnosticar
- * problemas de sessão/RLS.
+ * Endpoint de debug — usado pra diagnosticar problemas de sessão/auth/RLS.
  *
- * HARDENING:
- * - NUNCA retorna o `accessToken` cru — só `accessTokenLength` e
- *   `accessTokenPrefix` (primeiros 12 chars). Se alguém leakar o JSON,
- *   o token continua privado.
- * - Gate opcional via env `DEBUG_TOKEN`: se setado, requer
- *   `?token=...` matching. Se não setado, endpoint roda livre
- *   (assumindo que só é útil pra dev/staging).
+ * MODO DEFAULT (sem token): retorna apenas resposta minimalista
+ * `{ authenticated: bool }`. Não expõe userId, email, headers,
+ * profile data, nada que possa servir pra info-disclosure.
  *
- * TODO: remover esse endpoint quando o bug de auth ficar estável e
- * a gente não precisar mais investigar produção.
+ * MODO VERBOSE (?token={DEBUG_TOKEN}): retorna o dump completo de
+ * cookies, headers, JWT details, profile query — útil pra
+ * troubleshoot. Só funciona se a env var `DEBUG_TOKEN` estiver
+ * setada no servidor E o ?token= bater.
+ *
+ * MODO LIVRE (sem env DEBUG_TOKEN setada): se a env não estiver
+ * setada, qualquer um pode ver o verbose dump. Use isso só em
+ * desenvolvimento. Em produção, sempre setar DEBUG_TOKEN.
  */
 export async function GET(req: NextRequest) {
-  // Gate opcional — se DEBUG_TOKEN tá setado, exige match
   const debugToken = process.env.DEBUG_TOKEN;
-  if (debugToken) {
-    const provided = req.nextUrl.searchParams.get("token");
-    if (provided !== debugToken) {
-      return NextResponse.json(
-        { ok: false, error: "forbidden" },
-        { status: 403, headers: { "Cache-Control": "no-store" } },
-      );
-    }
+  const provided = req.nextUrl.searchParams.get("token");
+
+  // Se DEBUG_TOKEN está setada e o token não bate, modo restrito.
+  // Se DEBUG_TOKEN NÃO está setada (dev), modo verbose default.
+  const verbose = !debugToken || provided === debugToken;
+
+  const jwtResult = await getUserIdFromCookie();
+
+  // Resposta minimalista: só "tem sessão? sim/não". Safe pra expor.
+  if (!verbose) {
+    return NextResponse.json(
+      {
+        authenticated: !!jwtResult.userId,
+        timestamp: new Date().toISOString(),
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   }
+
+  // ── A partir daqui, modo verbose (gated em prod via DEBUG_TOKEN) ──
 
   const cookieStore = await cookies();
   const all = cookieStore.getAll();
@@ -50,24 +60,11 @@ export async function GET(req: NextRequest) {
       valuePrefix: c.value.slice(0, 30),
     }));
 
-  // RAW header dump — pra diagnosticar caso Next's cookies() não esteja
-  // parseando direito ou Vercel esteja stripando.
   const rawCookieHeader = req.headers.get("cookie") ?? "";
   const rawCookieHeaderLength = rawCookieHeader.length;
   const rawCookieNames = rawCookieHeader
     ? rawCookieHeader.split(";").map((c) => c.trim().split("=")[0])
     : [];
-  const allRequestHeaders: Record<string, string> = {};
-  req.headers.forEach((value, key) => {
-    // omit huge cookie value, but show its size
-    if (key.toLowerCase() === "cookie") {
-      allRequestHeaders[key] = `[${value.length} chars]`;
-    } else {
-      allRequestHeaders[key] = value.slice(0, 100);
-    }
-  });
-
-  const jwtResult = await getUserIdFromCookie();
 
   // SAFE jwt projection — NUNCA inclui o token cru
   const jwtSafe = {
@@ -79,9 +76,7 @@ export async function GET(req: NextRequest) {
     accessTokenPrefix: jwtResult.accessToken?.slice(0, 12) ?? null,
   };
 
-  // Roda a mesma query que /perfil/page.tsx faz pra ver se retorna data.
-  // Com JWT explícito no header Authorization — sem isso o RLS bloqueia
-  // silenciosamente.
+  // Roda a mesma query que /perfil/page.tsx faz pra ver se RLS funciona
   let profileQueryResult: Record<string, unknown> = { skipped: "no userId" };
   if (jwtResult.userId) {
     try {
@@ -123,7 +118,6 @@ export async function GET(req: NextRequest) {
         present: rawCookieHeaderLength > 0,
         names: rawCookieNames,
       },
-      requestHeaders: allRequestHeaders,
       jwt: jwtSafe,
       profileQuery: profileQueryResult,
     },
