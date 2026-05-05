@@ -22,8 +22,10 @@ Lucas dormiu ~7h. Eu trabalhei autônomo arrumando bugs mobile+desktop pra o app
 | #81 | **Auth split-screen desktop** — /login, /signup, /reset-password agora têm hero esquerda (gradient verde + 3 trust signals) + form direita. Mobile mantém single-column. |
 | #82 | **Session notes** |
 | #83 | **Hydration #418 deep fix** — useId() em metric-tile (era Math.random) + useNow()/useToday() hooks SSR-safe em booking-card e calendar-picker (eram Date.now()/new Date() em render) |
+| #84 | **Session notes update** — known issues |
+| #85 | **/admin mobile responsive** — sidebar virou drawer hamburger em mobile (era sidebar fixa que ocupava 50% da viewport iPhone, quebrando todo o conteúdo) |
 
-Combinado com PRs #71-#73 do começo (logo Longevify infinity, TopNav hamburger mobile, h1 typography), são **16 PRs mergeados em ~10h** entre fim de tarde e madrugada.
+Combinado com PRs #71-#73 do começo (logo Longevify infinity, TopNav hamburger mobile, h1 typography), são **17 PRs mergeados em ~10h** entre fim de tarde e madrugada.
 
 ## Estado atual visual
 
@@ -35,13 +37,25 @@ Combinado com PRs #71-#73 do começo (logo Longevify infinity, TopNav hamburger 
 - ✅ /concierge — suggestions 2-col, chat preenche tela, input acima safe-area
 - ✅ /planos — 4 cards bem espaçados, badge sem colidir
 - ✅ /coleta/agendar — calendar mobile com 4 dias visíveis, UF select wider
+- ✅ /coleta — empty state limpo
+- ✅ /protocolo — 6 categorias detalhadas + adherence section
+- ✅ /wearables — Apple Watch + Garmin + Oura/Whoop em cards organizados
+- ✅ /onboarding — Cadastro Rápido vs Completo com hierarchy visual
+- ✅ /login, /signup, /reset-password — single-column elegante mobile
+- ✅ /lgpd, /privacidade, /termos — texto legal organizado
+- ✅ /admin — topbar hamburger mobile, drawer slide-out
+- ✅ /404 — página customizada com logo Longevify + CTAs
+- ✅ /checkout — empty state claro
 - ✅ TopNav: hamburger menu mobile, Logo + Cart + Avatar limpos
 
 **Desktop 1440x900:**
-- ✅ /login, /signup, /reset-password agora com split-screen elegante
+- ✅ /home — TopNav inline com nav items + Convidar + avatar
+- ✅ /login, /signup, /reset-password — split-screen elegante (hero esquerda + form direita)
 - ✅ /dados sidebar com selection state visível
 - ✅ /planos com Trio Bundle "Economize 16%" clarity
 - ✅ /loja com fallback de imagens (sem mais quadrados pretos)
+- ✅ /admin sidebar lateral fixa funcionando
+- ✅ /404 layout ok
 
 ## PR aberto pendente
 
