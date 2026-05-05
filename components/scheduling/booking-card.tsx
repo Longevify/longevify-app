@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useNow } from "@/lib/use-now";
 import {
   CalendarDays,
   Home,
@@ -90,9 +91,13 @@ export function BookingCard({ booking, showActions = true }: BookingCardProps) {
   const StatusIcon = STATUS_ICON[status];
   const LocationIcon = LOCATION_ICON[booking.location];
   const address = formatAddress(booking);
+  // useNow() é SSR-safe: null em SSR/primeiro client render, Date.now()
+  // após mount. Evita hydration mismatch React #418.
+  const now = useNow();
   const isFuture =
     status === "scheduled" &&
-    new Date(booking.scheduledAtISO).getTime() >= Date.now();
+    now !== null &&
+    new Date(booking.scheduledAtISO).getTime() >= now;
 
   function handleCancel() {
     if (!window.confirm("Cancelar esta coleta? Você pode reagendar depois.")) {

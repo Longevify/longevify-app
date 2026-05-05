@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToday } from "@/lib/use-now";
 import {
   COLLECTION_HOURS,
   getAvailableSlots,
@@ -44,6 +45,12 @@ export function CalendarPicker({
   onSelect,
   onShiftWeek,
 }: CalendarPickerProps) {
+  // useToday: SSR-safe (null em SSR/primeiro render, Date após mount).
+  // Evita hydration mismatch quando isToday compara `date.toDateString()`
+  // com `new Date().toDateString()` (server vs client time differ).
+  const today = useToday();
+  const todayKey = today?.toDateString() ?? null;
+
   const slots = useMemo(
     () => getAvailableSlots(weekStart, location),
     [weekStart, location],
@@ -107,8 +114,7 @@ export function CalendarPicker({
           {/* header row: vazio + dias */}
           <div />
           {days.map(({ date }) => {
-            const isToday =
-              date.toDateString() === new Date().toDateString();
+            const isToday = todayKey !== null && date.toDateString() === todayKey;
             return (
               <div
                 key={date.toISOString()}
