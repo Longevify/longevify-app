@@ -94,12 +94,14 @@ export function SignupForm({ demo, children }: SignupFormProps) {
           max={new Date().toISOString().slice(0, 10)}
           hint="Usamos pra calcular sua idade biológica vs cronológica."
         />
+        {/* H7: placeholder no campo Senha pra não parecer vazio/quebrado */}
         <AuthInput
           label="Senha"
           type="password"
           name="password"
           autoComplete="new-password"
           required
+          placeholder="Mínimo 8 caracteres"
           hint="Mínimo 8 caracteres."
           value={password}
           onChange={(e) => setPassword(e.target.value)}

@@ -27,9 +27,10 @@ export function CategoryList({
             type="button"
             onClick={() => onChange(cat.id)}
             className={cn(
+              // H3: estado ativo inequívoco — fundo verde suave + texto brand + semibold
               "flex items-center justify-between gap-3 rounded-full px-3 h-11 text-left transition-colors",
               active
-                ? "bg-brand-100 text-ink"
+                ? "bg-green-50 text-brand-700 font-semibold"
                 : "text-muted hover:bg-brand-50 hover:text-ink",
             )}
           >

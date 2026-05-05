@@ -161,7 +161,13 @@ export function LoginForm({
             {magicState.error}
           </p>
         ) : null}
-        <Button type="submit" variant="outline" disabled={magicPending}>
+        {/* H6: borda brand-700 + texto verde pra diferenciar visualmente do fundo do card */}
+        <Button
+          type="submit"
+          variant="outline"
+          disabled={magicPending}
+          className="border-brand-700 text-brand-700 hover:bg-brand-50"
+        >
           {magicPending ? "Enviando..." : "Enviar link mágico"}
         </Button>
       </form>

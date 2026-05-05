@@ -94,18 +94,20 @@ function PathCard({
   recommended,
   onSelect,
 }: PathCardProps) {
+  // H5: card Recomendado com borda brand-700 + sombra mais forte pra
+  // diferenciar visualmente do card Rápido
   return (
     <button
       type="button"
       onClick={onSelect}
       aria-pressed={selected}
       className={cn(
-        "group relative flex flex-col gap-4 rounded-[20px] border p-6 text-left transition-all",
+        "group relative flex flex-col gap-4 rounded-[20px] border-2 p-6 text-left transition-all",
         recommended
-          ? "border-brand-500 bg-gradient-to-br from-white via-brand-50/30 to-brand-100/40 shadow-[0_12px_32px_-16px_rgba(13,40,24,.18)] sm:p-7"
+          ? "border-brand-700 bg-gradient-to-br from-white via-brand-50/30 to-brand-100/40 shadow-[0_20px_48px_-20px_rgba(13,40,24,.30)] sm:p-7"
           : "border-border bg-white shadow-[0_1px_2px_rgba(13,40,24,.04)]",
         selected && "ring-2 ring-brand-500 ring-offset-2",
-        "hover:border-brand-500 hover:shadow-[0_8px_24px_-12px_rgba(13,40,24,.18)]",
+        "hover:border-brand-700 hover:shadow-[0_12px_32px_-12px_rgba(13,40,24,.22)]",
       )}
     >
       {recommended ? (

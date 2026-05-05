@@ -43,6 +43,8 @@ export default async function ColetaPage() {
       </header>
 
       {total === 0 ? (
+        // H2: empty state sem botão redundante — o "Nova coleta" do header
+        // já cobre a ação; aqui mantemos só o CTA central em destaque.
         <Card className="flex flex-col items-center gap-3 p-10 text-center">
           <span className="grid h-12 w-12 place-items-center rounded-full bg-brand-100 text-brand-700">
             <CalendarPlus className="h-5 w-5" />
@@ -54,11 +56,6 @@ export default async function ColetaPage() {
             A primeira coleta é o ponto de partida do seu protocolo Longevify —
             é dela que sai todo o quadro de biomarcadores.
           </p>
-          <Link href="/coleta/agendar" className="mt-2">
-            <Button variant="primary" size="md">
-              Agendar primeira coleta
-            </Button>
-          </Link>
         </Card>
       ) : (
         <div className="flex flex-col gap-8">
