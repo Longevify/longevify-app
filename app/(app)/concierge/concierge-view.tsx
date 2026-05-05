@@ -127,8 +127,8 @@ export function ConciergeView({ addressName }: ConciergeViewProps) {
 
   const suggestions = useMemo(() => SUGGESTIONS, []);
 
+  // H7: dvh garante que o cálculo ignore a barra do browser em iOS
   return (
-    {/* H7: dvh garante que o cálculo ignore a barra do browser em iOS */}
     <div className="mx-auto flex h-[calc(100dvh-64px)] w-full max-w-[900px] flex-col px-6 py-8">
       <header className="pb-6">
         <span className="text-[13px] text-muted">
