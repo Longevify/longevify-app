@@ -30,25 +30,10 @@ export default function AuthLayout({
             "linear-gradient(135deg, #1f5d3f 0%, #0d2818 100%)",
         }}
       >
-        <div className="flex items-center gap-3">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 512 512"
-            className="h-10 w-10"
-            aria-hidden
-          >
-            <path
-              d="M 256 158.5 A 130 130 0 1 1 256 353.5 A 130 130 0 1 1 256 158.5 Z"
-              stroke="#d8eecf"
-              strokeWidth="46"
-              strokeLinejoin="round"
-              fill="none"
-            />
-          </svg>
-          <span className="text-[22px] font-semibold tracking-tight">
-            Longevify
-          </span>
-        </div>
+        {/* Wordmark do brand book (PNG mint sobre fundo escuro) — antes era
+            SVG infinity + texto "Longevify" em system font, inconsistente
+            com o resto do app que usa o wordmark real. */}
+        <Logo mono="light" className="h-8 w-auto" />
 
         <div className="max-w-md">
           <h2 className="text-[36px] font-semibold leading-[1.1] tracking-tight">
