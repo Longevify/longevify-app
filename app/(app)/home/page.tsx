@@ -32,10 +32,10 @@ export default async function HomePage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1280px] px-6 py-10">
-      <header className="flex flex-col gap-1 pb-8">
+    <div className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6 sm:py-10">
+      <header className="flex flex-col gap-1 pb-6 sm:pb-8">
         <span className="text-[13px] text-muted">Olá, {user.firstName}</span>
-        <h1 className="text-[40px] leading-[1.05] font-semibold tracking-tight">
+        <h1 className="text-[28px] leading-[1.1] font-semibold tracking-tight sm:text-[40px] sm:leading-[1.05]">
           Sua saúde hoje
         </h1>
       </header>
@@ -228,10 +228,10 @@ async function NewUserHome({ firstName }: { firstName: string }) {
   const nextBooking = upcoming[0] ?? null;
 
   return (
-    <div className="mx-auto w-full max-w-[920px] px-6 py-10">
-      <header className="flex flex-col gap-1 pb-8">
+    <div className="mx-auto w-full max-w-[920px] px-4 py-6 sm:px-6 sm:py-10">
+      <header className="flex flex-col gap-1 pb-6 sm:pb-8">
         <span className="text-[13px] text-muted">Olá, {firstName}</span>
-        <h1 className="text-[40px] leading-[1.05] font-semibold tracking-tight">
+        <h1 className="text-[28px] leading-[1.1] font-semibold tracking-tight sm:text-[40px] sm:leading-[1.05]">
           Bem-vindo ao Longevify
         </h1>
         <p className="mt-2 max-w-2xl text-[15px] text-muted">
