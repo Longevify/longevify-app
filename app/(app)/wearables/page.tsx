@@ -336,7 +336,9 @@ export default function WearablesPage() {
             Estamos finalizando integrações. Avise-nos qual seria sua prioridade.
           </p>
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* H1: auto-fill alinha colunas com os dispositivos principais e
+            evita metade direita vazia quando há menos de 4 cards */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-[repeat(auto-fill,minmax(220px,1fr))]">
           {otherDevices.map((d) => (
             <DeviceCard
               key={d.brand}

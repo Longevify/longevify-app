@@ -227,7 +227,8 @@ export default function OnboardingPage() {
   // Sem record carregado → splash.
   if (!record) {
     return (
-      <div className="mx-auto w-full max-w-[1080px] px-6 py-10 sm:py-12">
+      // H5: max-w-4xl (~1152px) pra cards ficarem balanceados em desktop
+      <div className="mx-auto w-full max-w-5xl px-6 py-10 sm:py-12">
         <PathChooser onSelect={chooseVariant} />
       </div>
     );
@@ -237,7 +238,8 @@ export default function OnboardingPage() {
 
   if (stepId === "choose") {
     return (
-      <div className="mx-auto w-full max-w-[1080px] px-6 py-10 sm:py-12">
+      // H5: mesma largura ampliada
+      <div className="mx-auto w-full max-w-5xl px-6 py-10 sm:py-12">
         <PathChooser selected={record.variant} onSelect={chooseVariant} />
       </div>
     );
