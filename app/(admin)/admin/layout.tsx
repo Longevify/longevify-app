@@ -13,10 +13,11 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen bg-[#F5F7F6]">
+    // Em mobile: coluna (topbar acima + conteúdo abaixo). Em desktop: linha (sidebar lateral + conteúdo).
+    <div className="flex min-h-screen flex-col bg-[#F5F7F6] sm:flex-row">
       <AdminSidebar />
       <main className="flex min-w-0 flex-1 flex-col">
-        <div className="mx-auto w-full max-w-[1400px] flex-1 px-8 py-10">
+        <div className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 sm:px-8 sm:py-10">
           {children}
         </div>
       </main>
