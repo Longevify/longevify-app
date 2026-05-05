@@ -30,10 +30,11 @@ export default function AuthLayout({
             "linear-gradient(135deg, #1f5d3f 0%, #0d2818 100%)",
         }}
       >
-        {/* Wordmark do brand book (PNG mint sobre fundo escuro) — antes era
-            SVG infinity + texto "Longevify" em system font, inconsistente
-            com o resto do app que usa o wordmark real. */}
-        <Logo mono="light" className="h-8 w-auto" />
+        {/* Wordmark do brand book em mint sobre fundo escuro. Altura 56px
+            no hero do login pra dar mais presença visual — o aside ocupa
+            metade do desktop e o wordmark de 36px (padrão do top-nav)
+            ficava pequeno demais nesse espaço. */}
+        <Logo mono="light" height={56} />
 
         <div className="max-w-md">
           <h2 className="text-[36px] font-semibold leading-[1.1] tracking-tight">
@@ -80,9 +81,10 @@ export default function AuthLayout({
           }}
         />
 
-        {/* Logo header — só mobile */}
+        {/* Logo header — só mobile. Altura aumentada de 36 → 56 pra dar
+            presença visual consistente com o hero desktop. */}
         <div className="mb-10 flex flex-col items-center gap-3 lg:hidden">
-          <Logo className="h-9 w-auto" />
+          <Logo height={56} />
           <p className="text-[13px] text-muted">
             Sua plataforma de longevidade
           </p>
