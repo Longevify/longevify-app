@@ -33,18 +33,19 @@ export function ChatWindow({
   return (
     <div className="flex h-full flex-col">
       {/*
-        C2 — quando só a saudação existe (showSuggestions=true), o container de
-        mensagens não deve crescer com flex-1: isso criava ~400px de vazio
-        entre a saudação e o input. Sem flex-1, o container ocupa só o espaço
-        natural da mensagem e o input/suggestions sobem direto abaixo.
-        Com mensagens de ida e volta, flex-1 + overflow-y-auto entra pra
-        a área scrollável se expandir corretamente.
+        Empty state (só a saudação): messages div ocupa todo o espaço
+        disponível com flex-1 e centraliza vertical (justify-center) — a
+        saudação fica no MEIO do card em vez de colada no topo com vazio
+        abaixo. Pills + input ficam ancorados no fundo do card.
+
+        Conversa em andamento: flex-1 + overflow-y-auto pra scroll normal.
+        Pills somem (showSuggestions=false), só o input fica no fundo.
       */}
       <div
         ref={scrollRef}
         className={
           showSuggestions
-            ? "space-y-5 px-6 py-6"
+            ? "flex flex-1 flex-col justify-center space-y-5 px-6 py-6"
             : "flex-1 space-y-5 overflow-y-auto px-6 py-6"
         }
       >
