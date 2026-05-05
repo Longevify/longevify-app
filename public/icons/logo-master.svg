@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background dark green -->
+  <rect width="512" height="512" fill="#0d2818"/>
+  <!--
+    Logo Longevify: outline em formato de "infinity rounded".
+    Construção geométrica:
+      - Dois círculos r=130 centrados em (170, 256) e (342, 256)
+      - Distance between centers = 172, então overlap em ~108px
+      - Pontos de interseção: (256, 158.5) topo, (256, 353.5) base
+      - Path = arco maior do círculo esquerdo + arco maior do direito
+      - Resultado: outline contínua sem X interno
+  -->
+  <path
+    d="M 256 158.5
+       A 130 130 0 1 1 256 353.5
+       A 130 130 0 1 1 256 158.5
+       Z"
+    stroke="#d8eecf"
+    stroke-width="46"
+    stroke-linejoin="round"
+    fill="none"
+  />
+</svg>
