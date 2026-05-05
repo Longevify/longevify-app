@@ -23,8 +23,10 @@ export function RecommendationStrip({
         </div>
       </div>
 
+      {/* M4: removido min-w-max que forçava overflow real na página —
+           cada filho tem w-[280px] shrink-0, o scroll interno do wrapper é suficiente */}
       <div className="-mx-6 overflow-x-auto px-6 pb-2 [scrollbar-width:thin]">
-        <div className="flex min-w-max gap-4">
+        <div className="flex gap-4">
           {recommendations.map(({ product, reason }) => (
             <div key={product.id} className="w-[280px] shrink-0">
               <ProductCard product={product} highlight reason={reason} />

@@ -57,7 +57,8 @@ export function ChatWindow({
         ))}
       </div>
 
-      <div className="space-y-3 border-t border-border/70 bg-white/70 px-4 py-4">
+      {/* H7: pb-safe-area garante que o input fique acima da home indicator no iPhone */}
+      <div className="space-y-3 border-t border-border/70 bg-white/70 px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
         {showSuggestions ? (
           <SuggestionPills
             suggestions={suggestions}

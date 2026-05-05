@@ -16,7 +16,8 @@ export function BiomarkerRow({
     <Link
       href={`/dados/${biomarker.id}`}
       className={cn(
-        "group flex items-center gap-6 px-5 py-4",
+        /* M2: gap-3 em vez de gap-6 evita estouro dos 390px em mobile */
+        "group flex items-center gap-3 px-5 py-4",
         "border-b border-border/70 last:border-none",
         "cursor-pointer transition-colors hover:bg-brand-50/70",
         className,
@@ -36,7 +37,8 @@ export function BiomarkerRow({
       <div className="hidden w-40 sm:block">
         <Sparkline data={biomarker.history} status={biomarker.status} />
       </div>
-      <div className="flex w-44 flex-col items-end gap-1">
+      {/* M2: w-auto em vez de w-44 fixo — evita sobreposição de valor+badge em 390px */}
+      <div className="flex w-auto flex-col items-end gap-1">
         <div className="text-[15px] font-semibold tabular-nums">
           {biomarker.value}
           <span className="ml-1 text-[12px] font-normal text-muted">

@@ -35,8 +35,9 @@ export function AddressForm({ value, onChange }: AddressFormProps) {
 
   return (
     <div className="flex flex-col gap-3">
+      {/* H13: coluna UF com largura mínima de 80px — evita select exibir só 2 letras em mobile */}
       {/* Linha 1: Estado + Cidade */}
-      <div className="grid grid-cols-[120px_1fr] gap-3 sm:grid-cols-[120px_1fr]">
+      <div className="grid grid-cols-[80px_1fr] gap-3 sm:grid-cols-[120px_1fr]">
         <label className={labelClass}>
           <span className={labelTextClass}>Estado (UF)</span>
           <select

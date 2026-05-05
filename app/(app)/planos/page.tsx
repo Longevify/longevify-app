@@ -52,7 +52,8 @@ export default async function PlanosPage() {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* M6: gap-4 → gap-6 — compensa badge absolute -top-3 que sobrepunha card anterior em mobile */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
         {PLANS.map((plan) => (
           <PlanCard
             key={plan.id}
@@ -139,7 +140,17 @@ function PlanCard({
         <p className="text-[12.5px] leading-snug text-muted">{plan.tagline}</p>
       </div>
 
+      {/* H4: contexto do plano acima do preço pra evitar confusão hierárquica */}
+      {plan.id === "trio-anual" ? (
+        <p className="text-[11.5px] font-semibold uppercase tracking-wide text-brand-700">
+          Bundle 3 pessoas · Economize 16%
+        </p>
+      ) : null}
+
       <div className="flex flex-col gap-1 border-y border-border py-4">
+        {plan.id === "trio-anual" ? (
+          <p className="mb-1 text-[11px] text-muted">por pessoa/mês</p>
+        ) : null}
         <div className="flex items-baseline gap-1.5">
           {strike ? (
             <span className="text-[14px] text-muted/70 line-through">
@@ -152,7 +163,9 @@ function PlanCard({
           <span className="text-[12px] text-muted">/mês</span>
         </div>
         <span className="text-[11.5px] text-muted">
-          Cobrança mensal · cancele quando quiser
+          {plan.id === "trio-anual"
+            ? `Total ${formatBRL(plan.priceBRL)}/ano · 3 assinaturas`
+            : "Cobrança mensal · cancele quando quiser"}
         </span>
       </div>
 

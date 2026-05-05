@@ -33,7 +33,8 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
   return (
     <div className="mx-auto w-full max-w-[1280px] px-6 py-8">
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[260px_1fr]">
-        <aside className="lg:sticky lg:top-24 lg:self-start">
+        {/* M1: aside oculto em mobile — em 390px empilhava no topo antes do conteúdo */}
+        <aside className="hidden lg:block lg:sticky lg:top-24 lg:self-start">
           <CategoryList
             categories={CATEGORIES}
             activeId={categoryId}
@@ -43,21 +44,22 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
 
         <section className="flex min-w-0 flex-col gap-6">
           {/* page header */}
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <div className="flex items-baseline gap-3">
-                <h1 className="text-[28px] font-semibold tracking-tight">
-                  {patient.firstName}
-                </h1>
-                <span className="text-[16px] text-muted">
-                  — Dados de Saúde
-                </span>
-              </div>
-              <div className="mt-1 text-[13px] text-muted">
-                {formatDatePtBR(patient.latestExamDate)}
-              </div>
+          {/* H9: TimeRangeTabs movida pra bloco próprio abaixo do nome — evita soltura após flex-wrap */}
+          <div>
+            <div className="flex items-baseline gap-3">
+              <h1 className="text-[28px] font-semibold tracking-tight">
+                {patient.firstName}
+              </h1>
+              <span className="text-[16px] text-muted">
+                — Dados de Saúde
+              </span>
             </div>
-            <TimeRangeTabs value={range} onChange={setRange} />
+            <div className="mt-1 text-[13px] text-muted">
+              {formatDatePtBR(patient.latestExamDate)}
+            </div>
+            <div className="mt-3">
+              <TimeRangeTabs value={range} onChange={setRange} />
+            </div>
           </div>
 
           {/* KPI row */}

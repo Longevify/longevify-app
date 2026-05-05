@@ -15,8 +15,9 @@ export function SuggestionPills({
   className,
   disabled,
 }: Props) {
+  // H8: grid 2 colunas em mobile para evitar pills ocupando ~100% width
   return (
-    <div className={cn("flex flex-wrap gap-2", className)}>
+    <div className={cn("grid grid-cols-2 gap-2 sm:flex sm:flex-wrap", className)}>
       {suggestions.map((s) => (
         <button
           key={s}

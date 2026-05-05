@@ -155,11 +155,12 @@ export default function ProtocoloPage() {
                 </span>
                 <h2 className="text-[17px] font-semibold">{s.label}</h2>
               </div>
+              {/* H11: py-3.5 aumentado pra dar respiração entre items em mobile */}
               <ul className="flex flex-col divide-y divide-border/70">
                 {s.items.map((it) => (
                   <li
                     key={it.title}
-                    className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0"
+                    className="flex flex-col gap-2 py-3.5 first:pt-0 last:pb-0"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
