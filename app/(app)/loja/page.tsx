@@ -12,7 +12,8 @@ export default function LojaPage() {
     <div className="mx-auto w-full max-w-[1280px] px-6 py-10">
       <header className="pb-8">
         <span className="text-[13px] text-muted">Curadoria Longevify</span>
-        <h1 className="text-[40px] leading-[1.05] font-semibold tracking-tight">
+        {/* M5: 40px em 390px ocupa >10% da largura — reduz pra 28px em mobile, igual ao padrão home/page.tsx */}
+        <h1 className="text-[28px] leading-[1.05] font-semibold tracking-tight sm:text-[40px]">
           Loja
         </h1>
         <p className="mt-2 max-w-2xl text-[15px] text-muted">

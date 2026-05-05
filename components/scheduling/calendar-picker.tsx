@@ -95,8 +95,9 @@ export function CalendarPicker({
         </div>
       </div>
 
-      {/* Grid: dia × horários (mobile vira scroll horizontal) */}
-      <div className="overflow-x-auto">
+      {/* Grid: dia × horários (mobile vira scroll horizontal contido no Card pai) */}
+      {/* M3: max-w-full garante que o wrapper não alarga além do container — scroll interno, não de página */}
+      <div className="max-w-full overflow-x-auto">
         <div
           className="grid gap-1.5"
           style={{

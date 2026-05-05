@@ -210,7 +210,8 @@ export default function AgendarColetaPage() {
         </p>
       </header>
 
-      <Card className="flex flex-col gap-6 p-6 sm:p-8">
+      {/* M3: overflow-hidden impede que CalendarPicker (14 colunas × 56px = 848px) vaze horizontalmente */}
+      <Card className="flex flex-col gap-6 overflow-hidden p-6 sm:p-8">
         <section className="flex flex-col gap-3">
           <h2 className="text-[16px] font-semibold leading-tight">
             Local da coleta

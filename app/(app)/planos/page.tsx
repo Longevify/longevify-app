@@ -52,7 +52,8 @@ export default async function PlanosPage() {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* M6: gap-4 → gap-6 — compensa badge absolute -top-3 que sobrepunha card anterior em mobile */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
         {PLANS.map((plan) => (
           <PlanCard
             key={plan.id}
