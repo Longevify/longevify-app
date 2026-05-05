@@ -40,6 +40,10 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /* Defensivo: previne qualquer elemento "vazado" (ex: tabela larga,
+     gráfico, drawer) de criar scroll horizontal em mobile. Cart drawer
+     e similar ficam ocultos via translate-x sem expor barra horizontal. */
+  overflow-x: hidden;
 }
 
 *,
