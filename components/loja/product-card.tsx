@@ -72,12 +72,13 @@ function DefaultCard({
       )}
     >
       <div className="flex h-full flex-col">
-        {/* Imagem grande quadrada + Quick Add / Subscribe overlay no canto */}
+        {/* H14: imagem limitada a max-h-48 em mobile (1 col) para não dominar o viewport */}
+        {/* Em sm+ volta ao aspect-square padrão sem restrição de altura */}
         <div className="relative">
           <ProductImage
             product={product}
             aspect="square"
-            className="transition-transform duration-200 group-hover:scale-[1.01]"
+            className="max-h-48 sm:max-h-none transition-transform duration-200 group-hover:scale-[1.01]"
           />
           <QuickAddButton product={product} overlay />
           <QuickSubscribeButton product={product} overlay />
