@@ -58,10 +58,13 @@ async function main() {
     "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
   );
 
-  await page.goto(url, { waitUntil: "networkidle0", timeout: 30000 });
+  // domcontentloaded em vez de networkidle0 — Next prefetches RSC ficam
+  // fazendo background requests indefinidamente, networkidle0 nunca é
+  // atingido em algumas páginas (ex: /perfil).
+  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
 
-  // Aguarda mais 1s pra animations / fonts assentarem
-  await new Promise((r) => setTimeout(r, 1500));
+  // Aguarda mais pra hydration + fonts + animations
+  await new Promise((r) => setTimeout(r, 3000));
 
   await page.screenshot({
     path: outputPath,
