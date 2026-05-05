@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { Area, AreaChart } from "recharts";
 import { Card } from "@/components/ui/card";
 import { useMeasuredSize } from "@/lib/use-measured-size";
@@ -22,7 +22,15 @@ export function MetricTile({
   color?: string;
   helper?: string;
 }) {
-  const id = `tile-${typeof label === "string" ? label.replace(/\s+/g, "-") : Math.random().toString(36).slice(2, 8)}`;
+  // useId é SSR-safe (server e client geram o mesmo id determinístico).
+  // Antes usava Math.random() que causava hydration mismatch React #418
+  // quando o sparkline renderizava em /dados (que importa wearables/metric-tile
+  // indiretamente via GoalsSummary).
+  const reactId = useId();
+  const id =
+    typeof label === "string"
+      ? `tile-${label.replace(/\s+/g, "-")}`
+      : `tile-${reactId.replace(/:/g, "_")}`;
   const { ref, width } = useMeasuredSize<HTMLDivElement>();
   return (
     <Card className="flex flex-col gap-2 p-4">
