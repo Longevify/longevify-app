@@ -91,7 +91,8 @@ export function ProfileMenu() {
         aria-expanded={open}
         aria-label="Abrir menu do perfil"
         className={cn(
-          "rounded-full transition-shadow",
+          // h-11 mobile (Apple HIG 44px) → h-9 desktop pra não ficar gigante
+          "grid h-11 w-11 place-items-center rounded-full transition-shadow sm:h-9 sm:w-9",
           open && "ring-2 ring-brand-400 ring-offset-2 ring-offset-white",
         )}
       >

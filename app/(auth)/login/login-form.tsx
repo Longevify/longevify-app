@@ -172,11 +172,17 @@ export function LoginForm({
         </Button>
       </form>
 
-      {demo ? (
-        <form
-          className="mt-6"
-          action={() => startDemo(() => enterDemoMode())}
-        >
+      {/* Botão demo — sempre visível pra permitir explorar a plataforma com
+          dados fictícios do paciente exemplo João Silva, sem precisar criar
+          conta. Cookie longevify_demo_session tem prioridade sobre o JWT
+          do Supabase, então funciona mesmo com Supabase configurado. */}
+      <div className="mt-6">
+        <div className="mb-2 text-center text-[12px] text-muted">
+          {demo
+            ? "Sem Supabase configurado — qualquer credencial entra."
+            : "Quer só conhecer? Use os dados fictícios do João Silva:"}
+        </div>
+        <form action={() => startDemo(() => enterDemoMode())}>
           <Button
             type="submit"
             variant="dark"
@@ -186,7 +192,7 @@ export function LoginForm({
             {demoPending ? "Carregando..." : "Entrar como demo"}
           </Button>
         </form>
-      ) : null}
+      </div>
     </AuthCard>
   );
 }

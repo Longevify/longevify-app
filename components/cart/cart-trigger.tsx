@@ -18,7 +18,7 @@ export function CartTrigger({ fallback }: { fallback?: React.ReactNode }) {
             ? `Abrir carrinho — ${count} ${count === 1 ? "item" : "itens"}`
             : "Abrir carrinho"
         }
-        className="relative grid h-9 w-9 place-items-center rounded-full text-muted transition-colors hover:bg-black/5 hover:text-ink"
+        className="relative grid h-11 w-11 place-items-center rounded-full text-muted transition-colors hover:bg-black/5 hover:text-ink sm:h-9 sm:w-9"
       >
         <ShoppingBag className="h-4 w-4" />
         {showBadge ? (

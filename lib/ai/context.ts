@@ -1,8 +1,11 @@
+import { cookies } from "next/headers";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { getUserIdFromCookie } from "@/lib/auth/jwt";
 import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
 import { PATIENT, BIOMARKERS, type Biomarker, type Patient } from "@/lib/mock-data";
 import { loadDadosForUser } from "@/lib/dados/server";
+
+const DEMO_COOKIE = "longevify_demo_session";
 
 export interface ConciergeExtras {
   /** Nome de tratamento que o user escolheu no intake ("Como você prefere
@@ -33,8 +36,21 @@ const EMPTY: ConciergeExtras = {
 
 /**
  * Busca contexto rico do user logado pra injetar no system prompt do
- * Concierge. Em modo demo (sem auth), retorna `null` em todos os campos —
- * o prompt usa só os mocks do PATIENT.
+ * Concierge.
+ *
+ * Modos:
+ *   - **Demo legítimo** (cookie demo OR sem Supabase): `isDemo=true`, dados
+ *     do João mock pra ilustrar o app. `hasExamData=true`.
+ *   - **User real autenticado COM exames**: `isDemo=false`, dados reais do
+ *     profile + biomarcadores reais. `hasExamData=true`.
+ *   - **User real autenticado SEM exames** (acabou de criar conta):
+ *     `isDemo=false`, biomarkers=[], patient com nome real mas score/idade
+ *     biológica como null. `hasExamData=false`. CRÍTICO: nunca vazar mock
+ *     do João pra esse user — o LLM precisa saber que não tem dados
+ *     reais e responder sem inventar números.
+ *   - **JWT expirado mid-session** (sem cookie demo, com Supabase): cai no
+ *     fallback demo MAS com isDemo=true pro prompt renderizar como demo
+ *     (não usa "patient.firstName" como se fosse o user real).
  *
  * Faz tudo em paralelo. Best-effort: se algum lookup falhar, deixa null.
  */
@@ -42,15 +58,46 @@ export async function loadConciergeContext(): Promise<{
   patient: Patient;
   biomarkers: Biomarker[];
   extras: ConciergeExtras;
+  isDemo: boolean;
+  hasExamData: boolean;
 }> {
+  // Cookie demo opt-in tem prioridade — user pediu modo demo explicitamente
+  const store = await cookies();
+  const isDemoCookie = store.get(DEMO_COOKIE)?.value === "1";
+  if (isDemoCookie) {
+    return {
+      patient: PATIENT,
+      biomarkers: BIOMARKERS,
+      extras: EMPTY,
+      isDemo: true,
+      hasExamData: true,
+    };
+  }
+
   if (!isSupabaseConfigured()) {
-    return { patient: PATIENT, biomarkers: BIOMARKERS, extras: EMPTY };
+    return {
+      patient: PATIENT,
+      biomarkers: BIOMARKERS,
+      extras: EMPTY,
+      isDemo: true,
+      hasExamData: true,
+    };
   }
 
   // ZERO-AUTH-SUPABASE: extrai user_id + access_token direto do JWT do cookie
   const { userId, accessToken } = await getUserIdFromCookie();
   if (!userId) {
-    return { patient: PATIENT, biomarkers: BIOMARKERS, extras: EMPTY };
+    // Sem JWT (deslogado ou token expirado) E sem cookie demo: o middleware
+    // deveria ter redirecionado pra /login. Se chegou aqui, alguma rota
+    // furou. NÃO vaza dados do João como se fossem do user — render como
+    // demo legítimo (isDemo=true) pro prompt avisar.
+    return {
+      patient: PATIENT,
+      biomarkers: BIOMARKERS,
+      extras: EMPTY,
+      isDemo: true,
+      hasExamData: true,
+    };
   }
 
   // Cliente com JWT explícito — sem isso queries vão sem Authorization
@@ -97,9 +144,9 @@ export async function loadConciergeContext(): Promise<{
   const preferredName = extractPreferredName(intakeRes.data);
 
   // Sobrescreve nome/idade do PATIENT mock pelos dados REAIS do profile
-  // do user (se existirem). Sem isso, quando user não tem exames seedados
-  // em `exams`, dadosResolved.patient cai no MOCK_PATIENT (= "João Silva")
-  // e o Concierge cumprimentaria com nome errado.
+  // do user. Quando user real não tem exames seedados, dadosResolved.patient
+  // cai no MOCK_PATIENT (= "João Silva") — então a sobrescrita é crítica
+  // pra evitar saudação com nome errado.
   const profile = profileRes.data as
     | {
         first_name?: string | null;
@@ -121,11 +168,15 @@ export async function loadConciergeContext(): Promise<{
     chronologicalAge: realAge ?? dadosResolved.patient.chronologicalAge,
   };
 
+  // CRÍTICO: nunca fallback pra BIOMARKERS mock pra user real. Se ele não
+  // tem exames seedados, biomarcadores ficam vazios — o system prompt vai
+  // detectar e dizer "ainda sem dados" em vez de inventar valores do João.
+  // hasExamData distingue user-real-com-dados de user-real-sem-dados.
+  const hasExamData = dadosResolved.biomarkers.length > 0;
+
   return {
     patient,
-    biomarkers: dadosResolved.biomarkers.length
-      ? dadosResolved.biomarkers
-      : BIOMARKERS,
+    biomarkers: dadosResolved.biomarkers,
     extras: {
       preferredName,
       profileSummary,
@@ -133,6 +184,8 @@ export async function loadConciergeContext(): Promise<{
       labUploadsSummary,
       wearablesSummary,
     },
+    isDemo: false,
+    hasExamData,
   };
 }
 

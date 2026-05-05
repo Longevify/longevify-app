@@ -116,13 +116,16 @@ export function AdminSidebar() {
       </aside>
 
       {/* ── TOPBAR MOBILE (< sm) ──────────────────────────────────── */}
-      <div className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-white/10 bg-brand-900 px-4 sm:hidden">
+      <div
+        className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-white/10 bg-brand-900 px-4 sm:hidden"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
         <button
           type="button"
           onClick={() => setDrawerOpen((v) => !v)}
           aria-label={drawerOpen ? "Fechar menu" : "Abrir menu"}
           aria-expanded={drawerOpen}
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-brand-100 hover:bg-white/10"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-brand-100 hover:bg-white/10"
         >
           {drawerOpen ? (
             <X className="h-5 w-5" />
@@ -145,7 +148,10 @@ export function AdminSidebar() {
             onClick={() => setDrawerOpen(false)}
           />
           {/* Drawer lateral */}
-          <div className="fixed inset-y-0 left-0 z-50 flex w-[240px] flex-col bg-brand-900 text-brand-100 sm:hidden">
+          <div
+            className="fixed inset-y-0 left-0 z-50 flex w-[240px] flex-col bg-brand-900 text-brand-100 sm:hidden"
+            style={{ paddingTop: "env(safe-area-inset-top)" }}
+          >
             <div className="flex h-14 items-center justify-between px-5">
               <Link href="/admin" aria-label="Longevify Admin">
                 <Logo mono="light" className="h-5" />
