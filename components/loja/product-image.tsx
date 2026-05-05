@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import type { Product, ProductCategory } from "@/lib/products";
 
@@ -26,14 +29,19 @@ interface ProductImageProps {
  * Renderização do produto:
  * 1. Se tem `product.image`, mostra a foto real centralizada num fundo neutro
  *    cinza-clarinho (estilo superpower.com — produto "flutuando" no card).
- * 2. Senão, usa gradient placeholder com a inicial da marca.
+ * 2. Senão (ou se a imagem falhar ao carregar), usa gradient placeholder com
+ *    a inicial da marca. O onError evita o quadrado preto quando a URL da
+ *    imagem retorna 404 ou falha de rede (C4).
  */
 export function ProductImage({
   product,
   className,
   aspect = "square",
 }: ProductImageProps) {
-  if (product.image) {
+  // C4 — controla fallback quando a imagem real falha ao carregar em runtime
+  const [imgError, setImgError] = useState(false);
+
+  if (product.image && !imgError) {
     return (
       <div
         className={cn(
@@ -48,12 +56,13 @@ export function ProductImage({
           alt={product.name}
           className="absolute inset-0 h-full w-full object-contain p-4"
           loading="lazy"
+          onError={() => setImgError(true)}
         />
       </div>
     );
   }
 
-  // Fallback gradient placeholder
+  // Fallback gradient placeholder — também usado quando onError dispara
   const gradient = CATEGORY_GRADIENTS[product.category];
   const initial = product.brand.slice(0, 1).toUpperCase();
   return (
