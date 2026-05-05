@@ -1,26 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <!--
     Master pra App Store (1024x1024 sem alpha) e Google Play (512x512).
-    Diferenças vs icon-master.svg:
-      - rx=0 (sem rounded corners) — Apple e Android aplicam máscara
-        em runtime; PNG não pode vir já arredondado (gera double round)
-      - rect cobre 100% do canvas, sem alpha nas bordas
-      - Conteúdo central no safe zone (cabe no círculo de 80% pro
-        Android maskable adaptive)
+    Mesma composição do icon-master mas SEM rounded corners (rx=0)
+    porque Apple e Android aplicam máscara em runtime — PNG não pode
+    vir já arredondado (gera double round feio).
+
+    Versão dark-on-light (stroke escuro sobre fundo mint claro)
+    pedida pelo user pra usar como app icon. Edge-to-edge fill
+    garante PNG totalmente opaco quando exportado (App Store
+    rejeita alpha).
   -->
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#1f5d3f"/>
-      <stop offset="100%" stop-color="#0d2818"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" fill="url(#bg)"/>
+  <rect width="512" height="512" fill="#f4faf6"/>
   <path
     d="M 256 158.5
        A 130 130 0 1 1 256 353.5
        A 130 130 0 1 1 256 158.5
        Z"
-    stroke="#d8eecf"
+    stroke="#0d3030"
     stroke-width="46"
     stroke-linejoin="round"
     fill="none"

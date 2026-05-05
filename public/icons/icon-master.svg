@@ -3,37 +3,28 @@
     Master app icon. Usado pra gerar todos os derivados:
       - PWA (icon-192, icon-512, maskable, apple-touch-icon)
       - Favicon (favicon-16, favicon-32)
-      - App Store icon (1024×1024 sem alpha) → icon-1024 / icon-store-master.svg
+      - App Store icon (1024×1024 sem alpha) → icon-store-master.svg
       - mipmap Android, AppIcon iOS
 
-    Composição:
-      - rect 512x512 com cantos arredondados rx=96 (estilo iOS) e
-        gradient diagonal brand-700 → brand-900
-      - infinity outline (peanut horizontal) — mesmo path do logo-master.svg.
-        Construção geométrica:
-          * Dois círculos r=130 centrados em (170, 256) e (342, 256)
-          * Distance between centers = 172, overlap em ~108px
-          * Pontos de interseção: (256, 158.5) topo, (256, 353.5) base
-          * Path traça outline contínua sem X interno
+    Variação atual: stroke escuro sobre fundo claro mint — pedida
+    pelo user pra usar como app icon na home screen do iPhone (PWA
+    installed). Antes era mint sobre gradient escuro.
 
-    ANTES esse arquivo tinha apenas <text>L</text> grande — placeholder do
-    wave inicial. Substituído pela infinity correta do brand book pra
-    consistência com logo-master.svg, splash-master.svg, components/brand/logo
-    e o resto do app.
+    Composição:
+      - rect 512x512 com cantos arredondados rx=96 (estilo iOS)
+        em mint claro (brand-50 #f4faf6)
+      - infinity outline (peanut horizontal) em verde escuro
+        (#0d3030, dark forest/teal alinhado com a paleta)
+      - Path geométrico: 2 círculos r=130 em (170,256) e (342,256)
+        sobrepostos horizontalmente
   -->
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#1f5d3f"/>
-      <stop offset="100%" stop-color="#0d2818"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="96" fill="#f4faf6"/>
   <path
     d="M 256 158.5
        A 130 130 0 1 1 256 353.5
        A 130 130 0 1 1 256 158.5
        Z"
-    stroke="#d8eecf"
+    stroke="#0d3030"
     stroke-width="46"
     stroke-linejoin="round"
     fill="none"
