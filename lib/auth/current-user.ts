@@ -1,9 +1,12 @@
 import "server-only";
 import { cache } from "react";
+import { cookies } from "next/headers";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { getUserIdFromCookie } from "./jwt";
 import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
 import { PATIENT } from "@/lib/mock-data";
+
+const DEMO_COOKIE = "longevify_demo_session";
 
 export interface CurrentUser {
   id: string;
@@ -60,6 +63,13 @@ function ageFromBirthDate(birthDate: string | null): number | null {
 export const getCurrentUser = cache(_getCurrentUser);
 
 async function _getCurrentUser(): Promise<CurrentUser> {
+  // Cookie demo opt-in: o user clicou em "Entrar como demo" mesmo com
+  // Supabase configurado. Cookie tem prioridade sobre o JWT — assim o
+  // user pode explorar o app com dados fakes do João sem precisar
+  // desligar o Supabase no .env.
+  const store = await cookies();
+  if (store.get(DEMO_COOKIE)?.value === "1") return DEMO_USER;
+
   if (!isSupabaseConfigured()) return DEMO_USER;
 
   // ZERO-AUTH-SUPABASE: extrai user_id + access_token + nome do JWT

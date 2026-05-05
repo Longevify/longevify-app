@@ -30,6 +30,7 @@ export default function GlobalErrorPage({
           background: "#f4faf6",
           color: "#0d2818",
           padding: "24px",
+          paddingTop: "max(env(safe-area-inset-top), 24px)",
         }}
       >
         <div

@@ -44,16 +44,25 @@ export async function POST(request: NextRequest) {
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
 
   // Carrega contexto real do user logado (Wave 3) — perfil + intake +
-  // biomarcadores reais + uploads + wearables. Fallback pra mocks em demo.
-  const { patient, biomarkers, extras } = await loadConciergeContext().catch(
-    () => ({
-      patient: PATIENT,
-      biomarkers: BIOMARKERS,
-      extras: undefined,
-    }),
-  );
+  // biomarcadores reais + uploads + wearables.
+  //
+  // Catch é fallback DEMO marcado explicitamente (isDemo=true) pra evitar
+  // o bug onde uma falha no Supabase mid-request fazia o user real receber
+  // dados do João Silva mock como se fossem dele — o LLM cumprimentava
+  // "Olá, João!" e atribuía longevifyScore=70/idadeBio=25 sem confirmar.
+  const ctx = await loadConciergeContext().catch(() => ({
+    patient: PATIENT,
+    biomarkers: BIOMARKERS,
+    extras: undefined,
+    isDemo: true,
+    hasExamData: true,
+  }));
+  const { patient, biomarkers, extras, isDemo, hasExamData } = ctx;
 
-  const systemPrompt = buildSystemPrompt(patient, biomarkers, extras);
+  const systemPrompt = buildSystemPrompt(patient, biomarkers, extras, {
+    isDemo,
+    hasExamData,
+  });
 
   const moonshotKey = process.env.MOONSHOT_API_KEY;
   const anthropicKey = process.env.ANTHROPIC_API_KEY;

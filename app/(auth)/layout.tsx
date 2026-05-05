@@ -81,7 +81,10 @@ export default function AuthLayout({
       </aside>
 
       {/* Form — center vertical em ambos viewports */}
-      <main className="relative flex min-h-screen flex-col items-center justify-center px-6 py-12 lg:min-h-0">
+      <main
+        className="relative flex min-h-screen flex-col items-center justify-center px-6 py-12 lg:min-h-0"
+        style={{ paddingTop: "max(env(safe-area-inset-top), 3rem)" }}
+      >
         {/* Mobile-only background accent (em desktop, hero ja faz isso) */}
         <div
           aria-hidden

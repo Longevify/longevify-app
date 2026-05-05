@@ -16,7 +16,10 @@ export const metadata: Metadata = {
  */
 export default function NotFoundPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-page px-6">
+    <main
+      className="flex min-h-screen items-center justify-center bg-page px-6"
+      style={{ paddingTop: "env(safe-area-inset-top)" }}
+    >
       <div className="mx-auto w-full max-w-md text-center">
         <div className="mx-auto mb-6 grid h-20 w-20 place-items-center rounded-3xl bg-brand-900 text-white shadow-[0_24px_48px_-16px_rgba(13,40,24,0.4)]">
           <svg

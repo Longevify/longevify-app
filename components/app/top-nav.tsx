@@ -28,15 +28,27 @@ export function TopNav() {
   }, [pathname]);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-border/70 bg-white/85 backdrop-blur-md">
-      <div className="mx-auto flex h-14 w-full max-w-[1280px] items-center gap-3 px-4 sm:h-16 sm:gap-8 sm:px-6">
-        {/* Hamburger — só mobile (< sm) */}
+    <header
+      className="sticky top-0 z-30 border-b border-border/70 bg-white/85 backdrop-blur-md"
+      style={{
+        // safe-area-inset-top: cobre o notch/Dynamic Island do iPhone
+        // quando rodando como PWA standalone (Add to Home Screen) ou
+        // dentro do Capacitor. Sem isso, status bar (horário/wifi)
+        // sobrepõe os botões do header.
+        paddingTop: "env(safe-area-inset-top)",
+      }}
+    >
+      <div className="mx-auto flex h-16 w-full max-w-[1280px] items-center gap-3 px-4 sm:gap-8 sm:px-6">
+        {/* Hamburger — só mobile (< sm). Touch target 44x44 (Apple HIG)
+            pra garantir que dá pra tocar com o polegar perto da Dynamic
+            Island sem errar — botão de 36px ficava perto demais do safe
+            area e o usuário relatou "muito altos, não dá pra clicar". */}
         <button
           type="button"
           onClick={() => setMobileOpen((v) => !v)}
           aria-label={mobileOpen ? "Fechar menu" : "Abrir menu"}
           aria-expanded={mobileOpen}
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-ink hover:bg-black/5 sm:hidden"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-ink hover:bg-black/5 sm:hidden"
         >
           {mobileOpen ? (
             <X className="h-5 w-5" />
@@ -86,7 +98,7 @@ export function TopNav() {
         <div className="flex items-center gap-1 sm:gap-3">
           <CartTrigger
             fallback={
-              <span className="grid h-9 w-9 place-items-center rounded-full text-muted hover:text-ink">
+              <span className="grid h-11 w-11 place-items-center rounded-full text-muted hover:text-ink sm:h-9 sm:w-9">
                 <ShoppingBag className="h-4 w-4" />
               </span>
             }

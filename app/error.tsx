@@ -28,7 +28,10 @@ export default function ErrorPage({
   }, [error]);
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-page px-6">
+    <main
+      className="flex min-h-screen items-center justify-center bg-page px-6"
+      style={{ paddingTop: "env(safe-area-inset-top)" }}
+    >
       <div className="mx-auto w-full max-w-md text-center">
         <div className="mx-auto mb-6 grid h-20 w-20 place-items-center rounded-3xl bg-[#FBE1E1] text-[#B6333A]">
           <svg
