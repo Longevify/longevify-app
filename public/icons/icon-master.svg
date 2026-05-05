@@ -1,4 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!--
+    Master app icon. Usado pra gerar todos os derivados:
+      - PWA (icon-192, icon-512, maskable, apple-touch-icon)
+      - Favicon (favicon-16, favicon-32)
+      - App Store icon (1024×1024 sem alpha) → icon-1024 / icon-store-master.svg
+      - mipmap Android, AppIcon iOS
+
+    Composição:
+      - rect 512x512 com cantos arredondados rx=96 (estilo iOS) e
+        gradient diagonal brand-700 → brand-900
+      - infinity outline (peanut horizontal) — mesmo path do logo-master.svg.
+        Construção geométrica:
+          * Dois círculos r=130 centrados em (170, 256) e (342, 256)
+          * Distance between centers = 172, overlap em ~108px
+          * Pontos de interseção: (256, 158.5) topo, (256, 353.5) base
+          * Path traça outline contínua sem X interno
+
+    ANTES esse arquivo tinha apenas <text>L</text> grande — placeholder do
+    wave inicial. Substituído pela infinity correta do brand book pra
+    consistência com logo-master.svg, splash-master.svg, components/brand/logo
+    e o resto do app.
+  -->
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#1f5d3f"/>
@@ -6,5 +28,14 @@
     </linearGradient>
   </defs>
   <rect width="512" height="512" rx="96" fill="url(#bg)"/>
-  <text x="256" y="362" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif" font-size="320" font-weight="700" fill="#ffffff" text-anchor="middle" letter-spacing="-12">L</text>
+  <path
+    d="M 256 158.5
+       A 130 130 0 1 1 256 353.5
+       A 130 130 0 1 1 256 158.5
+       Z"
+    stroke="#d8eecf"
+    stroke-width="46"
+    stroke-linejoin="round"
+    fill="none"
+  />
 </svg>
