@@ -33,12 +33,12 @@ export function ChatWindow({
   return (
     <div className="flex h-full flex-col">
       {/*
-        Quando só a saudação existe (showSuggestions=true), o container de
-        mensagens não deve crescer com flex-1 — isso criava ~400px de vazio
+        C2 — quando só a saudação existe (showSuggestions=true), o container de
+        mensagens não deve crescer com flex-1: isso criava ~400px de vazio
         entre a saudação e o input. Sem flex-1, o container ocupa só o espaço
         natural da mensagem e o input/suggestions sobem direto abaixo.
         Com mensagens de ida e volta, flex-1 + overflow-y-auto entra pra
-        área scrollável se expandir corretamente.
+        a área scrollável se expandir corretamente.
       */}
       <div
         ref={scrollRef}
