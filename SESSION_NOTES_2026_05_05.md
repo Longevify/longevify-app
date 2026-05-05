@@ -4,7 +4,7 @@ Lucas dormiu ~7h. Eu trabalhei autônomo arrumando bugs mobile+desktop pra o app
 
 ## TL;DR
 
-**11 PRs mergeados nessa sessão noturna** — corrigem 25+ bugs visuais e 2 bugs críticos (React hydration mismatch + cookies sumindo via Next prefetch /logout). App agora cabe em iPhone 14 (390px) sem overflow horizontal, navegação fluida, error pages customizadas, layout split-screen elegante em desktop.
+**13 PRs mergeados nessa sessão noturna** — corrigem 25+ bugs visuais, 2 bugs críticos (React hydration mismatch + cookies sumindo via Next prefetch /logout), e estabelecem foundation responsiva. App agora cabe em iPhone 14 (390px) sem overflow horizontal, navegação fluida, error pages customizadas, layout split-screen elegante em desktop.
 
 **Falta você fazer**: revisar + mergear PR #65 (Capacitor mobile setup), seguir `MOBILE_SUBMISSION_GUIDE.md` pra App Store/Play Store.
 
@@ -20,8 +20,10 @@ Lucas dormiu ~7h. Eu trabalhei autônomo arrumando bugs mobile+desktop pra o app
 | #79 | **Recovery commits** — orphan commits dos agentes |
 | #80 | **Desktop CRITICAL (3/4 bugs)** — /concierge vazio (chat-window flex condicional), /protocolo cards expandidos com badges + adherence section, /loja product images com onError fallback |
 | #81 | **Auth split-screen desktop** — /login, /signup, /reset-password agora têm hero esquerda (gradient verde + 3 trust signals) + form direita. Mobile mantém single-column. |
+| #82 | **Session notes** |
+| #83 | **Hydration #418 deep fix** — useId() em metric-tile (era Math.random) + useNow()/useToday() hooks SSR-safe em booking-card e calendar-picker (eram Date.now()/new Date() em render) |
 
-Combinado com PRs #71-#73 do começo (logo Longevify infinity, TopNav hamburger mobile, h1 typography), são **14 PRs mergeados em ~10h** entre fim de tarde e madrugada.
+Combinado com PRs #71-#73 do começo (logo Longevify infinity, TopNav hamburger mobile, h1 typography), são **16 PRs mergeados em ~10h** entre fim de tarde e madrugada.
 
 ## Estado atual visual
 
@@ -49,6 +51,7 @@ Combinado com PRs #71-#73 do começo (logo Longevify infinity, TopNav hamburger 
 
 Identificados mas não fixados nesta sessão (impacto baixo):
 
+- **React #418 ainda em /dados e /perfil desktop** — apesar dos fixes (mock-data determinístico + useId/useNow/useToday hooks), audit puppeteer ainda detecta hydration warning. App **renderiza corretamente** visualmente — é apenas um warning React em prod build minificado. Difícil de debugar sem build dev local. Não afeta UX, apenas perf marginal e SEO. Investigar com React DevTools no browser quando possível.
 - **/perfil/preferencias** — toggle de tema "Claro/Escuro" sem indicator de seleção forte
 - **/perfil/notificacoes** — toggle "Ligar todas/Desligar todas" sem ícone visual além do texto
 - **/perfil/suporte** — CNPJ placeholder ainda como `00.000.000/0001-00`
