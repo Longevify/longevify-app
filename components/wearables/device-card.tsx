@@ -95,6 +95,7 @@ export function DeviceCard({
         <StatusPill device={device} />
       </div>
 
+      {/* H12: padronização de botões — outline pra todos não-conectados, primary só pro conectado ativo */}
       <div className="mt-auto flex items-center gap-2">
         {isComing ? (
           <Button
@@ -117,7 +118,7 @@ export function DeviceCard({
           </Button>
         ) : (
           <Button
-            variant="primary"
+            variant="outline"
             size="sm"
             className="w-full"
             onClick={() => onConnect?.(device)}

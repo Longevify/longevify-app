@@ -65,8 +65,8 @@ export default async function HomePage() {
           />
         </div>
 
-        {/* mini-summary dos biomarcadores em uma linha */}
-        <Card className="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
+        {/* H10: flex-col em mobile evita stats + link "Detalhar" quebrando desorganizados */}
+        <Card className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2 text-[13px] text-muted">
             <span className="font-medium text-ink">{stats.total} biomarcadores</span>
             no último painel · {formatDatePtBR(PATIENT.latestExamDate)}

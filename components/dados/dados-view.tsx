@@ -43,21 +43,22 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
 
         <section className="flex min-w-0 flex-col gap-6">
           {/* page header */}
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <div className="flex items-baseline gap-3">
-                <h1 className="text-[28px] font-semibold tracking-tight">
-                  {patient.firstName}
-                </h1>
-                <span className="text-[16px] text-muted">
-                  — Dados de Saúde
-                </span>
-              </div>
-              <div className="mt-1 text-[13px] text-muted">
-                {formatDatePtBR(patient.latestExamDate)}
-              </div>
+          {/* H9: TimeRangeTabs movida pra bloco próprio abaixo do nome — evita soltura após flex-wrap */}
+          <div>
+            <div className="flex items-baseline gap-3">
+              <h1 className="text-[28px] font-semibold tracking-tight">
+                {patient.firstName}
+              </h1>
+              <span className="text-[16px] text-muted">
+                — Dados de Saúde
+              </span>
             </div>
-            <TimeRangeTabs value={range} onChange={setRange} />
+            <div className="mt-1 text-[13px] text-muted">
+              {formatDatePtBR(patient.latestExamDate)}
+            </div>
+            <div className="mt-3">
+              <TimeRangeTabs value={range} onChange={setRange} />
+            </div>
           </div>
 
           {/* KPI row */}
