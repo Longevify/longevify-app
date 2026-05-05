@@ -75,6 +75,19 @@ export const PATIENT: Patient = {
   ],
 };
 
+/**
+ * Gera série temporal mock de biomarcadores. DETERMINÍSTICO — sem
+ * Math.random() ou Date.now() pra evitar hydration mismatch entre
+ * SSR e client (React #418 em produção).
+ *
+ * Pseudo-aleatório usa Math.sin(i * 2.3) + Math.cos(i * 1.7) que dá
+ * variação visualmente OK pros sparklines mas é 100% reprodutível.
+ *
+ * Datas ancoradas em uma base fixa (2026-01-01) em vez de Date.now()
+ * — datas demo não precisam ser "agora", e demo data é mock visual.
+ */
+const DEMO_DATE_ANCHOR = new Date("2026-05-01T12:00:00.000Z");
+
 function gen(
   start: number,
   end: number,
@@ -82,13 +95,14 @@ function gen(
   jitter = 0.06,
 ): BiomarkerPoint[] {
   const out: BiomarkerPoint[] = [];
-  const now = new Date();
   for (let i = 0; i < points; i++) {
     const t = i / (points - 1);
     const base = start + (end - start) * t;
-    const noise = (Math.sin(i * 2.3) * jitter + (Math.random() - 0.5) * jitter) *
+    // Pseudo-aleatório determinístico (sin/cos seeded por i)
+    const noise =
+      (Math.sin(i * 2.3) * jitter + Math.cos(i * 1.7) * 0.4 * jitter) *
       ((start + end) / 2);
-    const d = new Date(now);
+    const d = new Date(DEMO_DATE_ANCHOR);
     d.setMonth(d.getMonth() - (points - 1 - i) * 2);
     out.push({
       date: d.toISOString(),
