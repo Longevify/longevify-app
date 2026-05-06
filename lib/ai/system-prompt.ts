@@ -12,6 +12,16 @@ function statusLabel(status: Biomarker["status"]): string {
   }
 }
 
+// Formato compacto pros biomarcadores — 1 linha por marcador em vez do
+// markdown verboso anterior (6 linhas com contexto). LLM tem o mesmo
+// dado clínico (valor, unidade, status, faixa de ref, faixa ótima,
+// tendência) em ~80 chars vs ~700 chars antes. Reduz tokens de input
+// em ~80% em paciente com muitos biomarcadores — corte direto no TTFT
+// do Kimi (provider primário, sensível a tamanho de prompt por causa
+// do reasoning interno).
+//
+// Removida a "descrição clínica" verbosa de cada marcador (o LLM já
+// sabe o que é LDL/ApoB/etc; quando o user pergunta, ele explica).
 function formatBiomarker(b: Biomarker): string {
   const valores = b.history.map((p) => p.value);
   const primeiro = valores[0];
@@ -19,23 +29,15 @@ function formatBiomarker(b: Biomarker): string {
   const delta = primeiro !== undefined ? atual - primeiro : 0;
   const trend =
     delta === 0
-      ? "estável"
+      ? "→"
       : delta > 0
-        ? `subiu ${delta.toFixed(1)} ${b.unit} vs. 1ª medida`
-        : `caiu ${Math.abs(delta).toFixed(1)} ${b.unit} vs. 1ª medida`;
+        ? `↑${delta.toFixed(1)}`
+        : `↓${Math.abs(delta).toFixed(1)}`;
 
-  return [
-    `- **${b.name}** (${b.category}): ${b.value} ${b.unit}`,
-    `  - status: ${statusLabel(b.status)}`,
-    `  - referência: ${b.referenceLabel} ${b.unit}`,
-    b.optimalRange
-      ? `  - faixa ótima: ${b.optimalRange[0]}–${b.optimalRange[1]} ${b.unit}`
-      : null,
-    `  - tendência: ${trend}`,
-    b.description ? `  - contexto: ${b.description}` : null,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const otima = b.optimalRange ? `ótimo ${b.optimalRange[0]}-${b.optimalRange[1]}` : "";
+  const sep = (s: string) => (s ? ` | ${s}` : "");
+
+  return `${b.name} (${b.category}): ${b.value} ${b.unit} | ${statusLabel(b.status)} | ref ${b.referenceLabel}${sep(otima)} | ${trend} vs 1ª`;
 }
 
 export interface BuildSystemPromptOpts {
