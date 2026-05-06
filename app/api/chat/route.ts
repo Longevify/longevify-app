@@ -19,15 +19,24 @@ interface ChatBody {
 // Provider preference order:
 // 1. MOONSHOT_API_KEY → Kimi K2.5 (OpenAI-compatible). Tem cache automático
 //    de prefixo ativo em todas as chamadas (sem opt-in necessário).
-// 2. ANTHROPIC_API_KEY → Claude Sonnet 4.6 com prompt caching explícito
-//    (cache_control: ephemeral) no system prompt — corta ~90% do custo
-//    e ~50% da latência em mensagens subsequentes da mesma sessão.
+// 2. ANTHROPIC_API_KEY → Claude Haiku 4.5 com prompt caching explícito
+//    (cache_control: ephemeral) no system prompt. Antes era Sonnet 4.6 —
+//    Haiku é ~3x mais rápido (TTFT ~300ms vs ~800ms) e ~5x mais barato,
+//    com qualidade boa pra interpretação clínica simples-média. Sonnet
+//    fica reservado pra casos onde precisa raciocínio profundo (não é
+//    o caso aqui — Kimi K2.5 é o primário e já tem reasoning).
 // 3. OPENAI_API_KEY → gpt-4o-mini (cache automático também)
 // 4. Sem nada configurado → fallback rule-based
-const ANTHROPIC_MODEL = "claude-sonnet-4-6";
+const ANTHROPIC_MODEL = "claude-haiku-4-5";
 const MOONSHOT_MODEL = "kimi-k2.5";
 const MOONSHOT_BASE_URL = "https://api.moonshot.ai/v1";
 const OPENAI_MODEL = "gpt-4o-mini";
+
+// max_tokens cap razoável pra resposta de Concierge — entre 200-500 tokens
+// é o range típico (~80-200 palavras). Cap de 1024 protege contra resposta
+// run-away (LLM viajando) sem cortar respostas reais. Antes era 4096 nos
+// providers OpenAI-compat — desperdício e tail latency longa.
+const MAX_OUTPUT_TOKENS = 1024;
 
 export async function POST(request: NextRequest) {
   let body: ChatBody;
@@ -135,7 +144,7 @@ async function streamAnthropic({
         // e cobra normal — sem erro. Por isso é seguro deixar sempre ligado.
         const response = await client.messages.stream({
           model: ANTHROPIC_MODEL,
-          max_tokens: 1024,
+          max_tokens: MAX_OUTPUT_TOKENS,
           system: [
             {
               type: "text",
@@ -152,6 +161,25 @@ async function streamAnthropic({
           ) {
             controller.enqueue(encoder.encode(event.delta.text));
           }
+        }
+        // Log usage pra validar que prompt cache está hitando. Em mensagem
+        // 1 da sessão: cache_creation_input_tokens > 0, cache_read = 0.
+        // Em mensagens subsequentes: cache_read_input_tokens deve ser
+        // o size do system prompt e input_tokens fica baixo. Se cache_read
+        // sempre 0 em mensagens 2+, há algo invalidando o prefix (ex:
+        // timestamp na system prompt) — debug aqui.
+        try {
+          const final = await response.finalMessage();
+          // eslint-disable-next-line no-console
+          console.log("[concierge anthropic]", {
+            input: final.usage?.input_tokens,
+            cache_read: final.usage?.cache_read_input_tokens,
+            cache_create: final.usage?.cache_creation_input_tokens,
+            output: final.usage?.output_tokens,
+            stop: final.stop_reason,
+          });
+        } catch {
+          // Sem fatal — log é opcional.
         }
         controller.close();
       } catch {
@@ -194,7 +222,7 @@ async function streamOpenAICompatible({
 
         const completion = await client.chat.completions.create({
           model,
-          max_tokens: 4096,
+          max_tokens: MAX_OUTPUT_TOKENS,
           stream: true,
           messages: [
             { role: "system", content: systemPrompt },
