@@ -6,6 +6,7 @@ import { ToastViewport } from "@/components/ui/toast";
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
 import { PWAInstallPrompt } from "@/components/pwa/install-prompt";
 import { SplashController } from "@/components/native/splash-controller";
+import { ScrollToTop } from "@/components/scroll-to-top";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -107,6 +108,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className={`${geistSans.variable} antialiased`}>
       <body className="min-h-screen text-ink">
+        <ScrollToTop />
         <CartProvider>
           {children}
           <ToastViewport />
