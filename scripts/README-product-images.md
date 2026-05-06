@@ -1,37 +1,48 @@
 # Geração de imagens de produtos via OpenAI
 
-Script: `scripts/generate-product-images.ts`
+Script: `scripts/generate-product-images.mjs` (JavaScript puro, roda com Node)
 
 Gera imagens hero + variações de ângulo dos produtos da loja usando
 **gpt-image-1** da OpenAI. Único arquivo do repo que depende da OpenAI
 API — todo o resto do app usa Moonshot/Anthropic.
 
-## Pré-requisitos
+> Existe também uma versão `.ts` (`generate-product-images.ts`) mantida
+> pra referência/typecheck, mas a versão recomendada pra rodar é a
+> `.mjs` — sem dependência de tsx/ts-node, só Node 18+ nativo.
 
-1. **OPENAI_API_KEY** com créditos disponíveis. Pega em
-   [platform.openai.com/api-keys](https://platform.openai.com/api-keys).
-2. **tsx** instalado (já vem como dev dep do projeto).
+## Como rodar (5 passos)
 
-## Como rodar (passo a passo)
-
-Abre o terminal na raiz de `longevify-app/`.
+Abre o **Terminal** no Mac:
 
 ```bash
-# 1. Exporta a key (NÃO commita ela em nenhum arquivo!)
-export OPENAI_API_KEY=sk-proj-...
+# 1. Vai pra pasta do projeto
+cd ~/Desktop/longevify/longevify-app
 
-# 2. Dry-run primeiro pra ver os prompts que serão usados (não gasta API)
-npx tsx scripts/generate-product-images.ts --missing --dry-run
+# 2. Pega a versão mais nova do código
+git pull origin main
 
-# 3. Se os prompts parecem OK, roda de verdade
-npx tsx scripts/generate-product-images.ts --missing
+# 3. Cola sua OPENAI_API_KEY (sk-proj-...) sem aparecer na tela
+echo "Cole sua OPENAI_API_KEY (sk-proj-...) e dê Enter:"
+read -s OPENAI_API_KEY
+export OPENAI_API_KEY
+
+# 4. Dry-run: mostra os prompts sem gastar API
+node scripts/generate-product-images.mjs --missing --dry-run
+
+# 5. Se os prompts parecerem ok, gera de verdade (~1 min, custo ~$0.20)
+node scripts/generate-product-images.mjs --missing
 ```
 
-Imagens vão pra `public/marketplace/<product-id>.png`. **Não precisa
-commit do .png** — Vercel serve direto da pasta. Mas commitar é OK
-(garante prod não depende de regenerar).
+Imagens vão pra `public/marketplace/<id>.png`.
 
 ## O que cada modo faz
+
+| Modo | Comando | Custo |
+|------|---------|-------|
+| `--missing` | `node scripts/generate-product-images.mjs --missing` | ~$0.20 (5 × $0.04) |
+| `--variations <id>` | `node scripts/generate-product-images.mjs --variations oura-ring-heritage` | ~$0.16 (4 × $0.04) |
+| `--all-variations` | `node scripts/generate-product-images.mjs --all-variations` | ~$2.56 (16 × 4 × $0.04) |
+| `--dry-run` | adiciona em qualquer modo pra só ver prompts | Grátis |
 
 ### `--missing` (default — 5 imagens)
 
@@ -43,63 +54,59 @@ Gera 1 hero shot pra cada produto sem `image` em `lib/products.ts`:
 - `withings-body-comp` (equipamento)
 - `freestyle-libre-3` (equipamento)
 
-**Custo**: ~$0.20 (5 imagens × $0.04 cada, qualidade medium 1024×1024).
-
 ### `--variations <product-id>` (4 ângulos)
 
-Gera 4 variações de ângulo de câmera (front, side, top-down, back) pro
-produto especificado. Salva em
-`public/marketplace/variations/<product-id>/<angle>.png`.
-
-```bash
-npx tsx scripts/generate-product-images.ts --variations oura-ring-heritage
-```
-
-**Custo**: ~$0.16 por produto (4 × $0.04).
+Gera 4 ângulos (front, side, top-down, back) pro produto especificado.
+Salva em `public/marketplace/variations/<product-id>/<angle>.png`.
 
 **Caveat sobre coerência**: cada chamada do OpenAI é independente, então
 o produto NÃO É IDÊNTICO entre ângulos — pode mudar tom, formato, label.
 Pra coerência forte (mesmo produto, ângulos diferentes), o caminho seria
 usar image-to-image edit do gpt-image-1 (passa a primeira imagem como
-referência). Não está implementado nesse script ainda — rodada atual é
-só "interpretação independente do prompt em cada ângulo".
-
-### `--all-variations` (todos os 16 produtos)
-
-Gera 4 ângulos pra TODOS os produtos com imagem existente.
-
-**Custo**: ~$2.56 (16 × 4 × $0.04).
-
-### `--dry-run`
-
-Adiciona em qualquer modo pra ver os prompts sem gastar API.
+referência). Não está implementado ainda.
 
 ## Após rodar
 
-1. Verifica visualmente as imagens em `public/marketplace/`:
+1. Verifica visualmente:
    ```bash
    open public/marketplace
    ```
 2. Se uma ficou ruim, deleta e roda só ela:
    ```bash
    rm public/marketplace/oura-ring-heritage.png
-   npx tsx scripts/generate-product-images.ts --missing
+   node scripts/generate-product-images.mjs --missing
    ```
-3. Atualiza `lib/products.ts` adicionando o campo `image` em cada
-   produto novo (próximo PR ou edição manual):
-   ```ts
-   {
-     id: "oura-ring-heritage",
-     // ...
-     image: "/marketplace/oura-ring-heritage.png",  // ← adiciona
-     // ...
-   }
-   ```
+3. Atualiza `lib/products.ts` adicionando o campo `image` (ou peça pro
+   Claude fazer isso depois que mostrar o resultado).
 4. Commit:
    ```bash
    git add public/marketplace lib/products.ts
    git commit -m "feat(loja): imagens AI-generated pros 5 produtos sem hero"
+   git push
    ```
+
+## Troubleshooting
+
+### `OPENAI_API_KEY env var is required`
+
+Você esqueceu de exportar. Repete o passo 3.
+
+### `OpenAI API error 401`
+
+Key inválida ou sem créditos. Ver [platform.openai.com/usage](https://platform.openai.com/usage).
+
+### `OpenAI API error 429`
+
+Rate limit. Espera 1 min e roda de novo.
+
+### `command not found: node`
+
+Instala Node 20+ via [nodejs.org](https://nodejs.org/).
+
+### `tsx` rodando como shell script (erro com `(`...
+
+O tsx está corrompido. Use a versão `.mjs` que não depende dele:
+`node scripts/generate-product-images.mjs ...` em vez de `npx tsx ...`.
 
 ## 3D 360° real
 
@@ -107,36 +114,10 @@ OpenAI image gen **NÃO faz 3D rotacionável** com coerência. Pra ter
 visualização 360° real do produto:
 
 1. **Polycam** ou **Luma AI** — fotografa 30+ ângulos do produto físico
-   com seu iPhone, eles geram modelo 3D `.glb`. Custa $0-15/modelo.
+   com seu iPhone, eles geram modelo 3D `.glb`. Custo $0-15/modelo.
 2. **Tripo3D** ou **Meshy** — APIs que geram 3D a partir de 1 imagem.
-   ~$0.30-1 por modelo. Resultado bom pra objetos simples.
+   ~$0.30-1 por modelo.
 3. **Frontend**: usa `<model-viewer>` (Google web component) ou Three.js
-   pra renderizar o `.glb` no app com rotação por drag.
+   pra renderizar `.glb` no app.
 
 Não está implementado nesse script — é stack separado.
-
-## Troubleshooting
-
-### `OPENAI_API_KEY env var is required`
-
-Você esqueceu de exportar a key. Roda:
-```bash
-export OPENAI_API_KEY=sk-proj-... && npx tsx scripts/generate-product-images.ts --missing
-```
-
-### `OpenAI API error 401`
-
-Key inválida ou sem créditos. Ver
-[platform.openai.com/usage](https://platform.openai.com/usage).
-
-### Imagem ficou esquisita / não parece o produto
-
-O prompt usa "physical hints" definidos em `describeProductPhysically()`
-no script. Edita esses hints pra dar mais detalhe pro modelo. Re-roda só
-o produto problemático.
-
-### Custo subindo demais
-
-Mude `quality: "medium"` pra `"low"` em `scripts/generate-product-images.ts`
-(linha do `quality:`). Reduz pra ~$0.01 por imagem mas qualidade cai
-visivelmente — só pra dev/teste.
