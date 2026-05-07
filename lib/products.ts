@@ -454,6 +454,7 @@ export const PRODUCTS: Product[] = [
     kicker: "Wearable",
     priceBRL: 1199,
     currency: "BRL",
+    image: "/marketplace/oura-ring-heritage.png",
     shortDescription:
       "Anel de tracking de sono, recuperação e atividade — bateria 7 dias.",
     longDescription:
@@ -477,6 +478,7 @@ export const PRODUCTS: Product[] = [
     kicker: "Wearable",
     priceBRL: 5499,
     currency: "BRL",
+    image: "/marketplace/garmin-epix-pro.png",
     shortDescription:
       "Smartwatch premium pra performance — VO2max, lactate threshold, sono detalhado.",
     longDescription:
@@ -500,6 +502,7 @@ export const PRODUCTS: Product[] = [
     kicker: "Wearable",
     priceBRL: 2400,
     currency: "BRL",
+    image: "/marketplace/whoop-membership.png",
     shortDescription:
       "Pulseira sem display + assinatura — foco total em recuperação e sono.",
     longDescription:
@@ -526,6 +529,7 @@ export const PRODUCTS: Product[] = [
     kicker: "Equipamento",
     priceBRL: 1490,
     currency: "BRL",
+    image: "/marketplace/withings-body-comp.png",
     shortDescription:
       "Balança de bioimpedância — idade vascular, gordura visceral e composição segmentar.",
     longDescription:
@@ -550,6 +554,7 @@ export const PRODUCTS: Product[] = [
     kicker: "Equipamento",
     priceBRL: 890,
     currency: "BRL",
+    image: "/marketplace/freestyle-libre-3.png",
     shortDescription:
       "CGM de glicose contínua — descubra como cada refeição afeta sua glicemia.",
     longDescription:
