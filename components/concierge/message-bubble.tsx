@@ -40,7 +40,7 @@ export function MessageBubble({ message, streaming }: Props) {
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="text-[11px] font-medium text-muted">
-          Longevify IA
+          Dr. Lon
         </span>
         <div
           className={cn(
@@ -63,7 +63,7 @@ export function MessageBubble({ message, streaming }: Props) {
 function TypingDots() {
   return (
     <span
-      aria-label="Longevify IA está digitando"
+      aria-label="Dr. Lon está digitando"
       className="inline-flex items-center gap-1"
     >
       <Dot delay="0ms" />

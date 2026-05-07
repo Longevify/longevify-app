@@ -24,8 +24,8 @@ function buildInitialGreeting(addressName: string | null): ChatMessage {
   // à conta logada — esses só aparecem se o user perguntar e o LLM
   // tiver os dados reais do contexto.
   const greeting = addressName
-    ? `Oi ${addressName}! Sou o seu Concierge Longevify. Pode me perguntar sobre seus exames, protocolo, hábitos, sono — o que for útil pra ti.`
-    : "Oi! Sou o seu Concierge Longevify. Pode me perguntar sobre seus exames, protocolo, hábitos, sono — o que for útil pra ti.";
+    ? `Oi ${addressName}, eu sou o Dr. Lon — seu copiloto de longevidade. Pode me perguntar sobre seus exames, protocolo, hábitos, sono — o que for útil pra ti.`
+    : "Oi! Eu sou o Dr. Lon — seu copiloto de longevidade. Pode me perguntar sobre seus exames, protocolo, hábitos, sono — o que for útil pra ti.";
   return {
     id: "assistant-initial",
     role: "assistant",
