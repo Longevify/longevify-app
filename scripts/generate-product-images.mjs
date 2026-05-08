@@ -4,6 +4,8 @@
  *
  * Modos:
  *   --missing            (default) gera 1 imagem hero pra cada produto sem `image`
+ *   --regenerate-all     regenera todas as 16 imagens com prompt padronizado
+ *                        (background mint, soft lighting, ângulo consistente)
  *   --variations <id>    gera 4 ângulos de câmera do produto especificado
  *   --all-variations     gera 4 ângulos pra todos os produtos COM imagem existente
  *   --dry-run            só mostra o que faria sem gastar API
@@ -238,6 +240,42 @@ async function generateAllVariations(dryRun) {
   }
 }
 
+/**
+ * Regenera TODAS as 16 imagens hero com prompt padronizado.
+ * Útil pra padronizar background, lighting, ângulo entre os 11 PNGs
+ * que vieram da equipe original (estilos diferentes) + os 5 novos
+ * AI-generated.
+ *
+ * Custo: ~$0.64 (16 × $0.04). Sobrescreve PNGs existentes.
+ */
+async function regenerateAll(dryRun) {
+  console.log(
+    `🎨 Regenerando todas as ${PRODUCTS.length} imagens hero com prompt padronizado\n`,
+  );
+  if (dryRun) {
+    PRODUCTS.forEach((p) => {
+      console.log(`### ${p.id}`);
+      console.log(heroPrompt(p));
+      console.log();
+    });
+    return;
+  }
+
+  await ensureDir(MARKETPLACE_DIR);
+  for (const product of PRODUCTS) {
+    const outPath = path.join(MARKETPLACE_DIR, `${product.id}.png`);
+    console.log(`🎨 Regenerating ${product.id}...`);
+    try {
+      const buf = await generateImage({ prompt: heroPrompt(product) });
+      await fs.writeFile(outPath, buf);
+      console.log(`   ✓ saved ${outPath} (${(buf.length / 1024).toFixed(1)} KB)`);
+    } catch (e) {
+      console.error(`   ✗ failed: ${e.message}`);
+    }
+  }
+  console.log(`\n✅ Done. ${PRODUCTS.length} imagens padronizadas.`);
+}
+
 // ─── CLI ─────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -246,6 +284,11 @@ async function main() {
 
   if (args.includes("--missing")) {
     await generateMissingImages(dryRun);
+    return;
+  }
+
+  if (args.includes("--regenerate-all")) {
+    await regenerateAll(dryRun);
     return;
   }
 
