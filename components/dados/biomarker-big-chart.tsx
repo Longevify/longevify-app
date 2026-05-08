@@ -103,14 +103,17 @@ export function BiomarkerBigChart({
             width={44}
           />
 
-          {/* Normal (yellow) band - drawn first so optimal overlays */}
+          {/* Normal (yellow) band - drawn first so optimal overlays.
+              Higher opacity so it's clearly visible against the white chart bg. */}
           {typeof normMin === "number" && typeof normMax === "number" ? (
             <ReferenceArea
               y1={normMin}
               y2={normMax}
               fill="#e6b845"
-              fillOpacity={0.08}
-              stroke="none"
+              fillOpacity={0.22}
+              stroke="#e6b845"
+              strokeOpacity={0.35}
+              strokeDasharray="2 3"
               ifOverflow="extendDomain"
             />
           ) : null}
@@ -121,8 +124,10 @@ export function BiomarkerBigChart({
               y1={optMin}
               y2={optMax}
               fill="#10b981"
-              fillOpacity={0.12}
-              stroke="none"
+              fillOpacity={0.22}
+              stroke="#10b981"
+              strokeOpacity={0.35}
+              strokeDasharray="2 3"
               ifOverflow="extendDomain"
             />
           ) : null}
