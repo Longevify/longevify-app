@@ -53,12 +53,24 @@ export function BiomarkerBigChart({
 
   const rawMin = Math.min(...yCandidates);
   const rawMax = Math.max(...yCandidates);
-  const pad = Math.max((rawMax - rawMin) * 0.15, rawMax * 0.05, 1);
+  // Padding mais generoso pra dar espaço visual à zona "Fora" — sem isso a
+  // faixa vermelha fica imperceptível quando o paciente está sempre dentro
+  // das ranges normais/ótimas.
+  const span = rawMax - rawMin;
+  const pad = Math.max(span * 0.25, rawMax * 0.08, 1);
   const yMin = Math.max(0, rawMin - pad);
   const yMax = rawMax + pad;
 
   const lastPoint = data[data.length - 1];
   const { ref, width } = useMeasuredSize<HTMLDivElement>();
+
+  // Resolve a borda externa de cada lado pra zona "Fora". Quando há
+  // normalRange, fora = abaixo de normMin / acima de normMax. Quando NÃO há
+  // normalRange, fora cola direto no optimal (sem zona normal intermediária).
+  const hasNormal = typeof normMin === "number" && typeof normMax === "number";
+  const hasOptimal = typeof optMin === "number" && typeof optMax === "number";
+  const lowerOuterEdge = hasNormal ? (normMin as number) : optMin;
+  const upperOuterEdge = hasNormal ? (normMax as number) : optMax;
 
   return (
     <div
@@ -103,31 +115,50 @@ export function BiomarkerBigChart({
             width={44}
           />
 
-          {/* Normal (yellow) band - drawn first so optimal overlays.
-              Higher opacity so it's clearly visible against the white chart bg. */}
-          {typeof normMin === "number" && typeof normMax === "number" ? (
+          {/* Fora (vermelho) — desenhada primeiro, fica no fundo. Cobre
+              [yMin, lowerEdge] e [upperEdge, yMax]. Quando não há
+              normalRange, edge = optimalRange (sem zona normal intermediária). */}
+          {typeof lowerOuterEdge === "number" ? (
             <ReferenceArea
-              y1={normMin}
-              y2={normMax}
-              fill="#e6b845"
-              fillOpacity={0.22}
-              stroke="#e6b845"
-              strokeOpacity={0.35}
-              strokeDasharray="2 3"
+              y1={yMin}
+              y2={lowerOuterEdge}
+              fill="#e85d5d"
+              fillOpacity={0.1}
+              stroke="none"
+              ifOverflow="extendDomain"
+            />
+          ) : null}
+          {typeof upperOuterEdge === "number" ? (
+            <ReferenceArea
+              y1={upperOuterEdge}
+              y2={yMax}
+              fill="#e85d5d"
+              fillOpacity={0.1}
+              stroke="none"
               ifOverflow="extendDomain"
             />
           ) : null}
 
-          {/* Optimal (green) band */}
-          {typeof optMin === "number" && typeof optMax === "number" ? (
+          {/* Normal (amarelo) — desenhada por cima da fora, antes da ótima */}
+          {hasNormal ? (
+            <ReferenceArea
+              y1={normMin}
+              y2={normMax}
+              fill="#e6b845"
+              fillOpacity={0.12}
+              stroke="none"
+              ifOverflow="extendDomain"
+            />
+          ) : null}
+
+          {/* Ótima (verde) — sempre por cima */}
+          {hasOptimal ? (
             <ReferenceArea
               y1={optMin}
               y2={optMax}
               fill="#10b981"
-              fillOpacity={0.22}
-              stroke="#10b981"
-              strokeOpacity={0.35}
-              strokeDasharray="2 3"
+              fillOpacity={0.16}
+              stroke="none"
               ifOverflow="extendDomain"
             />
           ) : null}
@@ -178,6 +209,26 @@ export function BiomarkerBigChart({
           ) : null}
         </AreaChart>
       ) : null}
+
+      {/* Legenda — sempre mostra Ótimo + Fora; Normal só quando definida */}
+      <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-muted">
+        {hasOptimal ? (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#10b981]" />
+            Ótimo
+          </span>
+        ) : null}
+        {hasNormal ? (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#e6b845]" />
+            Normal
+          </span>
+        ) : null}
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#e85d5d]" />
+          Fora
+        </span>
+      </div>
     </div>
   );
 }

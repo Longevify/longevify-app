@@ -7,9 +7,15 @@ interface RangePositionProps {
 
 /**
  * Renders a horizontal bar showing where the current value falls on a
- * scale defined by the optimal/normal ranges. The optimal band is green,
- * the normal band is yellow, and everything outside is red. The thumb
- * marks the user's current value.
+ * scale defined by the optimal/normal ranges. The bar is composed in
+ * three layers: the rose background covers the entire scale and represents
+ * "Fora" (out of range), the amber band covers the normal range, and the
+ * emerald band sits on top covering the optimal range. The thumb marks
+ * the user's current value.
+ *
+ * When `normalRange` is not defined for a biomarker, the layout
+ * collapses to two zones (Ótimo + Fora) — there's no synthetic intermediate
+ * normal band. The legend hides the "Normal" entry to match.
  */
 export function RangePosition({ biomarker }: RangePositionProps) {
   const { value, optimalRange, normalRange, unit } = biomarker;
@@ -42,19 +48,21 @@ export function RangePosition({ biomarker }: RangePositionProps) {
   const normStart = normalRange ? pct(normalRange[0]) : null;
   const normEnd = normalRange ? pct(normalRange[1]) : null;
   const valuePct = pct(value);
+  const hasNormal = normStart !== null && normEnd !== null;
+  const hasOptimal = optStart !== null && optEnd !== null;
 
   return (
     <div>
-      <div className="relative h-3 w-full overflow-hidden rounded-full bg-[#FAD0D0] ring-1 ring-inset ring-[#f0a8a8]/40">
-        {normStart !== null && normEnd !== null ? (
+      <div className="relative h-3 w-full overflow-hidden rounded-full bg-[#FBE1E1]">
+        {hasNormal ? (
           <div
-            className="absolute inset-y-0 bg-[#F7DC8E]"
+            className="absolute inset-y-0 bg-[#FBF0D4]"
             style={{ left: `${normStart}%`, width: `${normEnd - normStart}%` }}
           />
         ) : null}
-        {optStart !== null && optEnd !== null ? (
+        {hasOptimal ? (
           <div
-            className="absolute inset-y-0 bg-[#A8E0BF]"
+            className="absolute inset-y-0 bg-[#DFF5E9]"
             style={{ left: `${optStart}%`, width: `${optEnd - optStart}%` }}
           />
         ) : null}
@@ -76,14 +84,18 @@ export function RangePosition({ biomarker }: RangePositionProps) {
       </div>
 
       <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-muted">
-        <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#10b981]" />
-          Ótimo
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#e6b845]" />
-          Normal
-        </span>
+        {hasOptimal ? (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#10b981]" />
+            Ótimo
+          </span>
+        ) : null}
+        {hasNormal ? (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#e6b845]" />
+            Normal
+          </span>
+        ) : null}
         <span className="inline-flex items-center gap-1.5">
           <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#e85d5d]" />
           Fora
