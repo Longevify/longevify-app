@@ -45,16 +45,16 @@ export function RangePosition({ biomarker }: RangePositionProps) {
 
   return (
     <div>
-      <div className="relative h-3 w-full overflow-hidden rounded-full bg-[#FBE1E1]">
+      <div className="relative h-3 w-full overflow-hidden rounded-full bg-[#FAD0D0] ring-1 ring-inset ring-[#f0a8a8]/40">
         {normStart !== null && normEnd !== null ? (
           <div
-            className="absolute inset-y-0 bg-[#FBF0D4]"
+            className="absolute inset-y-0 bg-[#F7DC8E]"
             style={{ left: `${normStart}%`, width: `${normEnd - normStart}%` }}
           />
         ) : null}
         {optStart !== null && optEnd !== null ? (
           <div
-            className="absolute inset-y-0 bg-[#DFF5E9]"
+            className="absolute inset-y-0 bg-[#A8E0BF]"
             style={{ left: `${optStart}%`, width: `${optEnd - optStart}%` }}
           />
         ) : null}
