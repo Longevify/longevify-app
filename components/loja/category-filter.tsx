@@ -11,8 +11,6 @@ const FILTERS: Array<{ key: FilterKey; label: string }> = [
   { key: "all", label: "Todos" },
   { key: "exame", label: "Exames" },
   { key: "longevify-original", label: "Suplementos Longevify" },
-  { key: "wearable", label: "Wearables" },
-  { key: "equipamento", label: "Equipamento" },
 ];
 
 export function CategoryFilter({ products }: { products: Product[] }) {
