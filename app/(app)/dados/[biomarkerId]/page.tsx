@@ -85,25 +85,13 @@ export default async function BiomarkerDetailPage({
 
       {/* Big chart */}
       <Card className="mb-8 p-5">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <div className="text-[11px] font-semibold tracking-[0.14em] text-muted uppercase">
-              Histórico
-            </div>
-            <h2 className="mt-0.5 text-[16px] font-semibold">
-              Evolução ao longo do tempo
-            </h2>
+        <div className="mb-3">
+          <div className="text-[11px] font-semibold tracking-[0.14em] text-muted uppercase">
+            Histórico
           </div>
-          <div className="flex items-center gap-3 text-[11px] text-muted">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="inline-block h-2.5 w-2.5 rounded-[3px] bg-[#10b981]/20 ring-1 ring-[#10b981]/40" />
-              Faixa ótima
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="inline-block h-2.5 w-2.5 rounded-[3px] bg-[#e6b845]/15 ring-1 ring-[#e6b845]/40" />
-              Faixa normal
-            </span>
-          </div>
+          <h2 className="mt-0.5 text-[16px] font-semibold">
+            Evolução ao longo do tempo
+          </h2>
         </div>
         <BiomarkerBigChart biomarker={biomarker} />
       </Card>
