@@ -6,16 +6,19 @@ interface RangePositionProps {
 }
 
 /**
- * Renders a horizontal bar showing where the current value falls on a
- * scale defined by the optimal/normal ranges. The optimal band is green,
- * the normal band is yellow, and everything outside is red. The thumb
- * marks the user's current value.
+ * Renderiza uma barra horizontal mostrando onde o valor atual cai numa
+ * escala definida por `optimalRange` e `normalRange`. A faixa ótima é
+ * verde, a normal é amarela, e tudo fora é vermelho. O thumb marca o
+ * valor do paciente.
+ *
+ * Layout: legenda (Ótimo · Normal · Fora) ACIMA da barra — sempre os 3
+ * dots fixos pra padronizar visual entre todos os biomarcadores, mesmo
+ * quando algum não tem normalRange definido.
  */
 export function RangePosition({ biomarker }: RangePositionProps) {
   const { value, optimalRange, normalRange, unit } = biomarker;
 
-  // Build an X-axis scale that covers a generous window around all known
-  // thresholds and the current value so we can show where the user sits.
+  // Escala X cobrindo todos os thresholds + valor atual com padding lateral.
   const anchors = [
     value,
     optimalRange?.[0],
@@ -43,10 +46,24 @@ export function RangePosition({ biomarker }: RangePositionProps) {
   const normEnd = normalRange ? pct(normalRange[1]) : null;
   const valuePct = pct(value);
 
-  const hasNormalRange = Boolean(normalRange);
-
   return (
     <div>
+      {/* Legenda — SEMPRE acima da barra, com 3 dots fixos. */}
+      <div className="mb-3 flex flex-wrap gap-3 text-[11px] text-muted">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#10b981]" />
+          Ótimo
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#e6b845]" />
+          Normal
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#e85d5d]" />
+          Fora
+        </span>
+      </div>
+
       <div className="relative h-3 w-full overflow-hidden rounded-full bg-[#FBE1E1]">
         {normStart !== null && normEnd !== null ? (
           <div
@@ -75,23 +92,6 @@ export function RangePosition({ biomarker }: RangePositionProps) {
           <span className="ml-1 text-[11px] font-normal text-muted">{unit}</span>
         </span>
         <span>{+scaleMax.toFixed(1)}</span>
-      </div>
-
-      <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-muted">
-        <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#10b981]" />
-          Ótimo
-        </span>
-        {hasNormalRange ? (
-          <span className="inline-flex items-center gap-1.5">
-            <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#e6b845]" />
-            Normal
-          </span>
-        ) : null}
-        <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#e85d5d]" />
-          Fora
-        </span>
       </div>
     </div>
   );
