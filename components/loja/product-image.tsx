@@ -8,8 +8,6 @@ const CATEGORY_GRADIENTS: Record<ProductCategory, string> = {
   exame: "from-[#DFF5E9] via-[#C9E9D6] to-[#9FD4B3]",
   suplemento: "from-[#E7F5EC] via-[#9FD4B3] to-[#6DBA8E]",
   "longevify-original": "from-[#F4FAF6] via-[#E7F5EC] to-[#C9E9D6]",
-  wearable: "from-[#1F2A26] via-[#3B4B43] to-[#9FB3AA]",
-  equipamento: "from-[#E7F0FD] via-[#B8D2F4] to-[#2562A8]",
 };
 
 const ASPECT: Record<NonNullable<ProductImageProps["aspect"]>, string> = {

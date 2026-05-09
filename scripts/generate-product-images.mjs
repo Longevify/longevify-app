@@ -46,12 +46,6 @@ const PRODUCTS = [
   { id: "omega-3", name: "Ômega 3 Óleo de Peixe 1.000mg", kicker: "Suplemento Longevify", image: "/marketplace/omega-3.png" },
   { id: "creatina", name: "Creatina Monohidratada Creapure", kicker: "Suplemento Longevify", image: "/marketplace/creatina.png" },
   { id: "zinco", name: "Zinco Quelato 25mg", kicker: "Suplemento Longevify", image: "/marketplace/zinco.png" },
-  // SEM imagem (gerar):
-  { id: "oura-ring-heritage", name: "Oura Ring Heritage", kicker: "Wearable" },
-  { id: "garmin-epix-pro", name: "Garmin Epix Pro", kicker: "Wearable" },
-  { id: "whoop-membership", name: "Whoop 4.0 + Mensalidade Anual", kicker: "Wearable" },
-  { id: "withings-body-comp", name: "Withings Body Comp", kicker: "Equipamento" },
-  { id: "freestyle-libre-3", name: "FreeStyle Libre 3 (kit 2 sensores)", kicker: "Equipamento" },
 ];
 
 // ─── OpenAI call ─────────────────────────────────────────────────────────────
@@ -113,16 +107,6 @@ function describeProductPhysically(product) {
       "a 300g matte white powder canister with mint green Longevify branding, 'Creatina Creapure', white scoop visible",
     zinco:
       "a small pharmacy bottle with grey/silver label, 'Zinco Quelato 25mg', white capsules visible",
-    "oura-ring-heritage":
-      "a sleek titanium smart ring, brushed silver matte finish, with subtle inner sensor LEDs visible",
-    "garmin-epix-pro":
-      "a premium AMOLED smartwatch with stainless steel bezel, dark face, sport band, displaying a watchface with running metrics",
-    "whoop-membership":
-      "a minimalist black fabric wristband with no display, woven texture, small charging dot visible",
-    "withings-body-comp":
-      "a modern bioimpedance bathroom scale, sleek glass top, dark grey or black, minimal LED display showing weight",
-    "freestyle-libre-3":
-      "a small round white circular sensor (about a coin size) with a peel-off backing, alongside a smartphone screenshot showing glucose data",
   };
   return hints[product.id] ?? `a premium ${product.kicker.toLowerCase()} product`;
 }

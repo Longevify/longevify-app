@@ -265,8 +265,6 @@ function mapProduct(row: Record<string, unknown>): Product {
     exame: "Exame Diagnóstico",
     suplemento: "Suplemento",
     "longevify-original": "Suplemento Longevify",
-    wearable: "Wearable",
-    equipamento: "Equipamento",
   };
   return {
     id: String(row.id),
