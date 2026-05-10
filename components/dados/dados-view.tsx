@@ -6,7 +6,6 @@ import { BioAgeCard } from "@/components/dados/bio-age-card";
 import { CategoryList } from "@/components/dados/category-list";
 import { BiomarkersSummary } from "@/components/dados/biomarkers-summary";
 import { BiomarkerRow } from "@/components/dados/biomarker-row";
-import { TimeRangeTabs, type TimeRange } from "@/components/dados/time-range";
 import { Card } from "@/components/ui/card";
 import {
   CATEGORIES,
@@ -23,7 +22,6 @@ interface DadosViewProps {
 
 export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
   const [categoryId, setCategoryId] = useState<string>("all");
-  const [range, setRange] = useState<TimeRange>("year");
 
   const filtered = useMemo(() => {
     if (categoryId === "all") return biomarkers;
@@ -44,7 +42,6 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
 
         <section className="flex min-w-0 flex-col gap-6">
           {/* page header */}
-          {/* H9: TimeRangeTabs movida pra bloco próprio abaixo do nome — evita soltura após flex-wrap */}
           <div>
             <div className="flex items-baseline gap-3">
               <h1 className="text-[28px] font-semibold tracking-tight">
@@ -56,9 +53,6 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
             </div>
             <div className="mt-1 text-[13px] text-muted">
               {formatDatePtBR(patient.latestExamDate)}
-            </div>
-            <div className="mt-3">
-              <TimeRangeTabs value={range} onChange={setRange} />
             </div>
           </div>
 
