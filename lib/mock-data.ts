@@ -32,9 +32,14 @@ export interface ScorePoint {
   score: number;
 }
 
+export type PatientSex = "male" | "female";
+
 export interface Patient {
   firstName: string;
   lastName: string;
+  /** Sexo biológico — escolhe o avatar corporal exibido em /dados.
+   *  Default "male" enquanto a coluna correspondente não vier do banco. */
+  sex: PatientSex;
   chronologicalAge: number;
   biologicalAge: number;
   longevifyScore: number;
@@ -60,6 +65,7 @@ export const CATEGORIES: BiomarkerCategory[] = [
 export const PATIENT: Patient = {
   firstName: "João",
   lastName: "Silva",
+  sex: "male",
   chronologicalAge: 27,
   biologicalAge: 25,
   longevifyScore: 70,

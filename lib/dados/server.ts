@@ -156,9 +156,15 @@ export async function loadDadosForUser(opts: {
     MOCK_PATIENT.chronologicalAge;
 
   const score = scoreRes.data;
+  // Sex: tenta puxar do profile (coluna opcional). Sem coluna, fallback "male".
+  const patientSex: Patient["sex"] =
+    (profileRes.data as { sex?: string } | null)?.sex === "female"
+      ? "female"
+      : "male";
   const patient: Patient = {
     firstName: patientFirstName,
     lastName: patientLastName,
+    sex: patientSex,
     chronologicalAge,
     biologicalAge: score?.biological_age ? Number(score.biological_age) : chronologicalAge,
     longevifyScore: score?.score ?? MOCK_PATIENT.longevifyScore,
