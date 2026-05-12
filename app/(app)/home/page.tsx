@@ -11,8 +11,6 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScoreCard } from "@/components/dados/score-card";
 import { BioAgeCard } from "@/components/dados/bio-age-card";
-import { BodyAvatar } from "@/components/dados/body-avatar";
-import { HealthCategoriesSummary } from "@/components/dados/health-categories-summary";
 import { RecommendationsSection } from "@/components/loja/recommendations-section";
 import { GoalsSummary } from "@/components/wearables/goals-summary";
 import { BIOMARKERS, PATIENT, biomarkersStats } from "@/lib/mock-data";
@@ -56,28 +54,15 @@ export default async function HomePage() {
           </Link>
         </div>
 
-        {/*
-          H12: layout 3-colunas — categorias | avatar | scores empilhados.
-          Em mobile, ordem: scores → avatar → categorias (info principal primeiro).
-          Em desktop (lg+), ordem da esquerda pra direita.
-        */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[260px_minmax(0,1fr)_300px] lg:items-stretch lg:gap-6">
-          <HealthCategoriesSummary className="order-3 lg:order-1" />
-
-          <div className="order-2 flex items-center justify-center lg:order-2">
-            <BodyAvatar className="max-w-[200px] lg:max-w-[260px]" />
-          </div>
-
-          <div className="order-1 flex flex-col gap-4 lg:order-3">
-            <ScoreCard
-              score={PATIENT.longevifyScore}
-              status={PATIENT.scoreStatus}
-            />
-            <BioAgeCard
-              biologicalAge={PATIENT.biologicalAge}
-              chronologicalAge={PATIENT.chronologicalAge}
-            />
-          </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <ScoreCard
+            score={PATIENT.longevifyScore}
+            status={PATIENT.scoreStatus}
+          />
+          <BioAgeCard
+            biologicalAge={PATIENT.biologicalAge}
+            chronologicalAge={PATIENT.chronologicalAge}
+          />
         </div>
 
         {/* H10: flex-col em mobile evita stats + link "Detalhar" quebrando desorganizados */}

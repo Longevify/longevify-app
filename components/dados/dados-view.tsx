@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ScoreCard } from "@/components/dados/score-card";
 import { BioAgeCard } from "@/components/dados/bio-age-card";
+import { BodyAvatar } from "@/components/dados/body-avatar";
 import { CategoryList } from "@/components/dados/category-list";
 import { BiomarkersSummary } from "@/components/dados/biomarkers-summary";
 import { BiomarkerRow } from "@/components/dados/biomarker-row";
@@ -30,7 +31,7 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
 
   return (
     <div className="mx-auto w-full max-w-[1280px] px-6 py-8">
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[260px_1fr]">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[260px_220px_1fr]">
         {/* M1: aside oculto em mobile — em 390px empilhava no topo antes do conteúdo */}
         <aside className="hidden lg:block lg:sticky lg:top-24 lg:self-start">
           <CategoryList
@@ -38,6 +39,15 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
             activeId={categoryId}
             onChange={setCategoryId}
           />
+        </aside>
+
+        {/*
+          Avatar corporal — entra entre a lista de categorias e os scores.
+          Esconde em mobile (assim como o aside) pra preservar espaço vertical.
+          Sticky pra ele acompanhar o scroll igual o aside.
+        */}
+        <aside className="hidden lg:sticky lg:top-24 lg:flex lg:items-start lg:justify-center lg:self-start">
+          <BodyAvatar sex={patient.sex} className="max-w-[200px]" />
         </aside>
 
         <section className="flex min-w-0 flex-col gap-6">
