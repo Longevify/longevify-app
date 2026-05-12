@@ -31,18 +31,18 @@ const QUALITY = "medium";
 const BASE_PROMPT = (sex) => {
   const buildHint =
     sex === "female"
-      ? "slim narrow build, slightly hourglass overall outline, no surface details at all"
-      : "broader shoulders build, straight outline, no surface details at all";
+      ? "athletic lean build, slightly narrower shoulders than hips overall outline"
+      : "athletic build with subtle broader shoulders proportions";
   return `
-A pure white 3D rendered abstract artist's posing doll figure, like a smooth white wooden mannequin used by painters but with completely matte porcelain surface,
+A pure white 3D rendered abstract human figure, similar to an art mannequin or wooden artist's posing doll but smooth and matte white,
 ${buildHint},
-standing upright in neutral pose facing the camera, arms straight at sides, legs together,
+standing upright in T-pose orientation facing the camera, arms slightly away from sides, legs together,
 full figure visible from head to feet,
-completely smooth featureless surface — no face, no hair, no clothing lines, no skin texture, just abstract geometric volumes,
-the figure looks like a virtual avatar used in fitness tracking applications,
-clean studio render, pure white background (#ffffff), soft top-down lighting with gentle cool gray shading to show form,
+completely featureless smooth surface — no facial features, no clothing details, no anatomical details, just abstract shape,
+the figure looks like a polished white porcelain statue or a virtual mannequin used in fitness apps,
+clean studio render, pure white background (#ffffff), soft top-down lighting with gentle gray shading to show form,
 centered composition, vertical orientation, figure fills 80% of the frame vertically,
-minimalist data visualization style
+minimalist medical visualization style
 `.trim().replace(/\n+/g, " ");
 };
 
