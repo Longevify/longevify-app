@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { ScoreCard } from "@/components/dados/score-card";
 import { BioAgeCard } from "@/components/dados/bio-age-card";
-import { BodyAvatar } from "@/components/dados/body-avatar";
+import { BodyAvatar3D } from "@/components/dados/body-avatar-3d";
 import { CategoryList } from "@/components/dados/category-list";
 import { BiomarkersSummary } from "@/components/dados/biomarkers-summary";
 import { BiomarkerRow } from "@/components/dados/biomarker-row";
@@ -42,12 +42,18 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
         </aside>
 
         {/*
-          Avatar corporal — entra entre a lista de categorias e os scores.
-          Esconde em mobile (assim como o aside) pra preservar espaço vertical.
-          Sticky pra ele acompanhar o scroll igual o aside.
+          Avatar corporal 3D interativo — entra entre a lista de categorias
+          e os scores. Permite rotação 360° (drag) e destaca a região do
+          corpo correspondente à categoria selecionada na sidebar.
+          Sticky pra acompanhar o scroll. Hidden em mobile pra preservar
+          espaço vertical (igual o aside da CategoryList).
         */}
         <aside className="hidden lg:sticky lg:top-24 lg:flex lg:items-start lg:justify-center lg:self-start">
-          <BodyAvatar sex={patient.sex} className="max-w-[200px]" />
+          <BodyAvatar3D
+            sex={patient.sex}
+            activeCategoryId={categoryId}
+            className="w-[220px]"
+          />
         </aside>
 
         <section className="flex min-w-0 flex-col gap-6">
