@@ -29,7 +29,7 @@ export function HealthCategoriesSummary({
       {categories.map((c) => (
         <li key={c.id}>
           <Link
-            href={`/dados?cat=${c.id}`}
+            href="/dados"
             className="flex items-center gap-3 px-4 py-3 transition hover:bg-brand-50/60"
           >
             <GradeBadge grade={c.grade} />
