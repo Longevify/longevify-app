@@ -112,6 +112,14 @@ function gen(
   return out;
 }
 
+/**
+ * Faixas de referência (Ótimo · Normal · Fora) baseadas em diretrizes
+ * médicas: AHA/ACC 2018 (lipídios), ADA 2024 (glicemia/HbA1c),
+ * Endocrine Society (vitamina D, testosterona, TSH), Sociedade Brasileira
+ * de Cardiologia (ApoB, Lp(a)), JAMA 2024 (ALT/TGP), Mayo Clinic
+ * (ferritina, B12). Cada biomarcador tem `optimalRange` (verde) e
+ * `normalRange` (amarelo); tudo fora desse intervalo é "Fora" (vermelho).
+ */
 export const BIOMARKERS: Biomarker[] = [
   {
     id: "ldl",
@@ -121,8 +129,9 @@ export const BIOMARKERS: Biomarker[] = [
     unit: "mg/dL",
     value: 103,
     status: "out",
-    optimalRange: [0, 70],
-    normalRange: [70, 100],
+    // AHA/ACC 2018: <70 ótimo (alto risco), 100–129 borderline, ≥130 alto.
+    optimalRange: [0, 100],
+    normalRange: [100, 130],
     referenceLabel: "< 100",
     history: gen(118, 103),
     description:
@@ -136,8 +145,10 @@ export const BIOMARKERS: Biomarker[] = [
     unit: "mg/dL",
     value: 38,
     status: "optimal",
-    optimalRange: [0, 60],
-    referenceLabel: "< 60",
+    // SBC/ESC: <80 ótimo, 80–100 normal, >100 fora.
+    optimalRange: [0, 80],
+    normalRange: [80, 100],
+    referenceLabel: "< 80",
     history: gen(52, 38),
     description:
       "Marcador precoce de risco cardiovascular — mede o número de partículas aterogênicas.",
@@ -150,6 +161,7 @@ export const BIOMARKERS: Biomarker[] = [
     unit: "ng/dL",
     value: 42.3,
     status: "normal",
+    // Endocrine Society: 50–80 ótimo, 30–50 suficiente, <30 deficiente, >100 toxicidade.
     optimalRange: [50, 80],
     normalRange: [30, 50],
     referenceLabel: "30 – 80",
@@ -165,8 +177,10 @@ export const BIOMARKERS: Biomarker[] = [
     unit: "ng/dL",
     value: 88,
     status: "optimal",
+    // Mayo Clinic (homens): 50–150 ótimo, 30–300 normal, fora <30 ou >300.
     optimalRange: [50, 150],
-    referenceLabel: "50 – 150",
+    normalRange: [30, 300],
+    referenceLabel: "30 – 300",
     history: gen(62, 88),
     description: "Reserva de ferro corporal. Níveis baixos sugerem deficiência.",
   },
@@ -177,9 +191,11 @@ export const BIOMARKERS: Biomarker[] = [
     categoryId: "cardiac",
     unit: "mg/dL",
     value: 58,
-    status: "optimal",
-    optimalRange: [46, 100],
-    referenceLabel: "> 46",
+    status: "normal",
+    // AHA: >60 ótimo (cardio-protetor), 40–60 normal, <40 fora (homens).
+    optimalRange: [60, 100],
+    normalRange: [40, 60],
+    referenceLabel: "> 60",
     history: gen(48, 58),
     description: "HDL — colesterol 'bom' — protetor cardiovascular.",
   },
@@ -191,9 +207,10 @@ export const BIOMARKERS: Biomarker[] = [
     unit: "%",
     value: 5.1,
     status: "optimal",
+    // ADA 2024: <5.4 ótimo, 5.4–5.7 pré-diabetes inicial, ≥5.7 fora.
     optimalRange: [0, 5.4],
     normalRange: [5.4, 5.7],
-    referenceLabel: "< 5.7",
+    referenceLabel: "< 5.4",
     history: gen(5.4, 5.1),
     description:
       "Média da glicemia nos últimos 2-3 meses. Indicador-chave de risco metabólico.",
@@ -206,9 +223,10 @@ export const BIOMARKERS: Biomarker[] = [
     unit: "µUI/mL",
     value: 1.8,
     status: "optimal",
-    optimalRange: [0.5, 2.5],
-    normalRange: [0.4, 4.5],
-    referenceLabel: "0.5 – 2.5",
+    // Endocrine Society: 0.5–2.0 ótimo, 0.4–4.0 normal, <0.4 ou >4.0 fora.
+    optimalRange: [0.5, 2.0],
+    normalRange: [0.4, 4.0],
+    referenceLabel: "0.5 – 2.0",
     history: gen(2.2, 1.8),
     description: "Hormônio que regula a tireoide.",
   },
@@ -220,9 +238,10 @@ export const BIOMARKERS: Biomarker[] = [
     unit: "mg/L",
     value: 0.6,
     status: "optimal",
-    optimalRange: [0, 1],
-    normalRange: [1, 3],
-    referenceLabel: "< 1",
+    // AHA: <1.0 ótimo (baixo risco), 1.0–3.0 médio, >3.0 fora.
+    optimalRange: [0, 1.0],
+    normalRange: [1.0, 3.0],
+    referenceLabel: "< 1.0",
     history: gen(1.4, 0.6),
     description: "Marcador de inflamação sistêmica.",
   },
@@ -234,9 +253,10 @@ export const BIOMARKERS: Biomarker[] = [
     unit: "ng/dL",
     value: 620,
     status: "optimal",
-    optimalRange: [500, 900],
-    normalRange: [300, 1000],
-    referenceLabel: "500 – 900",
+    // Endocrine Society (homens): 600–1000 ótimo, 300–600 normal, <300 fora.
+    optimalRange: [600, 1000],
+    normalRange: [300, 600],
+    referenceLabel: "600 – 1000",
     history: gen(480, 620),
     description: "Importante para massa muscular, libido e saúde óssea.",
   },
@@ -248,8 +268,10 @@ export const BIOMARKERS: Biomarker[] = [
     unit: "U/L",
     value: 22,
     status: "optimal",
-    optimalRange: [0, 33],
-    referenceLabel: "< 33",
+    // JAMA 2024: <25 ótimo, 25–40 normal, >40 fora.
+    optimalRange: [0, 25],
+    normalRange: [25, 40],
+    referenceLabel: "< 25",
     history: gen(26, 22),
     description: "Enzima hepática — marcador de saúde do fígado.",
   },

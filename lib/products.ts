@@ -1,9 +1,7 @@
 export type ProductCategory =
   | "exame"
   | "suplemento"
-  | "longevify-original"
-  | "wearable"
-  | "equipamento";
+  | "longevify-original";
 
 export type ProductBadge =
   | "Mais Vendido"
@@ -51,8 +49,6 @@ export const CATEGORY_LABELS: Record<ProductCategory, string> = {
   exame: "Exames",
   suplemento: "Suplementos",
   "longevify-original": "Originais Longevify",
-  wearable: "Wearables",
-  equipamento: "Equipamento",
 };
 
 export function formatBRL(value: number): string {
@@ -64,7 +60,7 @@ export function formatBRL(value: number): string {
 }
 
 /**
- * Catálogo Longevify — produtos exclusivos da marca + curadoria de wearables/equipamento.
+ * Catálogo Longevify — exames diagnósticos + suplementos originais da marca.
  * Imagens: /public/marketplace/*.png (PNGs reais da equipe).
  */
 export const PRODUCTS: Product[] = [
@@ -442,136 +438,6 @@ export const PRODUCTS: Product[] = [
     rating: 4.7,
     reviewsCount: 743,
   },
-  // ──────────────────────────────────────────────────────────────────
-  // WEARABLES (curadoria)
-  // ──────────────────────────────────────────────────────────────────
-  {
-    id: "oura-ring-heritage",
-    name: "Oura Ring Heritage",
-    brand: "Oura",
-    category: "wearable",
-    badge: "Curadoria",
-    kicker: "Wearable",
-    priceBRL: 1199,
-    currency: "BRL",
-    shortDescription:
-      "Anel de tracking de sono, recuperação e atividade — bateria 7 dias.",
-    longDescription:
-      "Sensores de temperatura corporal, HRV, frequência cardíaca, SpO2 e movimento. Algoritmos avançados de score de sono, prontidão e atividade. Discreto, sem display, foco em dados em vez de notificações.",
-    benefits: [
-      "Tracking 24/7 de sono e HRV",
-      "Bateria 7 dias",
-      "Detecção de ciclo menstrual",
-      "Sem mensalidade no plano básico",
-    ],
-    usage: "Use no dedo indicador 24/7 (tira pro banho/sauna).",
-    targetsBiomarkers: [],
-    rating: 4.7,
-    reviewsCount: 5234,
-  },
-  {
-    id: "garmin-epix-pro",
-    name: "Garmin Epix Pro",
-    brand: "Garmin",
-    category: "wearable",
-    kicker: "Wearable",
-    priceBRL: 5499,
-    currency: "BRL",
-    shortDescription:
-      "Smartwatch premium pra performance — VO2max, lactate threshold, sono detalhado.",
-    longDescription:
-      "Combina precisão Garmin com tela AMOLED. Métricas avançadas pra atletas amadores e high-performers. Bateria 16+ dias com GPS multi-banda.",
-    benefits: [
-      "VO2max + lactate threshold",
-      "GPS multi-banda",
-      "Bateria 16+ dias",
-      "Mapas topográficos",
-    ],
-    usage: "Use no pulso 24/7. Use o Garmin Coach pra treinos guiados.",
-    targetsBiomarkers: [],
-    rating: 4.6,
-    reviewsCount: 1087,
-  },
-  {
-    id: "whoop-membership",
-    name: "Whoop 4.0 + Mensalidade Anual",
-    brand: "Whoop",
-    category: "wearable",
-    kicker: "Wearable",
-    priceBRL: 2400,
-    currency: "BRL",
-    shortDescription:
-      "Pulseira sem display + assinatura — foco total em recuperação e sono.",
-    longDescription:
-      "Hardware vem incluso na assinatura. Whoop é a opção pra quem quer dados granulares de recuperação sem distração visual no pulso.",
-    benefits: [
-      "Strain coach diário",
-      "Recovery score (HRV/RHR)",
-      "Bateria 5 dias com swap",
-      "Sem display = zero distração",
-    ],
-    usage: "Use no pulso 24/7, sincroniza por Bluetooth.",
-    targetsBiomarkers: [],
-    rating: 4.4,
-    reviewsCount: 3421,
-  },
-  // ──────────────────────────────────────────────────────────────────
-  // EQUIPAMENTO (curadoria)
-  // ──────────────────────────────────────────────────────────────────
-  {
-    id: "withings-body-comp",
-    name: "Withings Body Comp",
-    brand: "Withings",
-    category: "equipamento",
-    kicker: "Equipamento",
-    priceBRL: 1490,
-    currency: "BRL",
-    shortDescription:
-      "Balança de bioimpedância — idade vascular, gordura visceral e composição segmentar.",
-    longDescription:
-      "Conecta automaticamente via Wi-Fi ao app Longevify. Pesa em 30 segundos com 6 métricas além do peso, incluindo idade vascular e gordura visceral.",
-    benefits: [
-      "Idade vascular",
-      "Gordura visceral",
-      "Composição segmentar",
-      "Sincronização automática",
-    ],
-    usage: "Pesagem diária, mesmo horário, em jejum.",
-    targetsBiomarkers: [],
-    rating: 4.5,
-    reviewsCount: 1654,
-  },
-  {
-    id: "freestyle-libre-3",
-    name: "FreeStyle Libre 3 (kit 2 sensores)",
-    brand: "Abbott",
-    category: "equipamento",
-    badge: "Novo",
-    kicker: "Equipamento",
-    priceBRL: 890,
-    currency: "BRL",
-    shortDescription:
-      "CGM de glicose contínua — descubra como cada refeição afeta sua glicemia.",
-    longDescription:
-      "Sensor que dura 14 dias por aplicação. Kit Longevify inclui 2 sensores (28 dias de monitoramento) + análise da equipe clínica. Não precisa furar dedo.",
-    benefits: [
-      "14 dias por sensor",
-      "Sem furar dedo",
-      "App em tempo real",
-      "Análise clínica inclusa",
-    ],
-    usage: "Aplicar no braço; trocar a cada 14 dias.",
-    packageSize: "2 sensores (28 dias)",
-    posology: "Sensor contínuo",
-    recurrence: {
-      intervalDays: 28,
-      label: "a cada 28 dias",
-      subscriptionDiscountPct: 5,
-    },
-    targetsBiomarkers: ["hba1c"],
-    rating: 4.6,
-    reviewsCount: 432,
-  },
 ];
 
 export function getProductById(id: string): Product | undefined {
@@ -641,7 +507,7 @@ function formatIntervalLabel(days: number): string {
  * `product.recurrence` (curado pela equipe). Quando ausente, infere a
  * partir de `posology` + `packageSize` ("1 cápsula/dia" + "60 cápsulas"
  * → 60 dias). Devolve `null` se não houver dado suficiente — útil pra
- * exames/wearables que não são consumíveis.
+ * exames que não são consumíveis.
  */
 export function recommendInterval(
   product: Product,

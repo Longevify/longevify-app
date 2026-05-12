@@ -20,7 +20,9 @@ export function ScoreCard({ score, status, className }: ScoreCardProps) {
   return (
     <article
       className={cn(
-        "relative overflow-hidden rounded-[20px] p-6",
+        // border-transparent: alinha caixa de conteúdo com BioAgeCard (que tem border-border).
+        // Sem isso, box-sizing: border-box subtrai 2px da BioAgeCard e a barra interna fica desalinhada.
+        "relative overflow-hidden rounded-[20px] border border-transparent p-6",
         "bg-gradient-to-br from-[#143D28] via-[#0F3020] to-[#0C2418] text-white",
         "shadow-[0_1px_2px_rgba(13,40,24,.08)]",
         className,
