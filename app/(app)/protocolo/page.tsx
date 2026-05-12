@@ -1,368 +1,174 @@
-import {
-  Activity,
-  Brain,
-  CheckCircle2,
-  Clock,
-  Droplet,
-  Moon,
-  Pill,
-  Salad,
-  Sparkles,
-  Sun,
-  TrendingUp,
-} from "lucide-react";
+import Image from "next/image";
+import { Sun, ChevronRight } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { ProtocolHero } from "@/components/protocolo/protocol-hero";
-import { ProtocolTimeline } from "@/components/protocolo/protocol-timeline";
-import { CategoryArt } from "@/components/protocolo/category-art";
 
-interface Item {
-  title: string;
-  detail: string;
-  tag: string;
-  when?: string;
-  /** opcional — imagem real do marketplace (PNG existente) pra reforçar visual */
-  image?: string;
-}
-
-interface Section {
+interface TodayAction {
   id: string;
   label: string;
-  icon: LucideIcon;
-  /** chave usada pelo CategoryArt pra escolher a arte certa */
-  artKey:
-    | "suplementos"
-    | "nutricao"
-    | "exercicio"
-    | "sono"
-    | "luz"
-    | "hidratacao"
-    | "mental";
-  accent: string;
-  /** descrição curta da categoria pra dar contexto antes dos items */
-  intro: string;
-  items: Item[];
+  // imagem do produto (ex: /marketplace/vitamina-d.png) OU lucide icon
+  image?: string;
+  icon?: LucideIcon;
+  iconAccent?: string; // bg color quando usar icon
 }
 
-const SECTIONS: Section[] = [
+interface WorkingOnItem {
+  id: string;
+  title: string;
+  description: string;
+}
+
+const TODAY_ACTIONS: TodayAction[] = [
   {
-    id: "suplementos",
-    label: "Suplementação",
-    icon: Pill,
-    artKey: "suplementos",
-    accent: "bg-[#DFF5E9] text-[#0E7B45]",
-    intro:
-      "3 ativos com evidência forte pra seus biomarcadores atuais — doses calibradas pelo Concierge.",
-    items: [
-      {
-        title: "Vitamina D3 5000 UI",
-        detail: "1x ao dia, com gordura — manhã",
-        tag: "Nível 42,3 ng/dL",
-        when: "Manhã",
-        image: "/marketplace/vitamina-d.png",
-      },
-      {
-        title: "Ômega 3 (EPA/DHA 2g)",
-        detail: "2x ao dia, com refeições",
-        tag: "Cardiovascular",
-        when: "Almoço / Jantar",
-        image: "/marketplace/omega-3.png",
-      },
-      {
-        title: "Creatina monohidratada 5g",
-        detail: "Diariamente, hidratada",
-        tag: "Performance",
-        when: "Qualquer horário",
-        image: "/marketplace/creatina.png",
-      },
-    ],
+    id: "vitd",
+    label: "Tomar 1 cápsula de Vitamina D3 5.000 UI no café da manhã",
+    image: "/marketplace/vitamina-d.png",
   },
   {
-    id: "nutricao",
-    label: "Nutrição",
-    icon: Salad,
-    artKey: "nutricao",
-    accent: "bg-[#FBF0D4] text-[#8A6A13]",
-    intro:
-      "Reduzir LDL e estabilizar glicemia — duas alavancas que compõem 60% do seu risco cardiometabólico hoje.",
-    items: [
-      {
-        title: "Reduzir gordura saturada",
-        detail: "LDL em 103 mg/dL — meta < 100",
-        tag: "Prioridade",
-        when: "Toda refeição",
-      },
-      {
-        title: "30g de fibra / dia",
-        detail: "Aveia, frutas, vegetais, leguminosas",
-        tag: "Hábito",
-        when: "Ao longo do dia",
-      },
-    ],
+    id: "omega",
+    label: "Tomar 2 cápsulas de Ômega 3 (EPA/DHA) com o almoço",
+    image: "/marketplace/omega-3.png",
   },
   {
-    id: "exercicio",
-    label: "Atividade Física",
-    icon: Activity,
-    artKey: "exercicio",
-    accent: "bg-[#E7ECFD] text-[#3B44C2]",
-    intro:
-      "Zona 2 + força é a combinação com maior efeito sobre VO2 máx — proxy direto de longevidade.",
-    items: [
-      {
-        title: "Zona 2 — 150 min/semana",
-        detail: "Caminhada rápida, bike leve, remo",
-        tag: "Longevidade",
-        when: "5x / semana · 30 min",
-      },
-      {
-        title: "Treino de força 3x/semana",
-        detail: "Movimentos compostos, progressão gradual",
-        tag: "Massa magra",
-        when: "3x / semana",
-      },
-    ],
+    id: "creatina",
+    label: "Tomar 5g de Creatina monohidratada com água",
+    image: "/marketplace/creatina.png",
   },
   {
-    id: "sono",
-    label: "Sono & Recuperação",
-    icon: Moon,
-    artKey: "sono",
-    accent: "bg-[#E7F0FD] text-[#2562A8]",
-    intro:
-      "Janela consistente de 8h é a intervenção #1 — afeta cortisol, glicemia, memória e humor de uma vez.",
-    items: [
-      {
-        title: "Janela de sono 22:30 – 06:30",
-        detail: "Consistência diária, incluindo fins de semana",
-        tag: "8h",
-        when: "Noite",
-      },
-    ],
+    id: "magnesio",
+    label: "Tomar 1 cápsula de Magnésio Quelato 200mg antes de dormir",
+    image: "/marketplace/magnesio-quelato.png",
   },
   {
-    id: "luz",
-    label: "Luz & Circadiano",
+    id: "sun-move",
+    label: "10 min de sol matinal + 30 min de caminhada em Zona 2",
     icon: Sun,
-    artKey: "luz",
-    accent: "bg-[#FCEBD8] text-[#A8651B]",
-    intro:
-      "Luz solar matinal sincroniza relógio biológico — cascata cortisol, melatonina e dopamina.",
-    items: [
-      {
-        title: "10 min de sol matinal",
-        detail: "Dentro da 1ª hora após acordar",
-        tag: "Cortisol",
-        when: "Manhã",
-      },
-    ],
-  },
-  {
-    id: "hidratacao",
-    label: "Hidratação",
-    icon: Droplet,
-    artKey: "hidratacao",
-    accent: "bg-[#E1F0FB] text-[#206396]",
-    intro:
-      "Volume plasmático adequado mantém pressão estável e função renal — fundamento do resto.",
-    items: [
-      {
-        title: "35 mL por kg de peso corporal",
-        detail: "Água + eletrólitos leves no pós-treino",
-        tag: "Base",
-        when: "Ao longo do dia",
-      },
-    ],
+    iconAccent: "bg-[#FCEBD8] text-[#A8651B]",
   },
 ];
 
-const TIMELINE = [
+const WORKING_ON: WorkingOnItem[] = [
   {
-    weeks: "Semana 1-2",
-    label: "Adaptação",
-    detail: "Corpo se ajusta a suplementação e padrão de sono",
-    icon: Sparkles,
+    id: "ldl",
+    title: "Reduzir LDL abaixo de 100 mg/dL",
+    description:
+      "Seu LDL está em 103 mg/dL. Vamos chegar à faixa ótima reduzindo gordura saturada e priorizando 30g de fibra por dia.",
   },
   {
-    weeks: "Semana 3-6",
-    label: "Energia & humor",
-    detail: "Vitamina D normaliza, sono aprofunda — disposição melhora",
-    icon: Brain,
+    id: "vitd-level",
+    title: "Atingir 50+ ng/dL de Vitamina D",
+    description:
+      "Você está em 42,3 ng/dL. Suplementação diária + 10 min de sol matinal devem te levar à faixa ótima em 8 a 12 semanas.",
   },
   {
-    weeks: "Semana 6-12",
-    label: "Biomarcadores",
-    detail: "LDL desce, HRV sobe, glicemia em jejum estabiliza",
-    icon: TrendingUp,
-  },
-  {
-    weeks: "Mês 3+",
-    label: "Reavaliação",
-    detail: "Próximo painel mede progresso e recalibra protocolo",
-    icon: CheckCircle2,
+    id: "zone2",
+    title: "Construir base aeróbica em Zona 2",
+    description:
+      "150 min/semana de zona 2 (caminhada rápida, bike leve) é o investimento mais robusto pra longevidade cardiovascular.",
   },
 ];
 
 export default function ProtocoloPage() {
   return (
-    <div className="mx-auto w-full max-w-[1280px] px-6 py-10">
-      {/*
-        Hero — substitui o header plano por um visual rich com art SVG do
-        Concierge analisando biomarcadores. Dá contexto "tech" e mostra que
-        o protocolo é gerado a partir de dados, não um template genérico.
-      */}
-      <ProtocolHero />
+    <div className="mx-auto w-full max-w-[760px] px-4 py-6 sm:px-6 sm:py-10">
+      <header className="pb-8">
+        <span className="text-[13px] text-muted">Personalizado para você</span>
+        <h1 className="text-[32px] leading-[1.05] font-semibold tracking-tight sm:text-[40px]">
+          Protocolo
+        </h1>
+      </header>
 
-      {/* Linha do tempo de o que esperar — addresses a expectativa do paciente
-          ("quando vou ver resultado?") com horizonte visual concreto */}
-      <section className="mt-10">
-        <header className="mb-5">
-          <h2 className="text-[22px] font-semibold tracking-tight">
-            O que esperar
-          </h2>
-          <p className="mt-1 text-[13px] text-muted">
-            Trajetória prevista pelo Concierge com base no seu painel mais
-            recente.
-          </p>
-        </header>
-        <ProtocolTimeline steps={TIMELINE} />
+      {/* Ações de hoje */}
+      <section>
+        <h2 className="mb-3 text-[13px] font-medium uppercase tracking-[0.14em] text-muted">
+          Ações de hoje
+        </h2>
+        <ul className="flex flex-col gap-2">
+          {TODAY_ACTIONS.map((a) => (
+            <li key={a.id}>
+              <TodayActionRow action={a} />
+            </li>
+          ))}
+        </ul>
       </section>
 
-      {/* Cards de categoria — agora cada um tem hero art em SVG + intro textual
-          + items detalhados. Hands-on: visual ocupa ~120px do topo do card */}
+      {/* No que estamos trabalhando */}
       <section className="mt-12">
-        <header className="mb-5">
-          <h2 className="text-[22px] font-semibold tracking-tight">
-            Plano integrado
-          </h2>
-          <p className="mt-1 max-w-2xl text-[13px] text-muted">
-            Seis pilares trabalhando em conjunto — suplementação, nutrição,
-            treino, sono, luz e hidratação. Cada um calibrado pra resolver um
-            biomarcador específico do seu painel.
-          </p>
-        </header>
-
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {SECTIONS.map((s) => {
-            const Icon = s.icon;
-            return (
-              <Card
-                key={s.id}
-                className="flex flex-col overflow-hidden p-0"
-              >
-                {/* Visual top — SVG art que reforça a categoria, ~140px alto */}
-                <CategoryArt artKey={s.artKey} />
-
-                <div className="flex flex-col gap-4 p-5">
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`grid h-10 w-10 place-items-center rounded-xl ${s.accent}`}
-                    >
-                      <Icon className="h-5 w-5" />
-                    </span>
-                    <div className="min-w-0">
-                      <h3 className="text-[17px] font-semibold leading-tight">
-                        {s.label}
-                      </h3>
-                      <p className="mt-0.5 text-[12px] leading-snug text-muted">
-                        {s.intro}
-                      </p>
-                    </div>
-                  </div>
-
-                  <ul className="flex flex-col divide-y divide-border/70">
-                    {s.items.map((it) => (
-                      <li
-                        key={it.title}
-                        className="flex flex-col gap-2 py-3.5 first:pt-0 last:pb-0"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex min-w-0 items-start gap-3">
-                            {/* Thumb visual quando item tem imagem real do
-                                marketplace (vitamina-d.png etc) — reforça
-                                hands-on sem precisar gerar imagem nova */}
-                            {it.image ? (
-                              <span className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl bg-[#F5F5F4]">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={it.image}
-                                  alt=""
-                                  className="h-full w-full object-contain p-1"
-                                  loading="lazy"
-                                />
-                              </span>
-                            ) : null}
-                            <div className="min-w-0">
-                              <div className="text-[14px] font-medium leading-snug">
-                                {it.title}
-                              </div>
-                              <div className="mt-0.5 text-[12px] text-muted">
-                                {it.detail}
-                              </div>
-                            </div>
-                          </div>
-                          <span className="shrink-0 rounded-full bg-brand-50 px-2.5 py-0.5 text-[11px] font-medium text-brand-700">
-                            {it.tag}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between gap-2">
-                          {it.when ? (
-                            <span className="inline-flex items-center gap-1 text-[11px] text-muted">
-                              <Clock className="h-3 w-3 shrink-0" />
-                              {it.when}
-                            </span>
-                          ) : (
-                            <span />
-                          )}
-                          <button
-                            type="button"
-                            disabled
-                            title="Marcação de aderência em breve"
-                            className="rounded-lg border border-border bg-surface px-2.5 py-1 text-[11px] text-muted cursor-not-allowed opacity-60 select-none"
-                          >
-                            Marcar como feito
-                          </button>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Aderência — mantém empty state honesto até feature ter dados reais */}
-      <section className="mt-12">
-        <div className="mb-4">
-          <h2 className="text-[22px] font-semibold tracking-tight">
-            Aderência ao protocolo
-          </h2>
-          <p className="mt-1 text-[13px] text-muted">
-            Acompanhe quantos itens do seu protocolo você cumpriu esta semana.
-          </p>
-        </div>
-
-        <Card className="flex flex-col items-center gap-4 px-8 py-12 text-center">
-          <div className="grid h-14 w-14 place-items-center rounded-2xl bg-brand-50">
-            <Activity className="h-7 w-7 text-brand-700" />
-          </div>
-          <div>
-            <p className="text-[16px] font-semibold text-ink">
-              Marcação de aderência em breve
-            </p>
-            <p className="mt-1 max-w-sm text-[13px] text-muted">
-              Em breve você poderá marcar cada item como feito e acompanhar
-              sua aderência semanal com gráficos e streaks de consistência.
-            </p>
-          </div>
-          <span className="rounded-full bg-brand-100 px-3 py-1 text-[12px] font-medium text-brand-700">
-            Disponível em breve
-          </span>
-        </Card>
+        <h2 className="mb-3 text-[13px] font-medium uppercase tracking-[0.14em] text-muted">
+          No que estamos trabalhando
+        </h2>
+        <ul className="flex flex-col gap-3">
+          {WORKING_ON.map((item, idx) => (
+            <li key={item.id}>
+              <WorkingOnRow item={item} index={idx + 1} />
+            </li>
+          ))}
+        </ul>
       </section>
     </div>
+  );
+}
+
+function TodayActionRow({ action }: { action: TodayAction }) {
+  const Icon = action.icon;
+
+  return (
+    <button
+      type="button"
+      disabled
+      title="Marcação de aderência em breve"
+      className="group flex w-full items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3 text-left transition hover:border-brand-200 hover:bg-brand-50/40 disabled:cursor-not-allowed disabled:opacity-100"
+    >
+      {/* Checkbox visual */}
+      <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md border border-border bg-surface transition group-hover:border-brand-400" />
+
+      {/* Ícone/imagem do item */}
+      {action.image ? (
+        <span className="relative grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-brand-50">
+          <Image
+            src={action.image}
+            alt=""
+            width={36}
+            height={36}
+            className="h-9 w-9 object-cover"
+          />
+        </span>
+      ) : Icon ? (
+        <span
+          className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${action.iconAccent ?? "bg-brand-50 text-brand-700"}`}
+        >
+          <Icon className="h-4 w-4" />
+        </span>
+      ) : null}
+
+      <span className="flex-1 text-[14px] font-medium leading-snug text-ink">
+        {action.label}
+      </span>
+
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted/50" />
+    </button>
+  );
+}
+
+function WorkingOnRow({
+  item,
+  index,
+}: {
+  item: WorkingOnItem;
+  index: number;
+}) {
+  return (
+    <article className="flex gap-4 rounded-2xl border border-border bg-surface px-5 py-4">
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-50 text-[14px] font-semibold text-brand-700">
+        {index}
+      </span>
+      <div className="min-w-0 flex-1">
+        <h3 className="text-[16px] font-semibold leading-snug text-ink">
+          {item.title}
+        </h3>
+        <p className="mt-1 text-[13px] leading-relaxed text-muted">
+          {item.description}
+        </p>
+      </div>
+    </article>
   );
 }
