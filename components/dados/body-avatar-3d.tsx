@@ -12,6 +12,7 @@ import * as THREE from "three";
 import { SkeletonUtils } from "three-stdlib";
 import type { PatientSex } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import { OrganOverlay, isOrganRegion, type OrganRegion } from "./organ-overlay";
 
 // ─── Regiões corporais ──────────────────────────────────────────────────────
 export type BodyRegion =
@@ -133,6 +134,13 @@ export function BodyAvatar3D({
 
         <Suspense fallback={<SkeletonFallback />}>
           <HumanModel sex={sex} activeRegion={activeRegion} />
+          {/* Quando uma categoria de órgão está ativa, mostra o GLB anatômico
+              real (HuBMAP) dentro do corpo do avatar — que fica fantasma. */}
+          {isOrganRegion(activeRegion) ? (
+            <Suspense fallback={null}>
+              <OrganOverlay organ={activeRegion as OrganRegion} />
+            </Suspense>
+          ) : null}
           <ContactShadows
             position={[0, -0.02, 0]}
             opacity={0.35}
@@ -282,10 +290,20 @@ function HumanModel({
     });
   }, [cloned, activeRegion]);
 
-  // 4) Fade-in suave na entrada
+  // 4) Fade-in + ghost mode (quando um órgão está ativo, o corpo fica
+  //    semitransparente pra deixar o órgão 3D real visível dentro dele).
   const opacityRef = useRef(0);
+  const isGhost = isOrganRegion(activeRegion);
   useFrame((_, delta) => {
-    opacityRef.current = Math.min(1, opacityRef.current + delta * 1.6);
+    const target = isGhost ? 0.25 : 1;
+    // velocidade da transição: 1.6 na entrada (fade-in), 3.0 quando
+    // alterna ghost ↔ solid (mais responsivo ao clicar categoria).
+    const speed = opacityRef.current === 0 ? 1.6 : 3.0;
+    if (opacityRef.current < target) {
+      opacityRef.current = Math.min(target, opacityRef.current + delta * speed);
+    } else if (opacityRef.current > target) {
+      opacityRef.current = Math.max(target, opacityRef.current - delta * speed);
+    }
     if (groupRef.current) {
       groupRef.current.traverse((obj) => {
         if (
@@ -294,6 +312,9 @@ function HumanModel({
         ) {
           obj.material.opacity = opacityRef.current;
           obj.material.transparent = opacityRef.current < 1;
+          // depthWrite false em ghost mode pra não ocluir o órgão por trás
+          (obj.material as THREE.MeshStandardMaterial).depthWrite =
+            opacityRef.current >= 0.95;
         }
       });
     }
