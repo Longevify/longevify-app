@@ -99,17 +99,24 @@ const MODEL_PATHS: Record<PatientSex, string> = {
 };
 
 const BASE_COLOR = new THREE.Color("#eef0f0"); // off-white porcelana
-const ACTIVE_COLOR = new THREE.Color("#1f5d3f"); // brand-700
+// Cor de destaque padrão (verde brand-700) — usada se nenhuma activeColor
+// for fornecida via prop. Quando o paciente tem dados naquela categoria,
+// dados-view passa a cor real baseada no grade (A=verde, B=amarelo, C=laranja, D=vermelho).
+const DEFAULT_ACTIVE_COLOR = "#1f5d3f";
 
 interface BodyAvatar3DProps {
   sex: PatientSex;
   activeCategoryId?: string;
+  /** Cor de destaque em hex. Default brand-700.
+   *  Calculada externamente baseada no grade (A=verde, B=amarelo, etc.) */
+  activeColor?: string;
   className?: string;
 }
 
 export function BodyAvatar3D({
   sex,
   activeCategoryId,
+  activeColor = DEFAULT_ACTIVE_COLOR,
   className,
 }: BodyAvatar3DProps) {
   const activeRegion = activeCategoryId
@@ -133,12 +140,19 @@ export function BodyAvatar3D({
         <Environment preset="studio" environmentIntensity={0.35} />
 
         <Suspense fallback={<SkeletonFallback />}>
-          <HumanModel sex={sex} activeRegion={activeRegion} />
+          <HumanModel
+            sex={sex}
+            activeRegion={activeRegion}
+            activeColor={activeColor}
+          />
           {/* Quando uma categoria de órgão está ativa, mostra o GLB anatômico
               real (HuBMAP) dentro do corpo do avatar — que fica fantasma. */}
           {isOrganRegion(activeRegion) ? (
             <Suspense fallback={null}>
-              <OrganOverlay organ={activeRegion as OrganRegion} />
+              <OrganOverlay
+                organ={activeRegion as OrganRegion}
+                color={activeColor}
+              />
             </Suspense>
           ) : null}
           <ContactShadows
@@ -186,9 +200,11 @@ function SkeletonFallback() {
 function HumanModel({
   sex,
   activeRegion,
+  activeColor,
 }: {
   sex: PatientSex;
   activeRegion: BodyRegion | null;
+  activeColor: string;
 }) {
   const { scene } = useGLTF(MODEL_PATHS[sex]);
   const groupRef = useRef<THREE.Group>(null);
@@ -234,7 +250,10 @@ function HumanModel({
   // 3) Vertex color highlight — recalcula a cor de cada vertex baseado nos
   //    skin weights dos bones da região ativa. Sem shader custom, sem
   //    overlay sphere — pinta o mesh de verdade.
+  //    A cor de destaque vem da prop activeColor (calculada externamente
+  //    baseada no grade da categoria: A=verde, B=amarelo, C=laranja, D=vermelho).
   useEffect(() => {
+    const activeColorObj = new THREE.Color(activeColor);
     cloned.traverse((obj) => {
       if (!(obj instanceof THREE.SkinnedMesh)) return;
       const geo = obj.geometry;
@@ -278,7 +297,7 @@ function HumanModel({
         }
         // weightInRegion ∈ [0, 1] — quanto desse vertex está "na" região
         const t = Math.min(1, weightInRegion);
-        tmp.copy(BASE_COLOR).lerp(ACTIVE_COLOR, t);
+        tmp.copy(BASE_COLOR).lerp(activeColorObj, t);
         colors[v * 3] = tmp.r;
         colors[v * 3 + 1] = tmp.g;
         colors[v * 3 + 2] = tmp.b;
@@ -288,7 +307,7 @@ function HumanModel({
       geo.setAttribute("color", colorAttr);
       colorAttr.needsUpdate = true;
     });
-  }, [cloned, activeRegion]);
+  }, [cloned, activeRegion, activeColor]);
 
   // 4) Fade-in + ghost mode (quando um órgão está ativo, o corpo fica
   //    semitransparente pra deixar o órgão 3D real visível dentro dele).
