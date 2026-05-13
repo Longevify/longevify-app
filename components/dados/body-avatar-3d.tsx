@@ -60,12 +60,13 @@ const REGION_SIZES: Record<Exclude<BodyRegion, "body">, [number, number, number]
   legs: [0.4, 0.9, 0.3],
 };
 
-// Modelos GLB por sexo — recomendação do research agent. Soldier/Michelle do
-// repo three.js (MIT) tem proporções mais anatomicamente realistas que Xbot.
-// O material é overridado pra porcelana fosca branca (BASE_MATERIAL), então
-// a silhueta da roupa do modelo vira parte da forma corporal abstrata.
+// Modelos GLB por sexo — repo three.js (MIT).
+// - male: Xbot.glb (manequim Mixamo sem roupa — silhueta limpa após override branco)
+// - female: Michelle.glb (figura feminina realista com roupa casual fina)
+// Soldier.glb foi descartado: a silhueta da roupa militar (capacete + epaulets)
+// permanece visível mesmo após material override, ficando feio.
 const MODEL_PATHS: Record<PatientSex, string> = {
-  male: "/avatars/Soldier.glb",
+  male: "/avatars/Xbot.glb",
   female: "/avatars/Michelle.glb",
 };
 
