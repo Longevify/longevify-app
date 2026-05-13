@@ -100,7 +100,7 @@ export function BodyAvatar3D({
     <div className={cn("relative aspect-[2/3] w-full", className)}>
       {/* Skeleton placeholder enquanto GLB não chegou */}
       <Canvas
-        camera={{ position: [0, 0.95, 3.8], fov: 28 }}
+        camera={{ position: [0, 0.85, 4.2], fov: 30 }}
         gl={{ alpha: true, antialias: true, preserveDrawingBuffer: true }}
         dpr={[1, 2]}
         style={{ background: "transparent" }}
@@ -135,7 +135,7 @@ export function BodyAvatar3D({
           <HumanModel sex={sex} activeRegion={activeRegion} />
           {/* Sombra de contato pra dar peso/grounding */}
           <ContactShadows
-            position={[0, 0.001, 0]}
+            position={[0, -0.02, 0]}
             opacity={0.35}
             blur={2.4}
             far={1.5}
@@ -149,7 +149,7 @@ export function BodyAvatar3D({
           enableDamping
           dampingFactor={0.08}
           rotateSpeed={0.8}
-          target={[0, 0.9, 0]}
+          target={[0, 0.85, 0]}
           minPolarAngle={Math.PI / 2.6}
           maxPolarAngle={Math.PI / 1.7}
           autoRotate
