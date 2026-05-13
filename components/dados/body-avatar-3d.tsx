@@ -100,7 +100,7 @@ export function BodyAvatar3D({
     <div className={cn("relative aspect-[2/3] w-full", className)}>
       {/* Skeleton placeholder enquanto GLB não chegou */}
       <Canvas
-        camera={{ position: [0, 0.85, 4.2], fov: 30 }}
+        camera={{ position: [0, 0.8, 4.6], fov: 33 }}
         gl={{ alpha: true, antialias: true, preserveDrawingBuffer: true }}
         dpr={[1, 2]}
         style={{ background: "transparent" }}
