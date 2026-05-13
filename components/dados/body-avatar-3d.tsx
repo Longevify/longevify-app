@@ -93,8 +93,12 @@ const REGION_TO_BONE_SUFFIXES: Record<Exclude<BodyRegion, "body">, string[]> = {
   pancreas: ["Spine1", "Spine"], // abdômen central
 };
 
+// Modelos GLB humanoides do repo three.js (MIT).
+//  - male:   ReadyPlayer.glb (avatar humano com face, cabelo, pele PBR — ~1.8MB).
+//            Substituiu Xbot.glb (manequim sem face) em May/26.
+//  - female: Michelle.glb (figura feminina realista — ~3.1MB).
 const MODEL_PATHS: Record<PatientSex, string> = {
-  male: "/avatars/Xbot.glb",
+  male: "/avatars/ReadyPlayer.glb",
   female: "/avatars/Michelle.glb",
 };
 
