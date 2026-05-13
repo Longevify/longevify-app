@@ -9,6 +9,7 @@ import {
   ContactShadows,
 } from "@react-three/drei";
 import * as THREE from "three";
+import { SkeletonUtils } from "three-stdlib";
 import type { PatientSex } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
@@ -208,11 +209,12 @@ function HumanModel({
     return [activeRegion as Exclude<BodyRegion, "body">];
   }, [activeRegion]);
 
-  // Clona e aplica material base em todos os meshes
+  // Clona com SkeletonUtils — preserva o skinning de SkinnedMesh (scene.clone()
+  // padrão quebra a referência bones/skeleton e o mesh "explode" em pedaços).
   const cloned = useMemo(() => {
-    const clone = scene.clone(true);
+    const clone = SkeletonUtils.clone(scene);
     clone.traverse((obj) => {
-      if (obj instanceof THREE.Mesh) {
+      if (obj instanceof THREE.Mesh || obj instanceof THREE.SkinnedMesh) {
         // Cada mesh precisa de instância própria pro fade-in funcionar por objeto
         obj.material = BASE_MATERIAL.clone();
         obj.castShadow = false;
