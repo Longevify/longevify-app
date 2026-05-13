@@ -9,18 +9,22 @@ interface CategoryListProps {
   categories: BiomarkerCategory[];
   activeId: string;
   onChange: (id: string) => void;
+  /** Quando true, usa `shortLabel` (fallback `label`). Default: false. */
+  compact?: boolean;
 }
 
 export function CategoryList({
   categories,
   activeId,
   onChange,
+  compact = false,
 }: CategoryListProps) {
   return (
     <nav className="flex flex-col gap-0.5">
       {categories.map((cat) => {
         const active = cat.id === activeId;
         const isAll = cat.id === "all";
+        const label = compact ? (cat.shortLabel ?? cat.label) : cat.label;
         return (
           <button
             key={cat.id}
@@ -50,7 +54,7 @@ export function CategoryList({
                 <GradeBadge grade={cat.grade} />
               )}
               <span className="text-[14px] font-medium leading-tight">
-                {cat.label}
+                {label}
               </span>
             </span>
           </button>

@@ -23,7 +23,11 @@ export interface Biomarker {
 
 export interface BiomarkerCategory {
   id: string;
+  /** Label completo — usado no desktop sidebar. Ex: "Saúde Cardíaca" */
   label: string;
+  /** Label curto — usado em layouts compactos (mobile). Ex: "Coração".
+   *  Quando ausente, cai no `label`. */
+  shortLabel?: string;
   grade: CategoryGrade;
 }
 
@@ -50,16 +54,16 @@ export interface Patient {
 }
 
 export const CATEGORIES: BiomarkerCategory[] = [
-  { id: "all", label: "Todos os Dados", grade: "A" },
-  { id: "longevity", label: "Marcadores de Longevidade", grade: "A" },
-  { id: "cardiac", label: "Saúde Cardíaca", grade: "B" },
-  { id: "thyroid", label: "Saúde da Tireoide", grade: "A" },
-  { id: "immune", label: "Regulação Imune", grade: "A" },
-  { id: "hormonal", label: "Saúde Hormonal", grade: "A" },
-  { id: "metabolic", label: "Saúde Metabólica", grade: "A" },
-  { id: "nutrients", label: "Nutrientes", grade: "B" },
-  { id: "hepatic", label: "Saúde Hepática", grade: "A" },
-  { id: "heavy-metals", label: "Metais Pesados", grade: "A" },
+  { id: "all", label: "Todos os Dados", shortLabel: "Resumo", grade: "A" },
+  { id: "longevity", label: "Marcadores de Longevidade", shortLabel: "Longevidade", grade: "A" },
+  { id: "cardiac", label: "Saúde Cardíaca", shortLabel: "Coração", grade: "B" },
+  { id: "thyroid", label: "Saúde da Tireoide", shortLabel: "Tireoide", grade: "A" },
+  { id: "immune", label: "Regulação Imune", shortLabel: "Imune", grade: "A" },
+  { id: "hormonal", label: "Saúde Hormonal", shortLabel: "Hormônios", grade: "A" },
+  { id: "metabolic", label: "Saúde Metabólica", shortLabel: "Metabolismo", grade: "A" },
+  { id: "nutrients", label: "Nutrientes", shortLabel: "Nutrientes", grade: "B" },
+  { id: "hepatic", label: "Saúde Hepática", shortLabel: "Fígado", grade: "A" },
+  { id: "heavy-metals", label: "Metais Pesados", shortLabel: "Metais", grade: "A" },
 ];
 
 export const PATIENT: Patient = {
