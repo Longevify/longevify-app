@@ -18,9 +18,20 @@ import { Card } from "@/components/ui/card";
 import {
   CATEGORIES,
   type Biomarker,
+  type CategoryGrade,
   type Patient,
 } from "@/lib/mock-data";
 import { formatDatePtBR } from "@/lib/utils";
+
+// Mapping grade da categoria → cor de destaque do avatar.
+// A = "Ótimo" (verde), B = "Normal" (amarelo), C = "Atenção" (laranja),
+// D = "Fora" (vermelho). Cores espelham var(--color-status-*) do CSS.
+const GRADE_COLORS: Record<CategoryGrade, string> = {
+  A: "#0E7B45", // status-optimal
+  B: "#E6B845", // status-normal
+  C: "#F39A50", // warning (entre normal e out)
+  D: "#E85D5D", // status-out
+};
 
 interface DadosViewProps {
   patient: Patient;
@@ -35,6 +46,13 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
     if (categoryId === "all") return biomarkers;
     return biomarkers.filter((b) => b.categoryId === categoryId);
   }, [categoryId, biomarkers]);
+
+  // Cor de destaque no avatar baseada no grade da categoria selecionada.
+  // Default verde A se categoria sem grade (ex: "all" sem dados).
+  const activeColor = useMemo(() => {
+    const cat = CATEGORIES.find((c) => c.id === categoryId);
+    return GRADE_COLORS[cat?.grade ?? "A"];
+  }, [categoryId]);
 
   const renderBiomarkersCard = () => (
     <Card className="overflow-hidden">
@@ -85,6 +103,7 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
           <BodyAvatar3D
             sex={patient.sex}
             activeCategoryId={categoryId}
+            activeColor={activeColor}
             className="w-full max-w-[140px]"
           />
         </div>
@@ -128,6 +147,7 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
           <BodyAvatar3D
             sex={patient.sex}
             activeCategoryId={categoryId}
+            activeColor={activeColor}
             className="w-[280px]"
           />
         </aside>
