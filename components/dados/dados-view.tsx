@@ -1,12 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { ScoreCard } from "@/components/dados/score-card";
 import { BioAgeCard } from "@/components/dados/bio-age-card";
-import { BodyAvatar3D } from "@/components/dados/body-avatar-3d";
 import { CategoryList } from "@/components/dados/category-list";
 import { BiomarkersSummary } from "@/components/dados/biomarkers-summary";
 import { BiomarkerRow } from "@/components/dados/biomarker-row";
+
+// 3D Canvas precisa de WebGL — só renderiza no client. SSR causa React #418
+// (hydration mismatch) porque o Three.js gera DOM diferente no servidor.
+const BodyAvatar3D = dynamic(
+  () => import("@/components/dados/body-avatar-3d").then((m) => m.BodyAvatar3D),
+  { ssr: false },
+);
 import { Card } from "@/components/ui/card";
 import {
   CATEGORIES,

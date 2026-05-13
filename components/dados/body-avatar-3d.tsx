@@ -99,7 +99,7 @@ export function BodyAvatar3D({
     <div className={cn("relative aspect-[2/3] w-full", className)}>
       {/* Skeleton placeholder enquanto GLB não chegou */}
       <Canvas
-        camera={{ position: [0, 1.0, 3.3], fov: 28 }}
+        camera={{ position: [0, 1.05, 2.8], fov: 26 }}
         gl={{ alpha: true, antialias: true, preserveDrawingBuffer: true }}
         dpr={[1, 2]}
         style={{ background: "transparent" }}
@@ -194,8 +194,11 @@ function HumanModel({
     }
   });
 
-  const scaleX = sex === "female" ? 0.92 : 1.0;
-  const scaleY = sex === "female" ? 0.95 : 1.0;
+  // Xbot e Michelle são modelos Mixamo em escala "1m = 1 unit". Bump pra
+  // ~1.05 deixa a figura ocupar bem a coluna sem cortar pés/cabeça.
+  const baseScale = 1.05;
+  const scaleX = (sex === "female" ? 0.92 : 1.0) * baseScale;
+  const scaleY = (sex === "female" ? 0.95 : 1.0) * baseScale;
 
   // Regiões ativas para destaque
   const activeRegions = useMemo<Array<Exclude<BodyRegion, "body">>>(() => {
