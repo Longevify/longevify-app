@@ -100,7 +100,7 @@ export function BodyAvatar3D({
     <div className={cn("relative aspect-[2/3] w-full", className)}>
       {/* Skeleton placeholder enquanto GLB não chegou */}
       <Canvas
-        camera={{ position: [0, 1.05, 2.8], fov: 26 }}
+        camera={{ position: [0, 0.95, 3.8], fov: 28 }}
         gl={{ alpha: true, antialias: true, preserveDrawingBuffer: true }}
         dpr={[1, 2]}
         style={{ background: "transparent" }}
@@ -149,7 +149,7 @@ export function BodyAvatar3D({
           enableDamping
           dampingFactor={0.08}
           rotateSpeed={0.8}
-          target={[0, 0.95, 0]}
+          target={[0, 0.9, 0]}
           minPolarAngle={Math.PI / 2.6}
           maxPolarAngle={Math.PI / 1.7}
           autoRotate

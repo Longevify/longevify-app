@@ -38,7 +38,7 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
 
   return (
     <div className="mx-auto w-full max-w-[1280px] px-6 py-8">
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[260px_220px_1fr]">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[260px_280px_1fr]">
         {/* M1: aside oculto em mobile — em 390px empilhava no topo antes do conteúdo */}
         <aside className="hidden lg:block lg:sticky lg:top-24 lg:self-start">
           <CategoryList
@@ -59,7 +59,7 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
           <BodyAvatar3D
             sex={patient.sex}
             activeCategoryId={categoryId}
-            className="w-[220px]"
+            className="w-[280px]"
           />
         </aside>
 
