@@ -1,12 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { ScoreCard } from "@/components/dados/score-card";
 import { BioAgeCard } from "@/components/dados/bio-age-card";
-import { BodyAvatar3D } from "@/components/dados/body-avatar-3d";
 import { CategoryList } from "@/components/dados/category-list";
 import { BiomarkersSummary } from "@/components/dados/biomarkers-summary";
 import { BiomarkerRow } from "@/components/dados/biomarker-row";
+
+// 3D Canvas precisa de WebGL — só renderiza no client. SSR causa React #418
+// (hydration mismatch) porque o Three.js gera DOM diferente no servidor.
+const BodyAvatar3D = dynamic(
+  () => import("@/components/dados/body-avatar-3d").then((m) => m.BodyAvatar3D),
+  { ssr: false },
+);
 import { Card } from "@/components/ui/card";
 import {
   CATEGORIES,
@@ -29,11 +36,87 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
     return biomarkers.filter((b) => b.categoryId === categoryId);
   }, [categoryId, biomarkers]);
 
+  const renderBiomarkersCard = () => (
+    <Card className="overflow-hidden">
+      <div className="px-5 pt-5 pb-3">
+        <BiomarkersSummary stats={stats} />
+      </div>
+      <div className="mt-1">
+        {filtered.map((b) => (
+          <BiomarkerRow key={b.id} biomarker={b} />
+        ))}
+        {filtered.length === 0 ? (
+          <div className="px-5 py-10 text-center text-sm text-muted">
+            Nenhum biomarcador nessa categoria ainda.
+          </div>
+        ) : null}
+      </div>
+    </Card>
+  );
+
   return (
-    <div className="mx-auto w-full max-w-[1280px] px-6 py-8">
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[260px_220px_1fr]">
-        {/* M1: aside oculto em mobile — em 390px empilhava no topo antes do conteúdo */}
-        <aside className="hidden lg:block lg:sticky lg:top-24 lg:self-start">
+    <div className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6 sm:py-8">
+      {/* ──────────────────────────────────────────────────────────────────
+          MOBILE (< lg) — layout compacto inspirado no mockup:
+          header grande + lista compacta de categorias com avatar à direita
+          + KPI compacto (score/idade biológica) + lista de biomarcadores.
+          ────────────────────────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-6 lg:hidden">
+        <header>
+          <h1 className="text-[32px] leading-[1.05] font-semibold tracking-tight">
+            Seus Dados
+          </h1>
+          <p className="mt-1 text-[15px] text-muted">
+            {stats.total} biomarcadores · {formatDatePtBR(patient.latestExamDate)}
+          </p>
+        </header>
+
+        {/*
+          Lista de categorias (shortLabels) à esquerda + avatar 3D à direita.
+          Avatar tem altura própria pra não esticar a lista (auto rows).
+        */}
+        <div className="grid grid-cols-[1fr_140px] items-start gap-3">
+          <CategoryList
+            categories={CATEGORIES}
+            activeId={categoryId}
+            onChange={setCategoryId}
+            compact
+          />
+          <BodyAvatar3D
+            sex={patient.sex}
+            activeCategoryId={categoryId}
+            className="w-full max-w-[140px]"
+          />
+        </div>
+
+        {/* KPI compacto — score + idade biológica em duas colunas grandes */}
+        <div className="grid grid-cols-2 gap-4 px-1">
+          <div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-[40px] leading-none font-semibold tracking-tight text-ink">
+                {patient.longevifyScore}
+              </span>
+              <span className="text-[16px] text-muted">/100</span>
+            </div>
+            <p className="mt-1 text-[13px] text-muted">pontuação longevify</p>
+          </div>
+          <div>
+            <div className="text-[40px] leading-none font-semibold tracking-tight text-ink">
+              {patient.biologicalAge}
+            </div>
+            <p className="mt-1 text-[13px] text-muted">idade biológica</p>
+          </div>
+        </div>
+
+        {renderBiomarkersCard()}
+      </div>
+
+      {/* ──────────────────────────────────────────────────────────────────
+          DESKTOP (lg+) — grid de 3 colunas: categorias | avatar | section.
+          Nada muda do que já existia.
+          ────────────────────────────────────────────────────────────────── */}
+      <div className="hidden lg:grid lg:grid-cols-[260px_280px_1fr] lg:gap-8">
+        <aside className="lg:sticky lg:top-24 lg:self-start">
           <CategoryList
             categories={CATEGORIES}
             activeId={categoryId}
@@ -41,18 +124,11 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
           />
         </aside>
 
-        {/*
-          Avatar corporal 3D interativo — entra entre a lista de categorias
-          e os scores. Permite rotação 360° (drag) e destaca a região do
-          corpo correspondente à categoria selecionada na sidebar.
-          Sticky pra acompanhar o scroll. Hidden em mobile pra preservar
-          espaço vertical (igual o aside da CategoryList).
-        */}
-        <aside className="hidden lg:sticky lg:top-24 lg:flex lg:items-start lg:justify-center lg:self-start">
+        <aside className="lg:sticky lg:top-24 lg:flex lg:items-start lg:justify-center lg:self-start">
           <BodyAvatar3D
             sex={patient.sex}
             activeCategoryId={categoryId}
-            className="w-[220px]"
+            className="w-[280px]"
           />
         </aside>
 
@@ -63,9 +139,7 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
               <h1 className="text-[28px] font-semibold tracking-tight">
                 {patient.firstName}
               </h1>
-              <span className="text-[16px] text-muted">
-                — Dados de Saúde
-              </span>
+              <span className="text-[16px] text-muted">— Dados de Saúde</span>
             </div>
             <div className="mt-1 text-[13px] text-muted">
               {formatDatePtBR(patient.latestExamDate)}
@@ -84,22 +158,7 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
             />
           </div>
 
-          {/* Biomarkers */}
-          <Card className="overflow-hidden">
-            <div className="px-5 pt-5 pb-3">
-              <BiomarkersSummary stats={stats} />
-            </div>
-            <div className="mt-1">
-              {filtered.map((b) => (
-                <BiomarkerRow key={b.id} biomarker={b} />
-              ))}
-              {filtered.length === 0 ? (
-                <div className="px-5 py-10 text-center text-sm text-muted">
-                  Nenhum biomarcador nessa categoria ainda.
-                </div>
-              ) : null}
-            </div>
-          </Card>
+          {renderBiomarkersCard()}
         </section>
       </div>
     </div>
