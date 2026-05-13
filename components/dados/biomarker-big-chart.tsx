@@ -64,13 +64,38 @@ export function BiomarkerBigChart({
   const lastPoint = data[data.length - 1];
   const { ref, width } = useMeasuredSize<HTMLDivElement>();
 
-  // Resolve a borda externa de cada lado pra zona "Fora". Quando há
-  // normalRange, fora = abaixo de normMin / acima de normMax. Quando NÃO há
-  // normalRange, fora cola direto no optimal (sem zona normal intermediária).
+  // Resolve a borda externa de cada lado pra zona "Fora".
+  // A faixa vermelha deve cobrir tudo ABAIXO do menor limite válido e tudo
+  // ACIMA do maior limite válido. Isso funciona para qualquer topologia:
+  //
+  //  - LDL:        optimalRange=[0,100],  normalRange=[100,130]
+  //                → lower=0, upper=130  (vermelho apenas >130)
+  //
+  //  - Vitamina D: optimalRange=[50,80], normalRange=[30,50]
+  //                → lower=30, upper=80  (vermelho <30 e >80)
+  //
+  //  - TSH:        optimalRange=[0.5,2], normalRange=[0.4,4]
+  //                → lower=0.4, upper=4  (vermelho <0.4 e >4)
+  //
+  // A lógica anterior usava normMin/normMax diretamente, o que pintava
+  // vermelho sobre a zona ótima quando optimalRange ficava fora do
+  // normalRange (ex: Vitamina D gerava upperOuterEdge=50, cobrindo
+  // a zona ótima 50-80 inteira de vermelho).
   const hasNormal = typeof normMin === "number" && typeof normMax === "number";
   const hasOptimal = typeof optMin === "number" && typeof optMax === "number";
-  const lowerOuterEdge = hasNormal ? (normMin as number) : optMin;
-  const upperOuterEdge = hasNormal ? (normMax as number) : optMax;
+
+  const allMins = [
+    hasNormal ? (normMin as number) : null,
+    hasOptimal ? (optMin as number) : null,
+  ].filter((v): v is number => v !== null);
+
+  const allMaxes = [
+    hasNormal ? (normMax as number) : null,
+    hasOptimal ? (optMax as number) : null,
+  ].filter((v): v is number => v !== null);
+
+  const lowerOuterEdge = allMins.length > 0 ? Math.min(...allMins) : undefined;
+  const upperOuterEdge = allMaxes.length > 0 ? Math.max(...allMaxes) : undefined;
 
   return (
     <div className="w-full">
