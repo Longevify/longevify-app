@@ -62,8 +62,16 @@ export const CATEGORIES: BiomarkerCategory[] = [
   { id: "hormonal", label: "Saúde Hormonal", shortLabel: "Hormônios", grade: "A" },
   { id: "metabolic", label: "Saúde Metabólica", shortLabel: "Metabolismo", grade: "A" },
   { id: "nutrients", label: "Nutrientes", shortLabel: "Nutrientes", grade: "B" },
-  { id: "hepatic", label: "Saúde Hepática", shortLabel: "Fígado", grade: "A" },
+  { id: "hepatic", label: "Saúde Hepática", shortLabel: "Hepático", grade: "A" },
   { id: "heavy-metals", label: "Metais Pesados", shortLabel: "Metais", grade: "A" },
+  // Categorias por órgão específico — destacam órgãos individuais no avatar 3D
+  { id: "heart", label: "Coração", shortLabel: "Coração", grade: "B" },
+  { id: "brain", label: "Cérebro", shortLabel: "Cérebro", grade: "A" },
+  { id: "liver", label: "Fígado", shortLabel: "Fígado", grade: "A" },
+  { id: "kidneys", label: "Rins", shortLabel: "Rins", grade: "A" },
+  { id: "lungs", label: "Pulmões", shortLabel: "Pulmões", grade: "A" },
+  { id: "intestine", label: "Intestino", shortLabel: "Intestino", grade: "B" },
+  { id: "pancreas", label: "Pâncreas", shortLabel: "Pâncreas", grade: "A" },
 ];
 
 export const PATIENT: Patient = {

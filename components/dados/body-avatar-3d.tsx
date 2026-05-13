@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useRef } from "react";
+import { Suspense, useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import {
   OrbitControls,
@@ -23,7 +23,15 @@ export type BodyRegion =
   | "abdomen-low"
   | "arms"
   | "legs"
-  | "body";
+  // Órgãos individuais — pintam a região externa do corpo correspondente
+  | "heart"
+  | "brain"
+  | "liver"
+  | "kidneys"
+  | "lungs"
+  | "intestine"
+  | "pancreas"
+  | "body"; // destacar tudo
 
 export const CATEGORY_TO_REGION: Record<string, BodyRegion | null> = {
   all: null,
@@ -36,52 +44,61 @@ export const CATEGORY_TO_REGION: Record<string, BodyRegion | null> = {
   nutrients: "abdomen-mid",
   hepatic: "abdomen-upper",
   "heavy-metals": "body",
+  // Categorias por órgão → região do órgão correspondente
+  heart: "heart",
+  brain: "brain",
+  liver: "liver",
+  kidneys: "kidneys",
+  lungs: "lungs",
+  intestine: "intestine",
+  pancreas: "pancreas",
 };
 
-// Posições relativas (em coords do modelo Xbot) pra cada região anatômica.
-const REGION_POSITIONS: Record<Exclude<BodyRegion, "body">, [number, number, number]> = {
-  head: [0, 1.65, 0.05],
-  neck: [0, 1.45, 0.03],
-  chest: [0, 1.30, 0.07],
-  "abdomen-upper": [0, 1.10, 0.07],
-  "abdomen-mid": [0, 0.95, 0.07],
-  "abdomen-low": [0, 0.80, 0.05],
-  arms: [0, 1.20, 0],
-  legs: [0, 0.40, 0],
+// Mapping região → bones (sufixo do nome). Mixamo usa prefix "mixamorig:"
+// mas alguns rigs vêm sem o prefix. Por isso casamos por endsWith.
+const REGION_TO_BONE_SUFFIXES: Record<Exclude<BodyRegion, "body">, string[]> = {
+  head: ["Head", "HeadTop_End"],
+  neck: ["Neck"],
+  chest: ["Spine1", "Spine2", "LeftShoulder", "RightShoulder"],
+  "abdomen-upper": ["Spine", "Spine1"],
+  "abdomen-mid": ["Spine"],
+  "abdomen-low": ["Hips"],
+  arms: [
+    "LeftArm",
+    "LeftForeArm",
+    "LeftHand",
+    "RightArm",
+    "RightForeArm",
+    "RightHand",
+  ],
+  legs: [
+    "LeftUpLeg",
+    "LeftLeg",
+    "LeftFoot",
+    "LeftToeBase",
+    "RightUpLeg",
+    "RightLeg",
+    "RightFoot",
+    "RightToeBase",
+  ],
+  // Órgãos — bones que cobrem a região externa do órgão. Como o Xbot não tem
+  // mesh de órgão, pintamos a área da pele que fica sobre o órgão.
+  heart: ["Spine1", "Spine2"], // peito centro-esquerdo
+  brain: ["Head", "HeadTop_End"], // crânio inteiro
+  liver: ["Spine1", "Spine"], // abdômen superior direito
+  kidneys: ["Spine", "Hips"], // lombar
+  lungs: ["Spine1", "Spine2", "LeftShoulder", "RightShoulder"], // peito amplo
+  intestine: ["Spine", "Hips"], // abdômen baixo
+  pancreas: ["Spine1", "Spine"], // abdômen central
 };
 
-// Raio da esfera de destaque por região — calibrado pra cobrir bem a área
-// anatômica do Xbot sem invadir regiões vizinhas.
-const REGION_RADII: Record<Exclude<BodyRegion, "body">, number> = {
-  head: 0.18,
-  neck: 0.14,
-  chest: 0.24,
-  "abdomen-upper": 0.18,
-  "abdomen-mid": 0.17,
-  "abdomen-low": 0.2,
-  arms: 0.42,
-  legs: 0.48,
-};
-
-// Modelos GLB por sexo — repo three.js (MIT).
-// - male: Xbot.glb (manequim Mixamo sem roupa — silhueta limpa após override branco)
-// - female: Michelle.glb (figura feminina realista com roupa casual fina)
-// Soldier.glb foi descartado: a silhueta da roupa militar (capacete + epaulets)
-// permanece visível mesmo após material override, ficando feio.
 const MODEL_PATHS: Record<PatientSex, string> = {
   male: "/avatars/Xbot.glb",
   female: "/avatars/Michelle.glb",
 };
 
-const ACTIVE_COLOR = "#1f5d3f"; // brand-700
-const ACTIVE_EMISSIVE = "#3f9a6b"; // brand-500
-
-// Porcelana fosca — sem plástico
-const BASE_MATERIAL = new THREE.MeshStandardMaterial({
-  color: "#eef0f0",
-  roughness: 0.75,
-  metalness: 0.05,
-});
+const BASE_COLOR = new THREE.Color("#eef0f0"); // off-white porcelana
+const ACTIVE_COLOR = new THREE.Color("#1f5d3f"); // brand-700
 
 interface BodyAvatar3DProps {
   sex: PatientSex;
@@ -100,42 +117,22 @@ export function BodyAvatar3D({
 
   return (
     <div className={cn("relative aspect-[2/3] w-full", className)}>
-      {/* Skeleton placeholder enquanto GLB não chegou */}
       <Canvas
-        camera={{ position: [0, 0.8, 4.6], fov: 33 }}
+        camera={{ position: [0, 0.85, 4.6], fov: 32 }}
         gl={{ alpha: true, antialias: true, preserveDrawingBuffer: true }}
         dpr={[1, 2]}
         style={{ background: "transparent" }}
-        shadows
       >
-        {/* ── 3-point lighting ─────────────────────────────────── */}
-        {/* Key: front-right-top */}
-        <directionalLight
-          position={[2.5, 4.5, 3]}
-          intensity={1.0}
-          castShadow={false}
-        />
-        {/* Fill: front-left, suave */}
-        <directionalLight
-          position={[-2.5, 2.5, 2]}
-          intensity={0.4}
-          castShadow={false}
-        />
-        {/* Rim/back: delineia silhueta */}
-        <directionalLight
-          position={[0, 1.5, -3]}
-          intensity={0.6}
-          castShadow={false}
-        />
-        {/* Ambient mínimo pra não crashar nas sombras */}
-        <ambientLight intensity={0.18} />
+        {/* 3-point lighting */}
+        <directionalLight position={[2.5, 4.5, 3]} intensity={1.0} />
+        <directionalLight position={[-2.5, 2.5, 2]} intensity={0.4} />
+        <directionalLight position={[0, 1.5, -3]} intensity={0.6} />
+        <ambientLight intensity={0.2} />
 
-        {/* Environment map sutil (studio) — reflexos naturais sem metalicidade */}
         <Environment preset="studio" environmentIntensity={0.35} />
 
         <Suspense fallback={<SkeletonFallback />}>
           <HumanModel sex={sex} activeRegion={activeRegion} />
-          {/* Sombra de contato pra dar peso/grounding */}
           <ContactShadows
             position={[0, -0.02, 0]}
             opacity={0.35}
@@ -155,24 +152,29 @@ export function BodyAvatar3D({
           minPolarAngle={Math.PI / 2.6}
           maxPolarAngle={Math.PI / 1.7}
           autoRotate
-          autoRotateSpeed={0.5}
+          autoRotateSpeed={0.45}
         />
       </Canvas>
     </div>
   );
 }
 
-// ─── Skeleton enquanto carrega ───────────────────────────────────────────────
 function SkeletonFallback() {
   return (
     <mesh position={[0, 0.9, 0]}>
       <capsuleGeometry args={[0.18, 1.2, 8, 16]} />
-      <meshStandardMaterial color="#e7f5ec" roughness={1} metalness={0} transparent opacity={0.45} />
+      <meshStandardMaterial
+        color="#e7f5ec"
+        roughness={1}
+        metalness={0}
+        transparent
+        opacity={0.45}
+      />
     </mesh>
   );
 }
 
-// ─── Modelo humano ───────────────────────────────────────────────────────────
+// ─── Modelo humano ──────────────────────────────────────────────────────────
 function HumanModel({
   sex,
   activeRegion,
@@ -183,13 +185,113 @@ function HumanModel({
   const { scene } = useGLTF(MODEL_PATHS[sex]);
   const groupRef = useRef<THREE.Group>(null);
 
-  // Fade-in suave na entrada
+  // 1) Clona com SkeletonUtils (preserva skinning) + aplica material PBR
+  //    branco fosco + ativa vertex colors (necessário pra colorir mesh).
+  const cloned = useMemo(() => {
+    const clone = SkeletonUtils.clone(scene);
+    clone.traverse((obj) => {
+      if (obj instanceof THREE.Mesh || obj instanceof THREE.SkinnedMesh) {
+        obj.material = new THREE.MeshStandardMaterial({
+          color: 0xffffff, // multiplicado pelos vertex colors abaixo
+          roughness: 0.75,
+          metalness: 0.05,
+          vertexColors: true,
+        });
+        obj.castShadow = false;
+        obj.receiveShadow = false;
+      }
+    });
+    return clone;
+  }, [scene]);
+
+  // 2) A-pose — Xbot/Michelle vêm em T-pose. Rotaciona ombros + braços pra
+  //    trazer membros pra baixo num ângulo natural (≈20° do tronco).
+  useEffect(() => {
+    cloned.traverse((obj) => {
+      if (!(obj as THREE.Bone).isBone) return;
+      const name = obj.name;
+      // Z negativo no ombro esquerdo = rotaciona pra baixo (em torno do eixo Z)
+      if (name.endsWith("LeftShoulder")) {
+        obj.rotation.z = -0.18;
+      } else if (name.endsWith("LeftArm")) {
+        obj.rotation.z = -0.95;
+      } else if (name.endsWith("RightShoulder")) {
+        obj.rotation.z = 0.18;
+      } else if (name.endsWith("RightArm")) {
+        obj.rotation.z = 0.95;
+      }
+    });
+  }, [cloned]);
+
+  // 3) Vertex color highlight — recalcula a cor de cada vertex baseado nos
+  //    skin weights dos bones da região ativa. Sem shader custom, sem
+  //    overlay sphere — pinta o mesh de verdade.
+  useEffect(() => {
+    cloned.traverse((obj) => {
+      if (!(obj instanceof THREE.SkinnedMesh)) return;
+      const geo = obj.geometry;
+      const skinIndex = geo.attributes.skinIndex;
+      const skinWeight = geo.attributes.skinWeight;
+      if (!skinIndex || !skinWeight) return;
+
+      const vertexCount = skinIndex.count;
+
+      // Lista de bone indices que pertencem à região ativa
+      const targetBoneSet = new Set<number>();
+      const allBoneSet = new Set<number>();
+      if (activeRegion === "body") {
+        // todos os bones
+        for (let i = 0; i < obj.skeleton.bones.length; i++) {
+          targetBoneSet.add(i);
+          allBoneSet.add(i);
+        }
+      } else if (activeRegion) {
+        const suffixes = REGION_TO_BONE_SUFFIXES[
+          activeRegion as Exclude<BodyRegion, "body">
+        ];
+        for (let i = 0; i < obj.skeleton.bones.length; i++) {
+          const boneName = obj.skeleton.bones[i].name;
+          if (suffixes.some((s) => boneName.endsWith(s))) {
+            targetBoneSet.add(i);
+          }
+        }
+      }
+
+      // Construir/atualizar atributo de cor por vertex
+      const colors = new Float32Array(vertexCount * 3);
+      const tmp = new THREE.Color();
+      for (let v = 0; v < vertexCount; v++) {
+        let weightInRegion = 0;
+        for (let j = 0; j < 4; j++) {
+          const boneIdx = skinIndex.getComponent(v, j);
+          if (targetBoneSet.has(boneIdx)) {
+            weightInRegion += skinWeight.getComponent(v, j);
+          }
+        }
+        // weightInRegion ∈ [0, 1] — quanto desse vertex está "na" região
+        const t = Math.min(1, weightInRegion);
+        tmp.copy(BASE_COLOR).lerp(ACTIVE_COLOR, t);
+        colors[v * 3] = tmp.r;
+        colors[v * 3 + 1] = tmp.g;
+        colors[v * 3 + 2] = tmp.b;
+      }
+
+      const colorAttr = new THREE.BufferAttribute(colors, 3);
+      geo.setAttribute("color", colorAttr);
+      colorAttr.needsUpdate = true;
+    });
+  }, [cloned, activeRegion]);
+
+  // 4) Fade-in suave na entrada
   const opacityRef = useRef(0);
   useFrame((_, delta) => {
     opacityRef.current = Math.min(1, opacityRef.current + delta * 1.6);
     if (groupRef.current) {
       groupRef.current.traverse((obj) => {
-        if (obj instanceof THREE.Mesh && obj.material instanceof THREE.Material) {
+        if (
+          (obj instanceof THREE.Mesh || obj instanceof THREE.SkinnedMesh) &&
+          obj.material instanceof THREE.Material
+        ) {
           obj.material.opacity = opacityRef.current;
           obj.material.transparent = opacityRef.current < 1;
         }
@@ -197,34 +299,9 @@ function HumanModel({
     }
   });
 
-  // Xbot e Michelle são modelos Mixamo em escala "1m = 1 unit". Bump pra
-  // ~1.05 deixa a figura ocupar bem a coluna sem cortar pés/cabeça.
   const baseScale = 1.05;
   const scaleX = (sex === "female" ? 0.92 : 1.0) * baseScale;
   const scaleY = (sex === "female" ? 0.95 : 1.0) * baseScale;
-
-  // Regiões ativas para destaque
-  const activeRegions = useMemo<Array<Exclude<BodyRegion, "body">>>(() => {
-    if (!activeRegion) return [];
-    if (activeRegion === "body")
-      return Object.keys(REGION_POSITIONS) as Array<Exclude<BodyRegion, "body">>;
-    return [activeRegion as Exclude<BodyRegion, "body">];
-  }, [activeRegion]);
-
-  // Clona com SkeletonUtils — preserva o skinning de SkinnedMesh (scene.clone()
-  // padrão quebra a referência bones/skeleton e o mesh "explode" em pedaços).
-  const cloned = useMemo(() => {
-    const clone = SkeletonUtils.clone(scene);
-    clone.traverse((obj) => {
-      if (obj instanceof THREE.Mesh || obj instanceof THREE.SkinnedMesh) {
-        // Cada mesh precisa de instância própria pro fade-in funcionar por objeto
-        obj.material = BASE_MATERIAL.clone();
-        obj.castShadow = false;
-        obj.receiveShadow = false;
-      }
-    });
-    return clone;
-  }, [scene]);
 
   return (
     <group ref={groupRef}>
@@ -233,34 +310,9 @@ function HumanModel({
         position={[0, 0, 0]}
         scale={[scaleX, scaleY, scaleX]}
       />
-      {activeRegions.map((region) => (
-        <RegionHighlight key={region} region={region} />
-      ))}
     </group>
   );
 }
 
 useGLTF.preload(MODEL_PATHS.male);
 useGLTF.preload(MODEL_PATHS.female);
-
-// ─── Highlight de região ─────────────────────────────────────────────────────
-function RegionHighlight({ region }: { region: Exclude<BodyRegion, "body"> }) {
-  const pos = REGION_POSITIONS[region];
-  const radius = REGION_RADII[region];
-
-  return (
-    <mesh position={pos}>
-      <sphereGeometry args={[radius, 28, 28]} />
-      <meshStandardMaterial
-        color={ACTIVE_COLOR}
-        emissive={ACTIVE_EMISSIVE}
-        emissiveIntensity={0.75}
-        transparent
-        opacity={0.65}
-        depthWrite={false}
-        roughness={0.6}
-        metalness={0}
-      />
-    </mesh>
-  );
-}
