@@ -67,42 +67,45 @@ const ORGAN_SCALES: Record<OrganRegion, [number, number, number]> = {
   pancreas:  [0.0018, 0.0018, 0.0018],
 };
 
-// ─── Material verde úmido (sangue/órgão) ─────────────────────────────────────
-// brand-500 com emissive pra brilho interno — simula órgão iluminado por dentro
-const ORGAN_MATERIAL = new THREE.MeshStandardMaterial({
-  color: "#3f9a6b",          // brand-500
-  emissive: "#3f9a6b",       // mesmo verde, brilho de dentro
-  emissiveIntensity: 0.6,
-  metalness: 0.1,
-  roughness: 0.4,             // superfície úmida
-  transparent: true,
-  opacity: 0.92,
-});
+// ─── Material úmido do órgão (cor passada via prop) ──────────────────────────
+function makeOrganMaterial(hex: string) {
+  return new THREE.MeshStandardMaterial({
+    color: hex,
+    emissive: hex,
+    emissiveIntensity: 0.6,
+    metalness: 0.1,
+    roughness: 0.4,
+    transparent: true,
+    opacity: 0.92,
+  });
+}
 
 // ─── Componente interno de 1 GLB ─────────────────────────────────────────────
 function OrganMesh({
   path,
   position,
   scale,
+  color,
 }: {
   path: string;
   position: [number, number, number];
   scale: [number, number, number];
+  color: string;
 }) {
   const { scene } = useGLTF(path);
 
-  // Aplica material verde em TODOS os meshes do GLB
+  // Aplica material com a cor passada em TODOS os meshes do GLB
   const cloned = useMemo(() => {
     const clone = scene.clone(true);
     clone.traverse((obj) => {
       if (obj instanceof THREE.Mesh) {
-        obj.material = ORGAN_MATERIAL.clone();
+        obj.material = makeOrganMaterial(color);
         obj.castShadow = false;
         obj.receiveShadow = false;
       }
     });
     return clone;
-  }, [scene]);
+  }, [scene, color]);
 
   return (
     <primitive
@@ -115,8 +118,14 @@ function OrganMesh({
 
 // ─── OrganOverlay — componente público ───────────────────────────────────────
 // Renderiza 1 ou 2 instâncias (kidneys tem L + R).
-// Envolto em Suspense pelo pai (HumanModel já tem <Suspense>).
-export function OrganOverlay({ organ }: { organ: OrganRegion }) {
+// `color` é hex calculado externamente baseado no grade da categoria.
+export function OrganOverlay({
+  organ,
+  color = "#3f9a6b",
+}: {
+  organ: OrganRegion;
+  color?: string;
+}) {
   const paths = ORGAN_GLBS[organ];
   const position = ORGAN_POSITIONS[organ];
   const scale = ORGAN_SCALES[organ];
@@ -130,11 +139,13 @@ export function OrganOverlay({ organ }: { organ: OrganRegion }) {
           path={paths[0]}
           position={[position[0] + 0.06, position[1], position[2]]}
           scale={scale}
+          color={color}
         />
         <OrganMesh
           path={paths[1]}
           position={[position[0] - 0.06, position[1], position[2]]}
           scale={scale}
+          color={color}
         />
       </>
     );
@@ -145,6 +156,7 @@ export function OrganOverlay({ organ }: { organ: OrganRegion }) {
       path={paths[0]}
       position={position}
       scale={scale}
+      color={color}
     />
   );
 }
