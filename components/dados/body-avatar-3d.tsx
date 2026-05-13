@@ -50,15 +50,17 @@ const REGION_POSITIONS: Record<Exclude<BodyRegion, "body">, [number, number, num
   legs: [0, 0.40, 0],
 };
 
-const REGION_SIZES: Record<Exclude<BodyRegion, "body">, [number, number, number]> = {
-  head: [0.22, 0.28, 0.22],
-  neck: [0.14, 0.12, 0.14],
-  chest: [0.38, 0.30, 0.24],
-  "abdomen-upper": [0.32, 0.16, 0.22],
-  "abdomen-mid": [0.30, 0.18, 0.22],
-  "abdomen-low": [0.34, 0.18, 0.22],
-  arms: [0.6, 0.6, 0.3],
-  legs: [0.4, 0.9, 0.3],
+// Raio da esfera de destaque por região — calibrado pra cobrir bem a área
+// anatômica do Xbot sem invadir regiões vizinhas.
+const REGION_RADII: Record<Exclude<BodyRegion, "body">, number> = {
+  head: 0.18,
+  neck: 0.14,
+  chest: 0.24,
+  "abdomen-upper": 0.18,
+  "abdomen-mid": 0.17,
+  "abdomen-low": 0.2,
+  arms: 0.42,
+  legs: 0.48,
 };
 
 // Modelos GLB por sexo — repo three.js (MIT).
@@ -244,8 +246,7 @@ useGLTF.preload(MODEL_PATHS.female);
 // ─── Highlight de região ─────────────────────────────────────────────────────
 function RegionHighlight({ region }: { region: Exclude<BodyRegion, "body"> }) {
   const pos = REGION_POSITIONS[region];
-  const size = REGION_SIZES[region];
-  const radius = Math.max(...size) * 0.55;
+  const radius = REGION_RADII[region];
 
   return (
     <mesh position={pos}>
@@ -253,9 +254,9 @@ function RegionHighlight({ region }: { region: Exclude<BodyRegion, "body"> }) {
       <meshStandardMaterial
         color={ACTIVE_COLOR}
         emissive={ACTIVE_EMISSIVE}
-        emissiveIntensity={0.55}
+        emissiveIntensity={0.75}
         transparent
-        opacity={0.52}
+        opacity={0.65}
         depthWrite={false}
         roughness={0.6}
         metalness={0}
