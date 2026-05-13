@@ -23,6 +23,14 @@ export type BodyRegion =
   | "abdomen-low"
   | "arms"
   | "legs"
+  // Órgãos individuais — pintam a região externa do corpo correspondente
+  | "heart"
+  | "brain"
+  | "liver"
+  | "kidneys"
+  | "lungs"
+  | "intestine"
+  | "pancreas"
   | "body"; // destacar tudo
 
 export const CATEGORY_TO_REGION: Record<string, BodyRegion | null> = {
@@ -36,6 +44,14 @@ export const CATEGORY_TO_REGION: Record<string, BodyRegion | null> = {
   nutrients: "abdomen-mid",
   hepatic: "abdomen-upper",
   "heavy-metals": "body",
+  // Categorias por órgão → região do órgão correspondente
+  heart: "heart",
+  brain: "brain",
+  liver: "liver",
+  kidneys: "kidneys",
+  lungs: "lungs",
+  intestine: "intestine",
+  pancreas: "pancreas",
 };
 
 // Mapping região → bones (sufixo do nome). Mixamo usa prefix "mixamorig:"
@@ -65,6 +81,15 @@ const REGION_TO_BONE_SUFFIXES: Record<Exclude<BodyRegion, "body">, string[]> = {
     "RightFoot",
     "RightToeBase",
   ],
+  // Órgãos — bones que cobrem a região externa do órgão. Como o Xbot não tem
+  // mesh de órgão, pintamos a área da pele que fica sobre o órgão.
+  heart: ["Spine1", "Spine2"], // peito centro-esquerdo
+  brain: ["Head", "HeadTop_End"], // crânio inteiro
+  liver: ["Spine1", "Spine"], // abdômen superior direito
+  kidneys: ["Spine", "Hips"], // lombar
+  lungs: ["Spine1", "Spine2", "LeftShoulder", "RightShoulder"], // peito amplo
+  intestine: ["Spine", "Hips"], // abdômen baixo
+  pancreas: ["Spine1", "Spine"], // abdômen central
 };
 
 const MODEL_PATHS: Record<PatientSex, string> = {
