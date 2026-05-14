@@ -175,7 +175,7 @@ export const BIOMARKERS: Biomarker[] = [
     categoryId: "cardiac",
     unit: "mg/dL",
     value: 103,
-    status: "out",
+    status: "normal",
     // AHA/ACC 2018: <70 ótimo (alto risco), 100–129 borderline, ≥130 alto.
     optimalRange: [0, 100],
     normalRange: [100, 130],
