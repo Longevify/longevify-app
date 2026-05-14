@@ -8,8 +8,8 @@ import type { BiologicalAgePoint, OrganBioAge } from "@/lib/mock-data";
 interface BioAgeCardProps {
   biologicalAge: number;
   chronologicalAge: number;
-  biologicalAgeHistory: BiologicalAgePoint[];
-  organBioAges: OrganBioAge[];
+  biologicalAgeHistory?: BiologicalAgePoint[];
+  organBioAges?: OrganBioAge[];
   className?: string;
 }
 
@@ -95,8 +95,8 @@ export function BioAgeCard({
         onClose={() => setOpen(false)}
         bioAge={biologicalAge}
         chronologicalAge={chronologicalAge}
-        history={biologicalAgeHistory}
-        organAges={organBioAges}
+        history={biologicalAgeHistory ?? []}
+        organAges={organBioAges ?? []}
       />
     </>
   );
