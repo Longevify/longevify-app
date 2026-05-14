@@ -56,7 +56,7 @@ export interface Patient {
 export const CATEGORIES: BiomarkerCategory[] = [
   { id: "all", label: "Todos os Dados", shortLabel: "Resumo", grade: "A" },
   { id: "longevity", label: "Marcadores de Longevidade", shortLabel: "Longevidade", grade: "A" },
-  { id: "cardiac", label: "Saúde Cardíaca", shortLabel: "Coração", grade: "B" },
+  { id: "cardiac", label: "Saúde Cardíaca", shortLabel: "Cardiovascular", grade: "B" },
   { id: "thyroid", label: "Saúde da Tireoide", shortLabel: "Tireoide", grade: "A" },
   { id: "immune", label: "Regulação Imune", shortLabel: "Imune", grade: "A" },
   { id: "hormonal", label: "Saúde Hormonal", shortLabel: "Hormônios", grade: "A" },
