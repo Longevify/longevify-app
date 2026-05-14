@@ -39,6 +39,20 @@ interface DadosViewProps {
   stats: { total: number; optimal: number; normal: number; out: number };
 }
 
+const ORGAN_CATEGORY_IDS = new Set([
+  "all",
+  "heart",
+  "brain",
+  "liver",
+  "kidneys",
+  "lungs",
+  "intestine",
+  "pancreas",
+]);
+const visibleCategories = CATEGORIES.filter((c) =>
+  ORGAN_CATEGORY_IDS.has(c.id),
+);
+
 export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
   const [categoryId, setCategoryId] = useState<string>("all");
 
@@ -95,7 +109,7 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
         */}
         <div className="grid grid-cols-[1fr_140px] items-start gap-3">
           <CategoryList
-            categories={CATEGORIES}
+            categories={visibleCategories}
             activeId={categoryId}
             onChange={setCategoryId}
             compact
@@ -137,7 +151,7 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
       <div className="hidden lg:grid lg:grid-cols-[260px_280px_1fr] lg:gap-8">
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <CategoryList
-            categories={CATEGORIES}
+            categories={visibleCategories}
             activeId={categoryId}
             onChange={setCategoryId}
           />
