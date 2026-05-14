@@ -94,22 +94,29 @@ export function ScoreCard({
           </div>
         </div>
 
-        {/* Range bar com gradient + thumb */}
-        <div className="relative mt-6">
-          <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+        {/* Range bar com gradient + thumb pra fora (Lucas 2026-05) */}
+        <div className="relative mt-7 pb-2">
+          {/* A barra tem overflow-hidden pro gradient não vazar; o thumb fica
+              fora desse container — posicionado num wrapper RELATIVE com a
+              barra como filho ESPECÍFICO de overflow-hidden, e o thumb como
+              filho IRMÃO sem overflow */}
+          <div className="relative h-1.5 w-full">
+            <div className="absolute inset-0 overflow-hidden rounded-full bg-white/10">
+              <div
+                className="absolute inset-y-0 left-0 rounded-full"
+                style={{
+                  width: "100%",
+                  background:
+                    "linear-gradient(90deg, #E85D5D 0%, #F39A50 25%, #E6B845 50%, #79C98E 75%, #10B981 100%)",
+                }}
+              />
+            </div>
+            {/* Thumb FORA da barra — círculo branco saliente acima */}
             <div
-              className="absolute inset-y-0 left-0 rounded-full"
-              style={{
-                width: "100%",
-                background:
-                  "linear-gradient(90deg, #E85D5D 0%, #F39A50 25%, #E6B845 50%, #79C98E 75%, #10B981 100%)",
-              }}
-            />
-            <div
-              className="absolute -top-1 grid h-3.5 w-3.5 -translate-x-1/2 place-items-center rounded-full bg-white shadow-md ring-2 ring-emerald-400/40"
+              className="absolute top-1/2 grid h-5 w-5 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white shadow-[0_4px_12px_rgba(0,0,0,.25)] ring-2 ring-emerald-400"
               style={{ left: `${thumbPct}%` }}
             >
-              <span className="h-1 w-1 rounded-full bg-emerald-500" />
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
             </div>
           </div>
           <div className="mt-2 flex justify-between text-[9.5px] font-medium text-white/40">
