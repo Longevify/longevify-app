@@ -69,17 +69,22 @@ export interface Patient {
   organBioAges: OrganBioAge[];
 }
 
+// Sidebar de /dados — 8 categorias alinhadas com o avatar 3D (1 "Resumo" +
+// 7 órgãos). Mantém os IDs esperados pelo `CATEGORY_TO_REGION` em
+// `body-avatar-3d.tsx` (heart, brain, liver, kidneys, lungs, intestine,
+// pancreas) e pelo filtro `ORGAN_CATEGORY_IDS` em `dados-view.tsx`.
+//
+// Grades inferidas das `organBioAges` reais (Cardiovascular = B normal,
+// Pâncreas = B normal pq metabólico age 27.4 > cronológica 27; demais A).
 export const CATEGORIES: BiomarkerCategory[] = [
   { id: "all", label: "Todos os Dados", shortLabel: "Resumo", grade: "A" },
-  { id: "longevity", label: "Marcadores de Longevidade", shortLabel: "Longevidade", grade: "A" },
-  { id: "cardiac", label: "Saúde Cardíaca", shortLabel: "Coração", grade: "B" },
-  { id: "thyroid", label: "Saúde da Tireoide", shortLabel: "Tireoide", grade: "A" },
-  { id: "immune", label: "Regulação Imune", shortLabel: "Imune", grade: "A" },
-  { id: "hormonal", label: "Saúde Hormonal", shortLabel: "Hormônios", grade: "A" },
-  { id: "metabolic", label: "Saúde Metabólica", shortLabel: "Metabolismo", grade: "A" },
-  { id: "nutrients", label: "Nutrientes", shortLabel: "Nutrientes", grade: "B" },
-  { id: "hepatic", label: "Saúde Hepática", shortLabel: "Fígado", grade: "A" },
-  { id: "heavy-metals", label: "Metais Pesados", shortLabel: "Metais", grade: "A" },
+  { id: "heart", label: "Coração", shortLabel: "Coração", grade: "B" },
+  { id: "lungs", label: "Pulmões", shortLabel: "Pulmões", grade: "A" },
+  { id: "liver", label: "Fígado", shortLabel: "Fígado", grade: "A" },
+  { id: "pancreas", label: "Pâncreas", shortLabel: "Pâncreas", grade: "B" },
+  { id: "kidneys", label: "Rins", shortLabel: "Rins", grade: "A" },
+  { id: "intestine", label: "Intestino", shortLabel: "Intestino", grade: "A" },
+  { id: "brain", label: "Cérebro", shortLabel: "Cérebro", grade: "A" },
 ];
 
 export const PATIENT: Patient = {
@@ -107,15 +112,17 @@ export const PATIENT: Patient = {
     { date: "2025-06-01", age: 25.5 },
     { date: "2026-03-15", age: 25.0 },
   ],
+  // 7 órgãos alinhados com `CATEGORIES` (heart, lungs, liver, pancreas,
+  // kidneys, intestine, brain). Usado pelo BioAge popup pra mostrar cards
+  // de idade biológica por órgão (estilo Superpower).
   organBioAges: [
-    { organ: "Digestivo", age: 23.5, markersCount: 19, status: "optimal" },
-    { organ: "Respiratório", age: 24.2, markersCount: 12, status: "optimal" },
-    { organ: "Cardiovascular", age: 26.8, markersCount: 22, status: "normal" },
-    { organ: "Hepático", age: 22.1, markersCount: 15, status: "optimal" },
-    { organ: "Hormonal", age: 25.0, markersCount: 18, status: "optimal" },
-    { organ: "Metabólico", age: 27.4, markersCount: 16, status: "normal" },
-    { organ: "Imunológico", age: 24.8, markersCount: 14, status: "optimal" },
-    { organ: "Neurológico", age: 25.6, markersCount: 11, status: "optimal" },
+    { organ: "Coração", age: 26.8, markersCount: 22, status: "normal" },
+    { organ: "Pulmões", age: 24.2, markersCount: 12, status: "optimal" },
+    { organ: "Fígado", age: 22.1, markersCount: 15, status: "optimal" },
+    { organ: "Pâncreas", age: 27.4, markersCount: 16, status: "normal" },
+    { organ: "Rins", age: 25.0, markersCount: 14, status: "optimal" },
+    { organ: "Intestino", age: 23.5, markersCount: 19, status: "optimal" },
+    { organ: "Cérebro", age: 25.6, markersCount: 11, status: "optimal" },
   ],
 };
 
@@ -168,8 +175,8 @@ export const BIOMARKERS: Biomarker[] = [
   {
     id: "ldl",
     name: "LDL Colesterol",
-    category: "Cardiovascular",
-    categoryId: "cardiac",
+    category: "Coração",
+    categoryId: "heart",
     unit: "mg/dL",
     value: 103,
     status: "normal",
@@ -184,8 +191,8 @@ export const BIOMARKERS: Biomarker[] = [
   {
     id: "apob",
     name: "Apolipoproteína B (ApoB)",
-    category: "Cardiovascular",
-    categoryId: "cardiac",
+    category: "Coração",
+    categoryId: "heart",
     unit: "mg/dL",
     value: 38,
     status: "optimal",
@@ -200,8 +207,9 @@ export const BIOMARKERS: Biomarker[] = [
   {
     id: "vitd",
     name: "Vitamina D",
-    category: "Nutrientes",
-    categoryId: "nutrients",
+    // Rins ativam vitamina D via 1α-hidroxilase → CYP27B1.
+    category: "Rins",
+    categoryId: "kidneys",
     unit: "ng/dL",
     value: 42.3,
     status: "normal",
@@ -216,8 +224,9 @@ export const BIOMARKERS: Biomarker[] = [
   {
     id: "ferritin",
     name: "Ferritina",
-    category: "Sangue",
-    categoryId: "nutrients",
+    // Fígado é o principal reservatório de ferro corporal (~30%).
+    category: "Fígado",
+    categoryId: "liver",
     unit: "ng/dL",
     value: 88,
     status: "optimal",
@@ -231,8 +240,8 @@ export const BIOMARKERS: Biomarker[] = [
   {
     id: "hdl",
     name: "HDL Colesterol",
-    category: "Cardiovascular",
-    categoryId: "cardiac",
+    category: "Coração",
+    categoryId: "heart",
     unit: "mg/dL",
     value: 58,
     status: "normal",
@@ -246,8 +255,10 @@ export const BIOMARKERS: Biomarker[] = [
   {
     id: "hba1c",
     name: "Hemoglobina Glicada (A1c)",
-    category: "Metabólico",
-    categoryId: "metabolic",
+    // Pâncreas regula glicemia via insulina; HbA1c reflete reserva
+    // funcional pancreática nos últimos 2-3 meses.
+    category: "Pâncreas",
+    categoryId: "pancreas",
     unit: "%",
     value: 5.1,
     status: "optimal",
@@ -262,8 +273,10 @@ export const BIOMARKERS: Biomarker[] = [
   {
     id: "tsh",
     name: "TSH",
-    category: "Tireoide",
-    categoryId: "thyroid",
+    // TSH é secretado pela hipófise (no cérebro) e regula a tireoide
+    // via eixo hipotálamo-hipófise-tireoide.
+    category: "Cérebro",
+    categoryId: "brain",
     unit: "µUI/mL",
     value: 1.8,
     status: "optimal",
@@ -277,8 +290,10 @@ export const BIOMARKERS: Biomarker[] = [
   {
     id: "crp",
     name: "PCR Ultra-sensível",
-    category: "Inflamação",
-    categoryId: "immune",
+    // PCR reflete inflamação sistêmica e correlaciona com risco
+    // cardiovascular e respiratório (DPOC, asma).
+    category: "Pulmões",
+    categoryId: "lungs",
     unit: "mg/L",
     value: 0.6,
     status: "optimal",
@@ -292,8 +307,10 @@ export const BIOMARKERS: Biomarker[] = [
   {
     id: "testo",
     name: "Testosterona Total",
-    category: "Hormonal",
-    categoryId: "hormonal",
+    // Testosterona é regulada pelo eixo hipotálamo-hipófise-gonadal
+    // (LH/FSH secretados no cérebro estimulam testículos).
+    category: "Cérebro",
+    categoryId: "brain",
     unit: "ng/dL",
     value: 620,
     status: "optimal",
@@ -307,8 +324,8 @@ export const BIOMARKERS: Biomarker[] = [
   {
     id: "alt",
     name: "ALT (TGP)",
-    category: "Hepática",
-    categoryId: "hepatic",
+    category: "Fígado",
+    categoryId: "liver",
     unit: "U/L",
     value: 22,
     status: "optimal",
