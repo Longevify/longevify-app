@@ -221,7 +221,7 @@ export function BioAgeDetailPopup({
                       border: "1px solid #c9e9d6",
                       fontSize: 13,
                     }}
-                    formatter={(val: number) => [val, "Idade Biológica"]}
+                    formatter={(val: unknown) => [Number(val), "Idade Biológica"]}
                   />
                   <ReferenceLine
                     y={chronologicalAge}
