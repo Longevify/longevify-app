@@ -21,7 +21,7 @@ import {
   type CategoryGrade,
   type Patient,
 } from "@/lib/mock-data";
-import { formatDatePtBR } from "@/lib/utils";
+import { cn, formatDatePtBR } from "@/lib/utils";
 
 // Mapping grade da categoria → cor de destaque do avatar.
 // A = "Ótimo" (verde), B = "Normal" (amarelo), C = "Atenção" (laranja),
@@ -55,6 +55,12 @@ const visibleCategories = CATEGORIES.filter((c) =>
 
 export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
   const [categoryId, setCategoryId] = useState<string>("all");
+  // Override de sexo só no modo demo — permite Lucas visualizar male/female
+  // sem trocar o mock. Default usa patient.sex.
+  const [sexOverride, setSexOverride] = useState<typeof patient.sex | null>(
+    null,
+  );
+  const displaySex = sexOverride ?? patient.sex;
 
   const filtered = useMemo(() => {
     if (categoryId === "all") return biomarkers;
@@ -67,6 +73,36 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
     const cat = CATEGORIES.find((c) => c.id === categoryId);
     return GRADE_COLORS[cat?.grade ?? "A"];
   }, [categoryId]);
+
+  // Toggle de sexo (só visível no demo) — pra Lucas comparar male/female
+  const renderSexToggle = () => (
+    <div className="flex items-center gap-1 rounded-full border border-border bg-surface/80 p-1 backdrop-blur">
+      <button
+        type="button"
+        onClick={() => setSexOverride("male")}
+        className={cn(
+          "rounded-full px-3 h-7 text-[12px] font-medium transition",
+          displaySex === "male"
+            ? "bg-brand-700 text-white"
+            : "text-muted hover:text-ink",
+        )}
+      >
+        ♂ Masculino
+      </button>
+      <button
+        type="button"
+        onClick={() => setSexOverride("female")}
+        className={cn(
+          "rounded-full px-3 h-7 text-[12px] font-medium transition",
+          displaySex === "female"
+            ? "bg-brand-700 text-white"
+            : "text-muted hover:text-ink",
+        )}
+      >
+        ♀ Feminino
+      </button>
+    </div>
+  );
 
   const renderBiomarkersCard = () => (
     <Card className="overflow-hidden">
@@ -114,12 +150,15 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
             onChange={setCategoryId}
             compact
           />
-          <BodyAvatar3D
-            sex={patient.sex}
-            activeCategoryId={categoryId}
-            activeColor={activeColor}
-            className="w-full max-w-[140px]"
-          />
+          <div className="flex flex-col items-center gap-2">
+            <BodyAvatar3D
+              sex={displaySex}
+              activeCategoryId={categoryId}
+              activeColor={activeColor}
+              className="w-full max-w-[140px]"
+            />
+            {renderSexToggle()}
+          </div>
         </div>
 
         {/* KPI compacto — score + idade biológica em duas colunas grandes */}
@@ -157,13 +196,14 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
           />
         </aside>
 
-        <aside className="lg:sticky lg:top-24 lg:flex lg:items-start lg:justify-center lg:self-start">
+        <aside className="lg:sticky lg:top-24 lg:flex lg:flex-col lg:items-center lg:gap-3 lg:self-start">
           <BodyAvatar3D
-            sex={patient.sex}
+            sex={displaySex}
             activeCategoryId={categoryId}
             activeColor={activeColor}
             className="w-[280px]"
           />
+          {renderSexToggle()}
         </aside>
 
         <section className="flex min-w-0 flex-col gap-6">
