@@ -8,7 +8,7 @@ import type { ScorePoint } from "@/lib/mock-data";
 interface ScoreCardProps {
   score: number;
   status: "on-track" | "attention" | "at-risk";
-  scoreHistory: ScorePoint[];
+  scoreHistory?: ScorePoint[];
   className?: string;
 }
 
@@ -88,7 +88,7 @@ export function ScoreCard({ score, status, scoreHistory, className }: ScoreCardP
         onClose={() => setOpen(false)}
         score={score}
         status={status}
-        history={scoreHistory}
+        history={scoreHistory ?? []}
       />
     </>
   );
