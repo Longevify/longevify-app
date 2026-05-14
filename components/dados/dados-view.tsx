@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { ScoreCard } from "@/components/dados/score-card";
 import { BioAgeCard } from "@/components/dados/bio-age-card";
+import { ScoreDetailPopup } from "@/components/dados/score-detail-popup";
+import { BioAgeDetailPopup } from "@/components/dados/bioage-detail-popup";
 import { CategoryList } from "@/components/dados/category-list";
 import { BiomarkersSummary } from "@/components/dados/biomarkers-summary";
 import { BiomarkerRow } from "@/components/dados/biomarker-row";
@@ -54,6 +56,9 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
     null,
   );
   const displaySex = sexOverride ?? patient.sex;
+  // KPI mobile clicáveis — abrem o popup vertical de detalhe (mesmo dos cards desktop)
+  const [scorePopupOpen, setScorePopupOpen] = useState(false);
+  const [bioAgePopupOpen, setBioAgePopupOpen] = useState(false);
 
   const filtered = useMemo(() => {
     if (categoryId === "all") return biomarkers;
@@ -154,9 +159,14 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
           </div>
         </div>
 
-        {/* KPI compacto — score + idade biológica em duas colunas grandes */}
+        {/* KPI compacto — score + idade biológica em duas colunas clicáveis.
+            Clique abre os popups verticais (mesmos dos cards do desktop). */}
         <div className="grid grid-cols-2 gap-4 px-1">
-          <div>
+          <button
+            type="button"
+            onClick={() => setScorePopupOpen(true)}
+            className="text-left transition-opacity hover:opacity-80 active:opacity-60"
+          >
             <div className="flex items-baseline gap-1">
               <span className="text-[40px] leading-none font-semibold tracking-tight text-ink">
                 {patient.longevifyScore}
@@ -164,14 +174,37 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
               <span className="text-[16px] text-muted">/100</span>
             </div>
             <p className="mt-1 text-[13px] text-muted">pontuação longevify</p>
-          </div>
-          <div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setBioAgePopupOpen(true)}
+            className="text-left transition-opacity hover:opacity-80 active:opacity-60"
+          >
             <div className="text-[40px] leading-none font-semibold tracking-tight text-ink">
               {patient.biologicalAge}
             </div>
             <p className="mt-1 text-[13px] text-muted">idade biológica</p>
-          </div>
+          </button>
         </div>
+
+        {/* Popups compartilhados entre os KPIs mobile (clique nos números acima
+            ou nos ScoreCard/BioAgeCard do desktop dispara) */}
+        <ScoreDetailPopup
+          open={scorePopupOpen}
+          onClose={() => setScorePopupOpen(false)}
+          score={patient.longevifyScore}
+          status={patient.scoreStatus}
+          scoreHistory={patient.scoreHistory}
+          organScores={patient.organScores}
+        />
+        <BioAgeDetailPopup
+          open={bioAgePopupOpen}
+          onClose={() => setBioAgePopupOpen(false)}
+          biologicalAge={patient.biologicalAge}
+          chronologicalAge={patient.chronologicalAge}
+          biologicalAgeHistory={patient.biologicalAgeHistory}
+          organBioAges={patient.organBioAges}
+        />
 
         {renderBiomarkersCard()}
       </div>
