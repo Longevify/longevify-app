@@ -2,7 +2,6 @@
 
 import {
   AreaChart,
-  CartesianGrid,
   ReferenceArea,
   ReferenceDot,
   Tooltip,
@@ -14,10 +13,14 @@ import type { Biomarker, BiomarkerStatus } from "@/lib/mock-data";
 import { formatDatePtBR } from "@/lib/utils";
 import { useMeasuredSize } from "@/lib/use-measured-size";
 
+// ─── Cores ────────────────────────────────────────────────────────────────────
+// Linha em verde brand, mesmo tom da identidade Longevify. Faixas de fundo
+// agora MUITO sutis (5–8% opacity) pra não competirem com a linha.
+
 const ZONE_COLOR: Record<BiomarkerStatus, string> = {
-  optimal: "#10b981",
-  normal: "#e6b845",
-  out: "#e85d5d",
+  optimal: "#0E7B45", // brand-700 sólido
+  normal: "#D8A227", // amber escuro
+  out: "#D74545", // vermelho deep
 };
 
 const ZONE_LABEL: Record<BiomarkerStatus, string> = {
@@ -26,7 +29,7 @@ const ZONE_LABEL: Record<BiomarkerStatus, string> = {
   out: "Fora",
 };
 
-const LINE_COLOR = "#2d4a38"; // neutral dark-green — readable on all bg zones
+const LINE_COLOR = "#1f5d3f"; // brand-700 — combina com identidade
 
 interface BiomarkerBigChartProps {
   biomarker: Biomarker;
@@ -50,31 +53,12 @@ function classifyZone(
   return "out";
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function CustomDot(props: any) {
-  const { cx, cy, payload, optimalRange, normalRange } = props;
-  if (cx == null || cy == null) return null;
-  const zone = classifyZone(payload.value, optimalRange, normalRange);
-  const fill = ZONE_COLOR[zone];
-  return <circle cx={cx} cy={cy} r={3.5} fill={fill} stroke="none" />;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function CustomActiveDot(props: any) {
-  const { cx, cy, payload, optimalRange, normalRange } = props;
-  if (cx == null || cy == null) return null;
-  const zone = classifyZone(payload.value, optimalRange, normalRange);
-  const fill = ZONE_COLOR[zone];
-  return (
-    <circle cx={cx} cy={cy} r={5} fill={fill} stroke="#fff" strokeWidth={2} />
-  );
-}
-
 export function BiomarkerBigChart({
   biomarker,
   height = 320,
 }: BiomarkerBigChartProps) {
   const gradientId = `bio-big-${biomarker.id}`;
+  const glowId = `bio-glow-${biomarker.id}`;
 
   const data = biomarker.history.map((p) => ({
     date: p.date,
@@ -98,7 +82,7 @@ export function BiomarkerBigChart({
   const rawMin = Math.min(...yCandidates);
   const rawMax = Math.max(...yCandidates);
   const span = rawMax - rawMin;
-  const pad = Math.max(span * 0.25, rawMax * 0.08, 1);
+  const pad = Math.max(span * 0.2, rawMax * 0.06, 1);
   const yMin = Math.max(0, rawMin - pad);
   const yMax = rawMax + pad;
 
@@ -125,22 +109,23 @@ export function BiomarkerBigChart({
   const lastZone = lastPoint
     ? classifyZone(lastPoint.value, biomarker.optimalRange, biomarker.normalRange)
     : "out";
+  const lastZoneColor = ZONE_COLOR[lastZone];
 
   return (
     <div className="w-full">
-      {/* Legenda */}
-      <div className="mb-3 flex flex-wrap gap-3 text-[11px] text-muted">
+      {/* Legenda — bolinhas pequenas e cores sutis */}
+      <div className="mb-4 flex flex-wrap items-center gap-4 text-[11px] text-muted">
         <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#10b981]" />
-          Ótimo
+          <span className="inline-block h-2 w-2 rounded-full bg-[#0E7B45]" />
+          <span className="font-medium">Ótimo</span>
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#e6b845]" />
-          Normal
+          <span className="inline-block h-2 w-2 rounded-full bg-[#D8A227]" />
+          <span className="font-medium">Normal</span>
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#e85d5d]" />
-          Fora
+          <span className="inline-block h-2 w-2 rounded-full bg-[#D74545]" />
+          <span className="font-medium">Fora</span>
         </span>
       </div>
 
@@ -150,21 +135,23 @@ export function BiomarkerBigChart({
             data={data}
             width={width}
             height={height}
-            margin={{ top: 12, right: 24, bottom: 8, left: 8 }}
+            margin={{ top: 16, right: 28, bottom: 4, left: 4 }}
           >
             <defs>
-              {/* Gradiente neutro — a linha é cinza-escuro, o fill fica sutil */}
+              {/* Gradiente da área — fade vertical sutil */}
               <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={LINE_COLOR} stopOpacity={0.12} />
+                <stop offset="0%" stopColor={LINE_COLOR} stopOpacity={0.18} />
+                <stop offset="80%" stopColor={LINE_COLOR} stopOpacity={0.02} />
                 <stop offset="100%" stopColor={LINE_COLOR} stopOpacity={0} />
               </linearGradient>
-            </defs>
 
-            <CartesianGrid
-              stroke="#e7edea"
-              strokeDasharray="3 3"
-              vertical={false}
-            />
+              {/* Glow sutil no last point */}
+              <radialGradient id={glowId}>
+                <stop offset="0%" stopColor={lastZoneColor} stopOpacity={0.5} />
+                <stop offset="60%" stopColor={lastZoneColor} stopOpacity={0.15} />
+                <stop offset="100%" stopColor={lastZoneColor} stopOpacity={0} />
+              </radialGradient>
+            </defs>
 
             <XAxis
               dataKey="date"
@@ -174,26 +161,28 @@ export function BiomarkerBigChart({
                   year: "2-digit",
                 })
               }
-              tick={{ fill: "#6b7a74", fontSize: 11 }}
-              axisLine={{ stroke: "#e7edea" }}
+              tick={{ fill: "#9ca3af", fontSize: 11, fontWeight: 500 }}
+              axisLine={false}
               tickLine={false}
-              minTickGap={24}
+              minTickGap={20}
+              padding={{ left: 8, right: 8 }}
             />
             <YAxis
               domain={[yMin, yMax]}
-              tick={{ fill: "#6b7a74", fontSize: 11 }}
-              axisLine={{ stroke: "#e7edea" }}
+              tick={{ fill: "#9ca3af", fontSize: 11, fontWeight: 500 }}
+              axisLine={false}
               tickLine={false}
-              width={44}
+              width={36}
+              tickCount={4}
             />
 
-            {/* Fora (vermelho) — fundo */}
+            {/* Fora (vermelho) — fundo super sutil */}
             {typeof lowerOuterEdge === "number" ? (
               <ReferenceArea
                 y1={yMin}
                 y2={lowerOuterEdge}
-                fill="#e85d5d"
-                fillOpacity={0.1}
+                fill="#D74545"
+                fillOpacity={0.05}
                 stroke="none"
                 ifOverflow="extendDomain"
               />
@@ -202,8 +191,8 @@ export function BiomarkerBigChart({
               <ReferenceArea
                 y1={upperOuterEdge}
                 y2={yMax}
-                fill="#e85d5d"
-                fillOpacity={0.1}
+                fill="#D74545"
+                fillOpacity={0.05}
                 stroke="none"
                 ifOverflow="extendDomain"
               />
@@ -214,8 +203,8 @@ export function BiomarkerBigChart({
               <ReferenceArea
                 y1={normMin}
                 y2={normMax}
-                fill="#e6b845"
-                fillOpacity={0.12}
+                fill="#D8A227"
+                fillOpacity={0.06}
                 stroke="none"
                 ifOverflow="extendDomain"
               />
@@ -226,15 +215,19 @@ export function BiomarkerBigChart({
               <ReferenceArea
                 y1={optMin}
                 y2={optMax}
-                fill="#10b981"
-                fillOpacity={0.16}
+                fill="#0E7B45"
+                fillOpacity={0.08}
                 stroke="none"
                 ifOverflow="extendDomain"
               />
             ) : null}
 
             <Tooltip
-              cursor={{ stroke: "#9fd4b3", strokeDasharray: "3 3" }}
+              cursor={{
+                stroke: LINE_COLOR,
+                strokeDasharray: "2 4",
+                strokeOpacity: 0.4,
+              }}
               content={({ active, payload }) => {
                 if (!active || !payload || !payload.length) return null;
                 const p = payload[0].payload as { date: string; value: number };
@@ -246,20 +239,24 @@ export function BiomarkerBigChart({
                 const zoneColor = ZONE_COLOR[zone];
                 const zoneLabel = ZONE_LABEL[zone];
                 return (
-                  <div className="rounded-lg border border-border bg-surface px-3 py-2 shadow-md">
-                    <div className="text-[11px] text-muted">
+                  <div className="rounded-xl border border-zinc-200 bg-white px-3 py-2 shadow-lg">
+                    <div className="text-[11px] font-medium text-zinc-400">
                       {formatDatePtBR(p.date)}
                     </div>
-                    <div className="mt-0.5 text-[13px] font-semibold tabular-nums">
+                    <div className="mt-0.5 text-[15px] font-semibold tabular-nums text-zinc-900">
                       {p.value}
-                      <span className="ml-1 text-[11px] font-normal text-muted">
+                      <span className="ml-1 text-[11px] font-normal text-zinc-400">
                         {biomarker.unit}
                       </span>
                     </div>
                     <div
-                      className="mt-1 text-[11px] font-medium"
+                      className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold"
                       style={{ color: zoneColor }}
                     >
+                      <span
+                        className="inline-block h-1.5 w-1.5 rounded-full"
+                        style={{ backgroundColor: zoneColor }}
+                      />
                       {zoneLabel}
                     </div>
                   </div>
@@ -267,40 +264,47 @@ export function BiomarkerBigChart({
               }}
             />
 
-            {/* Linha neutra — cor fixa, pontos coloridos por zona */}
+            {/* Linha verde brand, smooth, sem dots regulares */}
             <Area
               type="monotone"
               dataKey="value"
               stroke={LINE_COLOR}
-              strokeWidth={2.25}
+              strokeWidth={2}
               fill={`url(#${gradientId})`}
-              dot={(props) => (
-                <CustomDot
-                  {...props}
-                  optimalRange={biomarker.optimalRange}
-                  normalRange={biomarker.normalRange}
-                />
-              )}
-              activeDot={(props) => (
-                <CustomActiveDot
-                  {...props}
-                  optimalRange={biomarker.optimalRange}
-                  normalRange={biomarker.normalRange}
-                />
-              )}
+              dot={false}
+              activeDot={{
+                r: 5,
+                fill: "#fff",
+                stroke: LINE_COLOR,
+                strokeWidth: 2.5,
+              }}
               isAnimationActive={true}
-              animationDuration={600}
+              animationDuration={800}
+              animationEasing="ease-out"
             />
 
-            {/* Ponto final destacado — colorido pela zona real do último valor */}
+            {/* Glow halo no last point */}
             {lastPoint ? (
               <ReferenceDot
                 x={lastPoint.date}
                 y={lastPoint.value}
-                r={6}
-                fill={ZONE_COLOR[lastZone]}
+                r={18}
+                fill={`url(#${glowId})`}
+                stroke="none"
+                ifOverflow="extendDomain"
+                isFront={false}
+              />
+            ) : null}
+
+            {/* Last point — círculo grande colorido pela zona, branco ao redor */}
+            {lastPoint ? (
+              <ReferenceDot
+                x={lastPoint.date}
+                y={lastPoint.value}
+                r={5.5}
+                fill={lastZoneColor}
                 stroke="#fff"
-                strokeWidth={2.5}
+                strokeWidth={3}
                 ifOverflow="extendDomain"
               />
             ) : null}

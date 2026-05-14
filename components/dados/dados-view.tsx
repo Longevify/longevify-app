@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { ScoreCard } from "@/components/dados/score-card";
 import { BioAgeCard } from "@/components/dados/bio-age-card";
 import { ScoreDetailPopup } from "@/components/dados/score-detail-popup";
@@ -8,8 +9,16 @@ import { BioAgeDetailPopup } from "@/components/dados/bioage-detail-popup";
 import { CategoryList } from "@/components/dados/category-list";
 import { BiomarkersSummary } from "@/components/dados/biomarkers-summary";
 import { BiomarkerRow } from "@/components/dados/biomarker-row";
-import { BodySilhouette } from "@/components/dados/body-silhouette";
 import { Card } from "@/components/ui/card";
+
+// BodyMannequin é Three.js Canvas — precisa SSR off pra evitar hydration
+// mismatch (React #418) que o Three.js dispara renderizando WebGL diferente
+// no servidor.
+const BodyMannequin = dynamic(
+  () =>
+    import("@/components/dados/body-mannequin").then((m) => m.BodyMannequin),
+  { ssr: false },
+);
 import {
   CATEGORIES,
   type Biomarker,
@@ -149,12 +158,19 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
             compact
           />
           <div className="flex flex-col items-center gap-2">
-            <BodySilhouette
-              sex={displaySex}
-              activeOrgan={categoryId === "all" ? null : categoryId}
-              activeColor={activeColor}
-              className="w-full max-w-[140px]"
-            />
+            {/* Ring sutil ao redor do avatar tinge na cor do grade da
+                categoria ativa — mesma técnica do antigo BodyAvatar3D. */}
+            <div
+              className="relative w-full max-w-[140px] rounded-2xl transition-shadow"
+              style={{
+                boxShadow:
+                  categoryId === "all"
+                    ? "none"
+                    : `0 0 0 2px ${activeColor}22, 0 12px 32px -10px ${activeColor}55`,
+              }}
+            >
+              <BodyMannequin sex={displaySex} />
+            </div>
             {renderSexToggle()}
           </div>
         </div>
@@ -223,12 +239,17 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
         </aside>
 
         <aside className="lg:sticky lg:top-24 lg:flex lg:flex-col lg:items-center lg:gap-3 lg:self-start">
-          <BodySilhouette
-            sex={displaySex}
-            activeOrgan={categoryId === "all" ? null : categoryId}
-            activeColor={activeColor}
-            className="w-[260px]"
-          />
+          <div
+            className="relative w-[280px] rounded-2xl transition-shadow"
+            style={{
+              boxShadow:
+                categoryId === "all"
+                  ? "none"
+                  : `0 0 0 2px ${activeColor}22, 0 12px 32px -10px ${activeColor}55`,
+            }}
+          >
+            <BodyMannequin sex={displaySex} />
+          </div>
           {renderSexToggle()}
         </aside>
 
