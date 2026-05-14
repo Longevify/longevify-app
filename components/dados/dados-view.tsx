@@ -1,19 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import dynamic from "next/dynamic";
 import { ScoreCard } from "@/components/dados/score-card";
 import { BioAgeCard } from "@/components/dados/bio-age-card";
 import { CategoryList } from "@/components/dados/category-list";
 import { BiomarkersSummary } from "@/components/dados/biomarkers-summary";
 import { BiomarkerRow } from "@/components/dados/biomarker-row";
-
-// 3D Canvas precisa de WebGL — só renderiza no client. SSR causa React #418
-// (hydration mismatch) porque o Three.js gera DOM diferente no servidor.
-const BodyAvatar3D = dynamic(
-  () => import("@/components/dados/body-avatar-3d").then((m) => m.BodyAvatar3D),
-  { ssr: false },
-);
+import { Body360View } from "@/components/dados/body-360-view";
 import { Card } from "@/components/ui/card";
 import {
   CATEGORIES,
@@ -151,12 +144,15 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
             compact
           />
           <div className="flex flex-col items-center gap-2">
-            <BodyAvatar3D
-              sex={displaySex}
-              activeCategoryId={categoryId}
-              activeColor={activeColor}
-              className="w-full max-w-[140px]"
-            />
+            {/* Wrapper aplica ring/glow com a cor do grade da categoria
+                ativa — substitui o destaque por vertex color do antigo
+                BodyAvatar3D, sem precisar de WebGL. */}
+            <div
+              className="relative w-full max-w-[140px] rounded-2xl transition-shadow"
+              style={{ boxShadow: `0 0 0 2px ${activeColor}22, 0 8px 24px -8px ${activeColor}44` }}
+            >
+              <Body360View sex={displaySex} />
+            </div>
             {renderSexToggle()}
           </div>
         </div>
@@ -197,12 +193,12 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
         </aside>
 
         <aside className="lg:sticky lg:top-24 lg:flex lg:flex-col lg:items-center lg:gap-3 lg:self-start">
-          <BodyAvatar3D
-            sex={displaySex}
-            activeCategoryId={categoryId}
-            activeColor={activeColor}
-            className="w-[280px]"
-          />
+          <div
+            className="relative w-[280px] rounded-2xl transition-shadow"
+            style={{ boxShadow: `0 0 0 2px ${activeColor}22, 0 8px 24px -8px ${activeColor}44` }}
+          >
+            <Body360View sex={displaySex} />
+          </div>
           {renderSexToggle()}
         </aside>
 
