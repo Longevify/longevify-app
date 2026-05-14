@@ -15,13 +15,25 @@ const LONGEVITY_PRIORITY = new Set([
   "vitd",
 ]);
 
+// IDs de produtos que são EXAMES — não devem ser recomendados pra intervenção
+// específica de biomarcador. Painéis ficam numa seção separada da loja
+// ("Aprofunde seu diagnóstico"), porque painel não trata vit D baixa — ele
+// só MEDE de novo. Lucas (2026-05): "Painel é extra, não tratamento."
+const DIAGNOSTIC_EXAM_IDS = new Set([
+  "painel-basico",
+  "painel-avancado",
+  "microbioma-intestinal",
+]);
+
 function buildReason(product: Product, biomarkers: Biomarker[]): string {
   if (biomarkers.length === 0) {
     return `Recomendado pela equipe médica Longevify com base no seu perfil.`;
   }
   const primary = biomarkers[0];
   const valueLabel = `${primary.value} ${primary.unit}`;
-  const faixa = primary.referenceLabel ? ` (faixa ideal ${primary.referenceLabel})` : "";
+  const faixa = primary.referenceLabel
+    ? ` (faixa ideal ${primary.referenceLabel})`
+    : "";
 
   switch (primary.id) {
     case "ldl":
@@ -47,6 +59,11 @@ function buildReason(product: Product, biomarkers: Biomarker[]): string {
   }
 }
 
+/**
+ * Recomenda PRODUTOS DE INTERVENÇÃO (suplementos) baseado nos biomarcadores
+ * do paciente. EXAMES diagnósticos (painéis) são excluídos — eles aparecem
+ * numa seção dedicada da loja, não como tratamento.
+ */
 export function getRecommendedProducts(
   biomarkers: Biomarker[],
   limit = 4,
@@ -62,7 +79,12 @@ export function getRecommendedProducts(
   }> = [];
 
   for (const product of PRODUCTS) {
-    const matched = relevant.filter((b) => product.targetsBiomarkers.includes(b.id));
+    // Skip painéis/exames — não são intervenção
+    if (DIAGNOSTIC_EXAM_IDS.has(product.id)) continue;
+
+    const matched = relevant.filter((b) =>
+      product.targetsBiomarkers.includes(b.id),
+    );
     if (matched.length === 0) continue;
 
     let score = 0;
@@ -96,6 +118,14 @@ export function getRecommendedProducts(
   });
 
   return ordered.slice(0, limit);
+}
+
+/**
+ * Retorna os EXAMES diagnósticos (painéis) — pra seção separada
+ * "Aprofunde seu diagnóstico" da loja.
+ */
+export function getDiagnosticExams(): Product[] {
+  return PRODUCTS.filter((p) => DIAGNOSTIC_EXAM_IDS.has(p.id));
 }
 
 export function getProductMatchedBiomarkers(
