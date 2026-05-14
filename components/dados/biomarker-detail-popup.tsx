@@ -44,7 +44,12 @@ const STATUS_LABEL: Record<BiomarkerStatus, string> = {
   out: "Fora da faixa",
 };
 
-const LINE_COLOR = "#1f5d3f";
+// Cor hex pra usar diretamente em SVG (fill/stroke) — espelha STATUS_DOT
+const STATUS_HEX: Record<BiomarkerStatus, string> = {
+  optimal: "#0E7B45",
+  normal: "#D8A227",
+  out: "#D74545",
+};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -71,10 +76,14 @@ function formatMonthYear(iso: string): string {
   });
 }
 
+/** Max 2 casas decimais, sem trailing zeros. */
+function formatNumber(n: number): string {
+  return (+n.toFixed(2)).toString();
+}
+
 // ─── Card de marcador relacionado ────────────────────────────────────────────
 
 function RelatedMarkerCard({ biomarker }: { biomarker: Biomarker }) {
-  const ref = biomarker.referenceLabel;
   return (
     <div
       className={cn(
@@ -94,20 +103,20 @@ function RelatedMarkerCard({ biomarker }: { biomarker: Biomarker }) {
                 STATUS_TEXT[biomarker.status],
               )}
             >
-              {biomarker.value}
+              {formatNumber(biomarker.value)}
             </span>
             <span className="text-[10px] text-zinc-500">{biomarker.unit}</span>
           </div>
         </div>
         <span className="shrink-0 whitespace-nowrap text-[10px] font-medium text-zinc-400">
-          {ref}
+          {biomarker.referenceLabel}
         </span>
       </div>
     </div>
   );
 }
 
-// ─── Tooltip do chart ────────────────────────────────────────────────────────
+// ─── Tooltip ─────────────────────────────────────────────────────────────────
 
 interface ChartTooltipPayload {
   value?: number;
@@ -129,7 +138,8 @@ function ChartTooltip({
     <div className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-[12px] shadow-lg">
       <div className="text-zinc-400">{label}</div>
       <div className="font-semibold text-brand-700">
-        {payload[0]?.value} <span className="text-zinc-400">{unit}</span>
+        {formatNumber(payload[0]?.value ?? 0)}{" "}
+        <span className="text-zinc-400">{unit}</span>
       </div>
     </div>
   );
@@ -143,18 +153,6 @@ interface BiomarkerDetailPopupProps {
   onClose: () => void;
 }
 
-/**
- * Popup de detalhe de biomarker — estilo "What's causing this?" do
- * Superpower (imagem 2 do Lucas). Mostra:
- *   1. Status badge no header
- *   2. Mini gráfico de evolução com faixas ótima/normal/fora
- *   3. Diagnóstico textual: "Como está e como melhorar"
- *   4. Grid de marcadores correlacionados pra contexto
- *   5. CTA suplemento (quando aplicável) → /loja?q=...#produtos
- *
- * Substitui (na home /dados) o redirect pra /dados/[biomarkerId]. A
- * página dedicada continua existindo pra rotas /dados/ldl direto.
- */
 export function BiomarkerDetailPopup({
   biomarker,
   related,
@@ -177,6 +175,14 @@ export function BiomarkerDetailPopup({
     value: p.value,
   }));
 
+  // Zona do último ponto define cor da linha (não fixed verde)
+  const lastZone = classifyZone(
+    biomarker.value,
+    biomarker.optimalRange,
+    biomarker.normalRange,
+  );
+  const lineColor = STATUS_HEX[lastZone];
+
   const values = biomarker.history.map((p) => p.value);
   const optMin = biomarker.optimalRange?.[0];
   const optMax = biomarker.optimalRange?.[1];
@@ -197,22 +203,14 @@ export function BiomarkerDetailPopup({
   const hasNormal = typeof normMin === "number" && typeof normMax === "number";
 
   const lastPoint = chartData[chartData.length - 1];
-  const lastZone = classifyZone(
-    biomarker.value,
-    biomarker.optimalRange,
-    biomarker.normalRange,
-  );
 
   const knowledge = getBiomarkerKnowledge(biomarker.id);
   const supplement = findSupplementForBiomarker(biomarker.id);
 
-  // Diagnóstico textual — combina partes do knowledge file
   const diagnosis = knowledge?.whyItMatters
     ? `${whyAndHow(biomarker)} ${knowledge.whyItMatters.split(".")[0]}.`
     : whyAndHow(biomarker);
 
-  // Pega 4 ações concretas das categorias do improve (rotina, alimentação,
-  // suplementação, exercício, sono) — top 1 de cada se houver
   const howTo: string[] = knowledge?.improve
     ? [
         ...knowledge.improve.alimentacao.slice(0, 1),
@@ -221,6 +219,9 @@ export function BiomarkerDetailPopup({
         ...knowledge.improve.sono.slice(0, 1),
       ].filter(Boolean)
     : defaultSteps(biomarker);
+
+  // Se só temos 1 ponto, mostra empty state visual em vez de chart
+  const hasEnoughData = chartData.length >= 2;
 
   return (
     <div
@@ -246,7 +247,7 @@ export function BiomarkerDetailPopup({
         <div className="flex shrink-0 items-start justify-between border-b border-zinc-100 px-6 pt-5 pb-4">
           <div className="min-w-0">
             <div className="text-[12px] font-medium text-zinc-400">
-              O que está causando isso?
+              Análise rápida
             </div>
             <h2 className="mt-1 text-[20px] font-semibold leading-tight text-zinc-900">
               {biomarker.name}
@@ -261,7 +262,10 @@ export function BiomarkerDetailPopup({
               )}
             >
               <span
-                className={cn("h-1.5 w-1.5 rounded-full", STATUS_DOT[biomarker.status])}
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full",
+                  STATUS_DOT[biomarker.status],
+                )}
               />
               {STATUS_LABEL[biomarker.status]}
             </span>
@@ -276,104 +280,128 @@ export function BiomarkerDetailPopup({
           </div>
         </div>
 
-        {/* Scrollable body */}
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {/* Chart */}
+          {/* Chart ou empty state */}
           <div className="px-6 py-5">
-            <ResponsiveContainer width="100%" height={200}>
-              <AreaChart
-                data={chartData}
-                margin={{ top: 20, right: 12, bottom: 0, left: 0 }}
-              >
-                <defs>
-                  <linearGradient
-                    id={`grad-${biomarker.id}`}
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop offset="0%" stopColor={LINE_COLOR} stopOpacity={0.18} />
-                    <stop offset="100%" stopColor={LINE_COLOR} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
+            {hasEnoughData ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart
+                  data={chartData}
+                  margin={{ top: 20, right: 12, bottom: 0, left: 0 }}
+                >
+                  <defs>
+                    <linearGradient
+                      id={`grad-${biomarker.id}`}
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="0%"
+                        stopColor={lineColor}
+                        stopOpacity={0.22}
+                      />
+                      <stop offset="100%" stopColor={lineColor} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
 
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 10.5, fill: "#a1a1aa", fontWeight: 500 }}
-                  axisLine={false}
-                  tickLine={false}
-                  minTickGap={18}
-                />
-                <YAxis
-                  domain={[yMin, yMax]}
-                  tick={{ fontSize: 10.5, fill: "#a1a1aa" }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={36}
-                  tickCount={4}
-                />
-                <Tooltip
-                  content={<ChartTooltip unit={biomarker.unit} />}
-                  cursor={{
-                    stroke: LINE_COLOR,
-                    strokeDasharray: "2 4",
-                    strokeOpacity: 0.4,
-                  }}
-                />
-
-                {/* Faixa Ótimo */}
-                {hasOptimal && (
-                  <ReferenceArea
-                    y1={optMin}
-                    y2={optMax}
-                    fill="#10b981"
-                    fillOpacity={0.1}
-                    stroke="#10b981"
-                    strokeDasharray="3 3"
-                    strokeOpacity={0.5}
-                    ifOverflow="extendDomain"
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: 10.5, fill: "#a1a1aa", fontWeight: 500 }}
+                    axisLine={false}
+                    tickLine={false}
+                    minTickGap={18}
                   />
-                )}
+                  <YAxis
+                    domain={[yMin, yMax]}
+                    tick={{ fontSize: 10.5, fill: "#a1a1aa" }}
+                    tickFormatter={formatNumber}
+                    axisLine={false}
+                    tickLine={false}
+                    width={40}
+                    tickCount={4}
+                  />
+                  <Tooltip
+                    content={<ChartTooltip unit={biomarker.unit} />}
+                    cursor={{
+                      stroke: lineColor,
+                      strokeDasharray: "2 4",
+                      strokeOpacity: 0.4,
+                    }}
+                  />
 
-                <Area
-                  type="monotone"
-                  dataKey="value"
-                  stroke={LINE_COLOR}
-                  strokeWidth={2}
-                  fill={`url(#grad-${biomarker.id})`}
-                  dot={false}
-                  activeDot={{
-                    r: 4,
-                    fill: "#fff",
-                    stroke: LINE_COLOR,
-                    strokeWidth: 2,
-                  }}
-                  isAnimationActive
-                  animationDuration={600}
-                />
+                  {/* Faixa Ótimo destacada — verde suave (independe da linha) */}
+                  {hasOptimal && (
+                    <ReferenceArea
+                      y1={optMin}
+                      y2={optMax}
+                      fill="#10b981"
+                      fillOpacity={0.08}
+                      stroke="#10b981"
+                      strokeDasharray="3 3"
+                      strokeOpacity={0.4}
+                      ifOverflow="extendDomain"
+                    />
+                  )}
 
-                {lastPoint && (
-                  <ReferenceDot
-                    x={lastPoint.label}
-                    y={lastPoint.value}
-                    r={5}
-                    fill={
-                      lastZone === "optimal"
-                        ? "#10b981"
-                        : lastZone === "normal"
-                          ? "#f59e0b"
-                          : "#f43f5e"
-                    }
-                    stroke="#fff"
+                  {/* Faixa Normal — sutil amarela */}
+                  {hasNormal && (
+                    <ReferenceArea
+                      y1={normMin}
+                      y2={normMax}
+                      fill="#f59e0b"
+                      fillOpacity={0.05}
+                      stroke="none"
+                      ifOverflow="extendDomain"
+                    />
+                  )}
+
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke={lineColor}
                     strokeWidth={2.5}
-                    ifOverflow="extendDomain"
+                    fill={`url(#grad-${biomarker.id})`}
+                    dot={false}
+                    activeDot={{
+                      r: 4,
+                      fill: "#fff",
+                      stroke: lineColor,
+                      strokeWidth: 2,
+                    }}
+                    isAnimationActive
+                    animationDuration={600}
                   />
-                )}
-              </AreaChart>
-            </ResponsiveContainer>
 
-            {/* Legenda: faixa ótima */}
+                  {lastPoint && (
+                    <ReferenceDot
+                      x={lastPoint.label}
+                      y={lastPoint.value}
+                      r={5}
+                      fill={lineColor}
+                      stroke="#fff"
+                      strokeWidth={2.5}
+                      ifOverflow="extendDomain"
+                    />
+                  )}
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex flex-col items-center justify-center rounded-2xl bg-zinc-50 px-6 py-10 text-center">
+                <div className="text-[36px] font-semibold tabular-nums text-zinc-900">
+                  {formatNumber(biomarker.value)}
+                  <span className="ml-1.5 text-[14px] font-normal text-zinc-500">
+                    {biomarker.unit}
+                  </span>
+                </div>
+                <p className="mt-2 max-w-[280px] text-[12px] leading-relaxed text-zinc-500">
+                  Só uma medição até agora. Refaça o exame pra acompanhar a
+                  evolução.
+                </p>
+              </div>
+            )}
+
             <div className="mt-3 flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-[11px] text-zinc-500">
                 <span className="h-2 w-2 rounded-full bg-emerald-400" />
@@ -389,7 +417,7 @@ export function BiomarkerDetailPopup({
             </div>
           </div>
 
-          {/* Diagnóstico textual — porque está assim + como melhorar */}
+          {/* Diagnóstico Dr. Lon */}
           <div className="border-t border-zinc-100 bg-gradient-to-br from-brand-50 to-white px-6 py-5">
             <div className="text-[10.5px] font-semibold uppercase tracking-wide text-brand-700">
               Diagnóstico Dr. Lon
@@ -415,7 +443,6 @@ export function BiomarkerDetailPopup({
               </ul>
             )}
 
-            {/* CTA suplemento */}
             {supplement && biomarker.status !== "optimal" && (
               <Link
                 href={`/loja?q=${encodeURIComponent(supplement)}#produtos`}
@@ -427,7 +454,6 @@ export function BiomarkerDetailPopup({
             )}
           </div>
 
-          {/* Markers correlacionados */}
           {related.length > 0 && (
             <div className="border-t border-zinc-100 px-6 py-5">
               <h3 className="text-[14px] font-semibold text-zinc-900">
@@ -449,16 +475,14 @@ export function BiomarkerDetailPopup({
   );
 }
 
-// ─── Fallback diagnosis quando não tem knowledge file ────────────────────────
-
 function whyAndHow(biomarker: Biomarker): string {
   if (biomarker.status === "optimal") {
-    return `Seu ${biomarker.name} em ${biomarker.value} ${biomarker.unit} está em faixa ótima. Mantenha o que está fazendo — sono adequado, exercício regular e dieta equilibrada.`;
+    return `Seu ${biomarker.name} em ${formatNumber(biomarker.value)} ${biomarker.unit} está em faixa ótima. Mantenha o que está fazendo — sono adequado, exercício regular e dieta equilibrada.`;
   }
   if (biomarker.status === "normal") {
-    return `Seu ${biomarker.name} em ${biomarker.value} ${biomarker.unit} está dentro do normal mas fora da faixa ótima (${biomarker.referenceLabel}). Há espaço pra otimizar com mudanças de estilo de vida + suplementação específica.`;
+    return `Seu ${biomarker.name} em ${formatNumber(biomarker.value)} ${biomarker.unit} está dentro do normal mas fora da faixa ótima (${biomarker.referenceLabel}). Há espaço pra otimizar com mudanças de estilo de vida + suplementação específica.`;
   }
-  return `Seu ${biomarker.name} em ${biomarker.value} ${biomarker.unit} está fora da faixa de referência (${biomarker.referenceLabel}). Recomendamos intervenção prioritária — converse com sua equipe médica.`;
+  return `Seu ${biomarker.name} em ${formatNumber(biomarker.value)} ${biomarker.unit} está fora da faixa de referência (${biomarker.referenceLabel}). Recomendamos intervenção prioritária — converse com sua equipe médica.`;
 }
 
 function defaultSteps(biomarker: Biomarker): string[] {

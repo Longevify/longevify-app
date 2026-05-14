@@ -13,14 +13,19 @@ import type { Biomarker, BiomarkerStatus } from "@/lib/mock-data";
 import { formatDatePtBR } from "@/lib/utils";
 import { useMeasuredSize } from "@/lib/use-measured-size";
 
-// ─── Cores ────────────────────────────────────────────────────────────────────
-// Linha em verde brand, mesmo tom da identidade Longevify. Faixas de fundo
-// agora MUITO sutis (5–8% opacity) pra não competirem com a linha.
+// ─── Cores ───────────────────────────────────────────────────────────────────
+//
+// Linha + área coloridas pela ZONA DO ÚLTIMO PONTO. Antes a linha era
+// brand-700 fixed independente do status — confundia visualmente porque o
+// gradiente verde sob a linha podia atravessar a faixa amarela (Normal) e
+// dar impressão errada de "está em faixa ótima".
+//
+// Lucas (2026-05): "a cor da linha deveria ser a cor do último dado".
 
-const ZONE_COLOR: Record<BiomarkerStatus, string> = {
-  optimal: "#0E7B45", // brand-700 sólido
-  normal: "#D8A227", // amber escuro
-  out: "#D74545", // vermelho deep
+const ZONE_HEX: Record<BiomarkerStatus, string> = {
+  optimal: "#0E7B45",
+  normal: "#D8A227",
+  out: "#D74545",
 };
 
 const ZONE_LABEL: Record<BiomarkerStatus, string> = {
@@ -29,14 +34,11 @@ const ZONE_LABEL: Record<BiomarkerStatus, string> = {
   out: "Fora",
 };
 
-const LINE_COLOR = "#1f5d3f"; // brand-700 — combina com identidade
-
 interface BiomarkerBigChartProps {
   biomarker: Biomarker;
   height?: number;
 }
 
-/** Classifica um valor escalar na zona correta dado optimalRange e normalRange. */
 function classifyZone(
   value: number,
   optimalRange?: [number, number],
@@ -53,6 +55,14 @@ function classifyZone(
   return "out";
 }
 
+/**
+ * Formata número pra no máximo 2 casas decimais (sem trailing zeros).
+ * Garante que ticks Y do Recharts não fiquem "5.0000001" por float error.
+ */
+function formatNumber(n: number): string {
+  return (+n.toFixed(2)).toString();
+}
+
 export function BiomarkerBigChart({
   biomarker,
   height = 320,
@@ -65,19 +75,42 @@ export function BiomarkerBigChart({
     value: p.value,
   }));
 
+  // Empty state quando só temos 1 ou 0 pontos — não dá pra traçar curva
+  if (data.length < 2) {
+    return (
+      <div
+        className="flex w-full flex-col items-center justify-center rounded-2xl bg-zinc-50 px-6 py-12 text-center"
+        style={{ height }}
+      >
+        <div className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+          Histórico
+        </div>
+        <div className="mt-2 text-[42px] font-semibold tabular-nums text-zinc-900">
+          {data.length === 1 ? formatNumber(data[0].value) : "—"}
+          {data.length === 1 && (
+            <span className="ml-2 text-[16px] font-normal text-zinc-500">
+              {biomarker.unit}
+            </span>
+          )}
+        </div>
+        <p className="mt-2 max-w-sm text-[13px] leading-relaxed text-zinc-500">
+          {data.length === 1
+            ? "Só temos 1 medição até agora. Quando você fizer um próximo exame, a evolução aparece aqui."
+            : "Sem histórico ainda. Faça seu primeiro painel pra começar a acompanhar."}
+        </p>
+      </div>
+    );
+  }
+
   const values = data.map((d) => d.value);
   const optMin = biomarker.optimalRange?.[0];
   const optMax = biomarker.optimalRange?.[1];
   const normMin = biomarker.normalRange?.[0];
   const normMax = biomarker.normalRange?.[1];
 
-  const yCandidates = [
-    ...values,
-    optMin,
-    optMax,
-    normMin,
-    normMax,
-  ].filter((v): v is number => typeof v === "number");
+  const yCandidates = [...values, optMin, optMax, normMin, normMax].filter(
+    (v): v is number => typeof v === "number",
+  );
 
   const rawMin = Math.min(...yCandidates);
   const rawMax = Math.max(...yCandidates);
@@ -96,7 +129,6 @@ export function BiomarkerBigChart({
     hasNormal ? (normMin as number) : null,
     hasOptimal ? (optMin as number) : null,
   ].filter((v): v is number => v !== null);
-
   const allMaxes = [
     hasNormal ? (normMax as number) : null,
     hasOptimal ? (optMax as number) : null,
@@ -105,15 +137,16 @@ export function BiomarkerBigChart({
   const lowerOuterEdge = allMins.length > 0 ? Math.min(...allMins) : undefined;
   const upperOuterEdge = allMaxes.length > 0 ? Math.max(...allMaxes) : undefined;
 
-  // Zona do último ponto — usado no ReferenceDot final
-  const lastZone = lastPoint
-    ? classifyZone(lastPoint.value, biomarker.optimalRange, biomarker.normalRange)
-    : "out";
-  const lastZoneColor = ZONE_COLOR[lastZone];
+  // Zona do último ponto define cor da linha + área + dot
+  const lastZone = classifyZone(
+    lastPoint.value,
+    biomarker.optimalRange,
+    biomarker.normalRange,
+  );
+  const lineColor = ZONE_HEX[lastZone];
 
   return (
     <div className="w-full">
-      {/* Legenda — bolinhas pequenas e cores sutis */}
       <div className="mb-4 flex flex-wrap items-center gap-4 text-[11px] text-muted">
         <span className="inline-flex items-center gap-1.5">
           <span className="inline-block h-2 w-2 rounded-full bg-[#0E7B45]" />
@@ -138,18 +171,15 @@ export function BiomarkerBigChart({
             margin={{ top: 16, right: 28, bottom: 4, left: 4 }}
           >
             <defs>
-              {/* Gradiente da área — fade vertical sutil */}
               <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={LINE_COLOR} stopOpacity={0.18} />
-                <stop offset="80%" stopColor={LINE_COLOR} stopOpacity={0.02} />
-                <stop offset="100%" stopColor={LINE_COLOR} stopOpacity={0} />
+                <stop offset="0%" stopColor={lineColor} stopOpacity={0.18} />
+                <stop offset="80%" stopColor={lineColor} stopOpacity={0.02} />
+                <stop offset="100%" stopColor={lineColor} stopOpacity={0} />
               </linearGradient>
-
-              {/* Glow sutil no last point */}
               <radialGradient id={glowId}>
-                <stop offset="0%" stopColor={lastZoneColor} stopOpacity={0.5} />
-                <stop offset="60%" stopColor={lastZoneColor} stopOpacity={0.15} />
-                <stop offset="100%" stopColor={lastZoneColor} stopOpacity={0} />
+                <stop offset="0%" stopColor={lineColor} stopOpacity={0.5} />
+                <stop offset="60%" stopColor={lineColor} stopOpacity={0.15} />
+                <stop offset="100%" stopColor={lineColor} stopOpacity={0} />
               </radialGradient>
             </defs>
 
@@ -170,13 +200,13 @@ export function BiomarkerBigChart({
             <YAxis
               domain={[yMin, yMax]}
               tick={{ fill: "#9ca3af", fontSize: 11, fontWeight: 500 }}
+              tickFormatter={formatNumber}
               axisLine={false}
               tickLine={false}
-              width={36}
+              width={42}
               tickCount={4}
             />
 
-            {/* Fora (vermelho) — fundo super sutil */}
             {typeof lowerOuterEdge === "number" ? (
               <ReferenceArea
                 y1={yMin}
@@ -197,8 +227,6 @@ export function BiomarkerBigChart({
                 ifOverflow="extendDomain"
               />
             ) : null}
-
-            {/* Normal (amarelo) */}
             {hasNormal ? (
               <ReferenceArea
                 y1={normMin}
@@ -209,8 +237,6 @@ export function BiomarkerBigChart({
                 ifOverflow="extendDomain"
               />
             ) : null}
-
-            {/* Ótima (verde) */}
             {hasOptimal ? (
               <ReferenceArea
                 y1={optMin}
@@ -224,7 +250,7 @@ export function BiomarkerBigChart({
 
             <Tooltip
               cursor={{
-                stroke: LINE_COLOR,
+                stroke: lineColor,
                 strokeDasharray: "2 4",
                 strokeOpacity: 0.4,
               }}
@@ -236,7 +262,7 @@ export function BiomarkerBigChart({
                   biomarker.optimalRange,
                   biomarker.normalRange,
                 );
-                const zoneColor = ZONE_COLOR[zone];
+                const zoneColor = ZONE_HEX[zone];
                 const zoneLabel = ZONE_LABEL[zone];
                 return (
                   <div className="rounded-xl border border-zinc-200 bg-white px-3 py-2 shadow-lg">
@@ -244,7 +270,7 @@ export function BiomarkerBigChart({
                       {formatDatePtBR(p.date)}
                     </div>
                     <div className="mt-0.5 text-[15px] font-semibold tabular-nums text-zinc-900">
-                      {p.value}
+                      {formatNumber(p.value)}
                       <span className="ml-1 text-[11px] font-normal text-zinc-400">
                         {biomarker.unit}
                       </span>
@@ -264,18 +290,17 @@ export function BiomarkerBigChart({
               }}
             />
 
-            {/* Linha verde brand, smooth, sem dots regulares */}
             <Area
               type="monotone"
               dataKey="value"
-              stroke={LINE_COLOR}
+              stroke={lineColor}
               strokeWidth={2}
               fill={`url(#${gradientId})`}
               dot={false}
               activeDot={{
                 r: 5,
                 fill: "#fff",
-                stroke: LINE_COLOR,
+                stroke: lineColor,
                 strokeWidth: 2.5,
               }}
               isAnimationActive={true}
@@ -283,30 +308,23 @@ export function BiomarkerBigChart({
               animationEasing="ease-out"
             />
 
-            {/* Glow halo no last point */}
-            {lastPoint ? (
-              <ReferenceDot
-                x={lastPoint.date}
-                y={lastPoint.value}
-                r={18}
-                fill={`url(#${glowId})`}
-                stroke="none"
-                ifOverflow="extendDomain"
-              />
-            ) : null}
-
-            {/* Last point — círculo grande colorido pela zona, branco ao redor */}
-            {lastPoint ? (
-              <ReferenceDot
-                x={lastPoint.date}
-                y={lastPoint.value}
-                r={5.5}
-                fill={lastZoneColor}
-                stroke="#fff"
-                strokeWidth={3}
-                ifOverflow="extendDomain"
-              />
-            ) : null}
+            <ReferenceDot
+              x={lastPoint.date}
+              y={lastPoint.value}
+              r={18}
+              fill={`url(#${glowId})`}
+              stroke="none"
+              ifOverflow="extendDomain"
+            />
+            <ReferenceDot
+              x={lastPoint.date}
+              y={lastPoint.value}
+              r={5.5}
+              fill={lineColor}
+              stroke="#fff"
+              strokeWidth={3}
+              ifOverflow="extendDomain"
+            />
           </AreaChart>
         ) : null}
       </div>
