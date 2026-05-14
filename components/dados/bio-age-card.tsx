@@ -3,13 +3,13 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { BioAgeDetailPopup } from "@/components/dados/bioage-detail-popup";
-import type { BiologicalAgePoint, OrganBioAge } from "@/lib/mock-data";
+import type { BioAgePoint, OrganBioAge } from "@/lib/mock-data";
 
 interface BioAgeCardProps {
   biologicalAge: number;
   chronologicalAge: number;
-  biologicalAgeHistory?: BiologicalAgePoint[];
-  organBioAges?: OrganBioAge[];
+  biologicalAgeHistory: BioAgePoint[];
+  organBioAges: OrganBioAge[];
   className?: string;
 }
 
@@ -43,17 +43,12 @@ export function BioAgeCard({
         role="button"
         tabIndex={0}
         onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            setOpen(true);
-          }
+          if (e.key === "Enter" || e.key === " ") setOpen(true);
         }}
-        aria-label="Ver detalhes da Idade Biológica"
         className={cn(
           "rounded-[20px] border border-border bg-surface p-6",
           "shadow-[0_1px_2px_rgba(13,40,24,.04)]",
-          "cursor-pointer select-none",
-          "transition-transform hover:scale-[1.015] active:scale-[0.99]",
+          "cursor-pointer transition hover:shadow-md",
           className,
         )}
       >
@@ -83,20 +78,15 @@ export function BioAgeCard({
             />
           </div>
         </div>
-
-        {/* Hint */}
-        <div className="mt-3 text-right text-[10px] text-muted font-medium">
-          Toque para detalhar
-        </div>
       </article>
 
       <BioAgeDetailPopup
         open={open}
         onClose={() => setOpen(false)}
-        bioAge={biologicalAge}
+        biologicalAge={biologicalAge}
         chronologicalAge={chronologicalAge}
-        history={biologicalAgeHistory ?? []}
-        organAges={organBioAges ?? []}
+        biologicalAgeHistory={biologicalAgeHistory}
+        organBioAges={organBioAges}
       />
     </>
   );
