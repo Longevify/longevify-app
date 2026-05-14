@@ -218,51 +218,10 @@ function HumanModel({
       }
     });
 
-    // 1a) "Tuck arms" — modelo HuBMAP vem em pose T (braços extensos).
-    //     Rotacionar vertices laterais em torno do pivô do ombro pra
-    //     trazer braços mais próximo do tronco. Coords em espaço original
-    //     do GLB (antes de scale/translate do auto-fit).
-    //
-    //     Pivôs (calibrados pra VH_M/F_Skin — bbox Y de ~-0.9 a +0.9):
-    //       shoulderY ≈ 0.48 (logo abaixo do topo cabeça/pescoço)
-    //       shoulderX ≈ ±0.16 (ombro lateral, depois disso é braço)
-    //     Ângulo: ~28° pra dentro pra cada lado. Aplica decay vertical
-    //     suave pra não deformar abruptamente a junta do ombro.
-    const SHOULDER_Y = 0.48;
-    const SHOULDER_X_ABS = 0.16;
-    const TUCK_ANGLE = -0.5; // ~28° pro braço do paciente esquerdo (x>0)
-    clone.traverse((obj) => {
-      if (!(obj instanceof THREE.Mesh)) return;
-      const pos = obj.geometry.attributes.position;
-      if (!pos) return;
-      for (let i = 0; i < pos.count; i++) {
-        const x = pos.getX(i);
-        const y = pos.getY(i);
-        // Só vertices laterais (braço extendido)
-        if (Math.abs(x) <= SHOULDER_X_ABS) continue;
-        // Limita região vertical do braço (acima do quadril, abaixo cabeça)
-        if (y > SHOULDER_Y + 0.18 || y < -0.4) continue;
-        const isLeft = x > 0; // do paciente
-        const pivotX = isLeft ? SHOULDER_X_ABS : -SHOULDER_X_ABS;
-        const dx = x - pivotX;
-        const dy = y - SHOULDER_Y;
-        // Angle decay: vertices mais perto do ombro rotacionam menos
-        const reach = Math.abs(dx); // distância horizontal do pivô
-        const t = Math.min(1, reach / 0.32); // 0..1 (transição até ~ponta mão)
-        const angle = (isLeft ? TUCK_ANGLE : -TUCK_ANGLE) * t;
-        const c = Math.cos(angle);
-        const s = Math.sin(angle);
-        pos.setX(i, dx * c - dy * s + pivotX);
-        pos.setY(i, dx * s + dy * c + SHOULDER_Y);
-      }
-      pos.needsUpdate = true;
-      // Recalcula normais pra lighting ficar correto após deformação
-      obj.geometry.computeVertexNormals();
-      obj.geometry.computeBoundingBox();
-      obj.geometry.computeBoundingSphere();
-    });
+    // (sem mesh-rotate dos braços — distorcia o mesh. Aguardando modelo
+    //  CC-licensed que JÁ venha em A-pose natural pra trocar.)
 
-    // 1b) Auto-fit: bbox final → scale → reposition pés em Y=0
+    // Auto-fit: bbox final → scale → reposition pés em Y=0
     const TARGET_HEIGHT = 2.0; // antes 1.7 — avatar maior
     const box = new THREE.Box3().setFromObject(clone);
     const size = new THREE.Vector3();
