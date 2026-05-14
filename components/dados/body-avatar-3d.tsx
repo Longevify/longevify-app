@@ -9,7 +9,6 @@ import {
   ContactShadows,
 } from "@react-three/drei";
 import * as THREE from "three";
-import { SkeletonUtils } from "three-stdlib";
 import type { PatientSex } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { OrganOverlay, isOrganRegion, type OrganRegion } from "./organ-overlay";
@@ -24,7 +23,7 @@ export type BodyRegion =
   | "abdomen-low"
   | "arms"
   | "legs"
-  // Órgãos individuais — pintam a região externa do corpo correspondente
+  // Órgãos individuais — disparam OrganOverlay com GLB anatômico real
   | "heart"
   | "brain"
   | "liver"
@@ -32,7 +31,7 @@ export type BodyRegion =
   | "lungs"
   | "intestine"
   | "pancreas"
-  | "body"; // destacar tudo
+  | "body";
 
 export const CATEGORY_TO_REGION: Record<string, BodyRegion | null> = {
   all: null,
@@ -45,7 +44,6 @@ export const CATEGORY_TO_REGION: Record<string, BodyRegion | null> = {
   nutrients: "abdomen-mid",
   hepatic: "abdomen-upper",
   "heavy-metals": "body",
-  // Categorias por órgão → região do órgão correspondente
   heart: "heart",
   brain: "brain",
   liver: "liver",
@@ -55,64 +53,55 @@ export const CATEGORY_TO_REGION: Record<string, BodyRegion | null> = {
   pancreas: "pancreas",
 };
 
-// Mapping região → bones (sufixo do nome). Mixamo usa prefix "mixamorig:"
-// mas alguns rigs vêm sem o prefix. Por isso casamos por endsWith.
-const REGION_TO_BONE_SUFFIXES: Record<Exclude<BodyRegion, "body">, string[]> = {
-  head: ["Head", "HeadTop_End"],
-  neck: ["Neck"],
-  chest: ["Spine1", "Spine2", "LeftShoulder", "RightShoulder"],
-  "abdomen-upper": ["Spine", "Spine1"],
-  "abdomen-mid": ["Spine"],
-  "abdomen-low": ["Hips"],
-  arms: [
-    "LeftArm",
-    "LeftForeArm",
-    "LeftHand",
-    "RightArm",
-    "RightForeArm",
-    "RightHand",
-  ],
-  legs: [
-    "LeftUpLeg",
-    "LeftLeg",
-    "LeftFoot",
-    "LeftToeBase",
-    "RightUpLeg",
-    "RightLeg",
-    "RightFoot",
-    "RightToeBase",
-  ],
-  // Órgãos — bones que cobrem a região externa do órgão. Como o Xbot não tem
-  // mesh de órgão, pintamos a área da pele que fica sobre o órgão.
-  heart: ["Spine1", "Spine2"], // peito centro-esquerdo
-  brain: ["Head", "HeadTop_End"], // crânio inteiro
-  liver: ["Spine1", "Spine"], // abdômen superior direito
-  kidneys: ["Spine", "Hips"], // lombar
-  lungs: ["Spine1", "Spine2", "LeftShoulder", "RightShoulder"], // peito amplo
-  intestine: ["Spine", "Hips"], // abdômen baixo
-  pancreas: ["Spine1", "Spine"], // abdômen central
+// ─── Mapping região → faixa vertical Y (coords do modelo VH_*_Skin) ─────────
+// O modelo HuBMAP Visible Human é estático (sem skin weights), então a
+// segmentação por região é feita por POSIÇÃO Y do vertex em vez de bones.
+// Y=0 nos pés, Y≈1.75 no topo da cabeça (manequim ~1.75m altura).
+// Cada região é definida por [yMin, yMax]; alguns precisam de filtro X
+// adicional (ex: arms = lateral, |x| > 0.18).
+interface RegionBounds {
+  yMin: number;
+  yMax: number;
+  /** filtro lateral opcional: requer abs(x) > xMinAbs OU < xMaxAbs */
+  xMinAbs?: number;
+  xMaxAbs?: number;
+}
+const REGION_BOUNDS: Record<Exclude<BodyRegion, "body">, RegionBounds> = {
+  head: { yMin: 1.55, yMax: 1.85 },
+  neck: { yMin: 1.42, yMax: 1.55 },
+  chest: { yMin: 1.18, yMax: 1.42, xMaxAbs: 0.22 },
+  "abdomen-upper": { yMin: 1.05, yMax: 1.18, xMaxAbs: 0.2 },
+  "abdomen-mid": { yMin: 0.92, yMax: 1.05, xMaxAbs: 0.2 },
+  "abdomen-low": { yMin: 0.78, yMax: 0.92, xMaxAbs: 0.22 },
+  arms: { yMin: 0.65, yMax: 1.55, xMinAbs: 0.18 },
+  legs: { yMin: 0, yMax: 0.78 },
+  // órgãos individuais — esses não usam vertex color (têm OrganOverlay).
+  // Mantemos entries pra type completar, mas com bounds que não casam ninguém.
+  heart: { yMin: 1.28, yMax: 1.42, xMaxAbs: 0.18 },
+  brain: { yMin: 1.6, yMax: 1.78, xMaxAbs: 0.12 },
+  liver: { yMin: 1.08, yMax: 1.2, xMaxAbs: 0.2 },
+  kidneys: { yMin: 0.95, yMax: 1.1 },
+  lungs: { yMin: 1.18, yMax: 1.42 },
+  intestine: { yMin: 0.85, yMax: 1.0, xMaxAbs: 0.2 },
+  pancreas: { yMin: 1.0, yMax: 1.12, xMaxAbs: 0.18 },
 };
 
-// Modelos GLB humanoides do repo three.js (MIT).
-//  - male:   ReadyPlayer.glb (avatar humano com face, cabelo, pele PBR — ~1.8MB).
-//            Substituiu Xbot.glb (manequim sem face) em May/26.
-//  - female: Michelle.glb (figura feminina realista — ~3.1MB).
+// Modelo HuBMAP CCF Visible Human Skin — atlas anatômico clínico real
+// (NLM Visible Human Project), CC-BY 4.0.
+//  - VH_M_Skin.glb v1.2: 5.7MB, mesh masculino estático
+//  - VH_F_Skin.glb v1.1: 3.2MB, mesh feminino estático
 const MODEL_PATHS: Record<PatientSex, string> = {
-  male: "/avatars/ReadyPlayer.glb",
-  female: "/avatars/Michelle.glb",
+  male: "/avatars/VH_M_Skin.glb",
+  female: "/avatars/VH_F_Skin.glb",
 };
 
-const BASE_COLOR = new THREE.Color("#eef0f0"); // off-white porcelana
-// Cor de destaque padrão (verde brand-700) — usada se nenhuma activeColor
-// for fornecida via prop. Quando o paciente tem dados naquela categoria,
-// dados-view passa a cor real baseada no grade (A=verde, B=amarelo, C=laranja, D=vermelho).
+const BASE_COLOR = new THREE.Color("#e8ecef"); // off-white clínico
 const DEFAULT_ACTIVE_COLOR = "#1f5d3f";
 
 interface BodyAvatar3DProps {
   sex: PatientSex;
   activeCategoryId?: string;
-  /** Cor de destaque em hex. Default brand-700.
-   *  Calculada externamente baseada no grade (A=verde, B=amarelo, etc.) */
+  /** Cor de destaque em hex. Default brand-700. */
   activeColor?: string;
   className?: string;
 }
@@ -130,16 +119,15 @@ export function BodyAvatar3D({
   return (
     <div className={cn("relative aspect-[2/3] w-full", className)}>
       <Canvas
-        camera={{ position: [0, 0.85, 4.6], fov: 32 }}
+        camera={{ position: [0, 0.85, 3.6], fov: 32 }}
         gl={{ alpha: true, antialias: true, preserveDrawingBuffer: true }}
         dpr={[1, 2]}
         style={{ background: "transparent" }}
       >
-        {/* 3-point lighting */}
         <directionalLight position={[2.5, 4.5, 3]} intensity={1.0} />
         <directionalLight position={[-2.5, 2.5, 2]} intensity={0.4} />
         <directionalLight position={[0, 1.5, -3]} intensity={0.6} />
-        <ambientLight intensity={0.2} />
+        <ambientLight intensity={0.25} />
 
         <Environment preset="studio" environmentIntensity={0.35} />
 
@@ -149,8 +137,6 @@ export function BodyAvatar3D({
             activeRegion={activeRegion}
             activeColor={activeColor}
           />
-          {/* Quando uma categoria de órgão está ativa, mostra o GLB anatômico
-              real (HuBMAP) dentro do corpo do avatar — que fica fantasma. */}
           {isOrganRegion(activeRegion) ? (
             <Suspense fallback={null}>
               <OrganOverlay
@@ -161,7 +147,7 @@ export function BodyAvatar3D({
           ) : null}
           <ContactShadows
             position={[0, -0.02, 0]}
-            opacity={0.35}
+            opacity={0.3}
             blur={2.4}
             far={1.5}
             resolution={256}
@@ -178,7 +164,7 @@ export function BodyAvatar3D({
           minPolarAngle={Math.PI / 2.6}
           maxPolarAngle={Math.PI / 1.7}
           autoRotate
-          autoRotateSpeed={0.45}
+          autoRotateSpeed={0.4}
         />
       </Canvas>
     </div>
@@ -200,7 +186,7 @@ function SkeletonFallback() {
   );
 }
 
-// ─── Modelo humano ──────────────────────────────────────────────────────────
+// ─── Modelo humano (HuBMAP Visible Human, estático) ──────────────────────────
 function HumanModel({
   sex,
   activeRegion,
@@ -213,16 +199,15 @@ function HumanModel({
   const { scene } = useGLTF(MODEL_PATHS[sex]);
   const groupRef = useRef<THREE.Group>(null);
 
-  // 1) Clona com SkeletonUtils (preserva skinning) + aplica material PBR
-  //    branco fosco + ativa vertex colors (necessário pra colorir mesh).
+  // 1) Clona + material PBR + vertex colors habilitado
   const cloned = useMemo(() => {
-    const clone = SkeletonUtils.clone(scene);
+    const clone = scene.clone(true);
     clone.traverse((obj) => {
-      if (obj instanceof THREE.Mesh || obj instanceof THREE.SkinnedMesh) {
+      if (obj instanceof THREE.Mesh) {
         obj.material = new THREE.MeshStandardMaterial({
-          color: 0xffffff, // multiplicado pelos vertex colors abaixo
-          roughness: 0.75,
-          metalness: 0.05,
+          color: 0xffffff,
+          roughness: 0.55,
+          metalness: 0.08,
           vertexColors: true,
         });
         obj.castShadow = false;
@@ -232,75 +217,46 @@ function HumanModel({
     return clone;
   }, [scene]);
 
-  // 2) A-pose — Xbot/Michelle vêm em T-pose. Rotaciona ombros + braços pra
-  //    trazer membros pra baixo num ângulo natural (≈20° do tronco).
-  useEffect(() => {
-    cloned.traverse((obj) => {
-      if (!(obj as THREE.Bone).isBone) return;
-      const name = obj.name;
-      // Z negativo no ombro esquerdo = rotaciona pra baixo (em torno do eixo Z)
-      if (name.endsWith("LeftShoulder")) {
-        obj.rotation.z = -0.18;
-      } else if (name.endsWith("LeftArm")) {
-        obj.rotation.z = -0.95;
-      } else if (name.endsWith("RightShoulder")) {
-        obj.rotation.z = 0.18;
-      } else if (name.endsWith("RightArm")) {
-        obj.rotation.z = 0.95;
-      }
-    });
-  }, [cloned]);
-
-  // 3) Vertex color highlight — recalcula a cor de cada vertex baseado nos
-  //    skin weights dos bones da região ativa. Sem shader custom, sem
-  //    overlay sphere — pinta o mesh de verdade.
-  //    A cor de destaque vem da prop activeColor (calculada externamente
-  //    baseada no grade da categoria: A=verde, B=amarelo, C=laranja, D=vermelho).
+  // 2) Vertex color highlight por posição Y do vertex (modelo é estático,
+  //    sem skin weights). Pinta região da pele que corresponde à área.
   useEffect(() => {
     const activeColorObj = new THREE.Color(activeColor);
     cloned.traverse((obj) => {
-      if (!(obj instanceof THREE.SkinnedMesh)) return;
+      if (!(obj instanceof THREE.Mesh)) return;
       const geo = obj.geometry;
-      const skinIndex = geo.attributes.skinIndex;
-      const skinWeight = geo.attributes.skinWeight;
-      if (!skinIndex || !skinWeight) return;
+      const pos = geo.attributes.position;
+      if (!pos) return;
+      const vertexCount = pos.count;
 
-      const vertexCount = skinIndex.count;
+      const bounds =
+        activeRegion && activeRegion !== "body"
+          ? REGION_BOUNDS[activeRegion as Exclude<BodyRegion, "body">]
+          : null;
 
-      // Lista de bone indices que pertencem à região ativa
-      const targetBoneSet = new Set<number>();
-      const allBoneSet = new Set<number>();
-      if (activeRegion === "body") {
-        // todos os bones
-        for (let i = 0; i < obj.skeleton.bones.length; i++) {
-          targetBoneSet.add(i);
-          allBoneSet.add(i);
-        }
-      } else if (activeRegion) {
-        const suffixes = REGION_TO_BONE_SUFFIXES[
-          activeRegion as Exclude<BodyRegion, "body">
-        ];
-        for (let i = 0; i < obj.skeleton.bones.length; i++) {
-          const boneName = obj.skeleton.bones[i].name;
-          if (suffixes.some((s) => boneName.endsWith(s))) {
-            targetBoneSet.add(i);
-          }
-        }
-      }
-
-      // Construir/atualizar atributo de cor por vertex
       const colors = new Float32Array(vertexCount * 3);
       const tmp = new THREE.Color();
+
       for (let v = 0; v < vertexCount; v++) {
-        let weightInRegion = 0;
-        for (let j = 0; j < 4; j++) {
-          const boneIdx = skinIndex.getComponent(v, j);
-          if (targetBoneSet.has(boneIdx)) {
-            weightInRegion += skinWeight.getComponent(v, j);
+        const y = pos.getY(v);
+        const x = pos.getX(v);
+
+        let t = 0;
+        if (activeRegion === "body") {
+          t = 0.55; // body all: tint mais suave
+        } else if (bounds) {
+          const inY = y >= bounds.yMin && y <= bounds.yMax;
+          let inX = true;
+          if (bounds.xMinAbs !== undefined) inX = Math.abs(x) > bounds.xMinAbs;
+          if (bounds.xMaxAbs !== undefined)
+            inX = inX && Math.abs(x) < bounds.xMaxAbs;
+          if (inY && inX) {
+            // Fade suave nas bordas verticais
+            const dY = Math.min(y - bounds.yMin, bounds.yMax - y);
+            const yFade = Math.min(1, dY / 0.04);
+            t = yFade;
           }
         }
-        // weightInRegion ∈ [0, 1] — quanto desse vertex está "na" região
-        const t = Math.min(1, weightInRegion);
+
         tmp.copy(BASE_COLOR).lerp(activeColorObj, t);
         colors[v * 3] = tmp.r;
         colors[v * 3 + 1] = tmp.g;
@@ -313,14 +269,11 @@ function HumanModel({
     });
   }, [cloned, activeRegion, activeColor]);
 
-  // 4) Fade-in + ghost mode (quando um órgão está ativo, o corpo fica
-  //    semitransparente pra deixar o órgão 3D real visível dentro dele).
+  // 3) Fade-in + ghost mode (corpo semitransparente quando órgão ativo)
   const opacityRef = useRef(0);
   const isGhost = isOrganRegion(activeRegion);
   useFrame((_, delta) => {
-    const target = isGhost ? 0.25 : 1;
-    // velocidade da transição: 1.6 na entrada (fade-in), 3.0 quando
-    // alterna ghost ↔ solid (mais responsivo ao clicar categoria).
+    const target = isGhost ? 0.22 : 1;
     const speed = opacityRef.current === 0 ? 1.6 : 3.0;
     if (opacityRef.current < target) {
       opacityRef.current = Math.min(target, opacityRef.current + delta * speed);
@@ -329,13 +282,9 @@ function HumanModel({
     }
     if (groupRef.current) {
       groupRef.current.traverse((obj) => {
-        if (
-          (obj instanceof THREE.Mesh || obj instanceof THREE.SkinnedMesh) &&
-          obj.material instanceof THREE.Material
-        ) {
+        if (obj instanceof THREE.Mesh && obj.material instanceof THREE.Material) {
           obj.material.opacity = opacityRef.current;
           obj.material.transparent = opacityRef.current < 1;
-          // depthWrite false em ghost mode pra não ocluir o órgão por trás
           (obj.material as THREE.MeshStandardMaterial).depthWrite =
             opacityRef.current >= 0.95;
         }
@@ -343,17 +292,14 @@ function HumanModel({
     }
   });
 
-  const baseScale = 1.05;
-  const scaleX = (sex === "female" ? 0.92 : 1.0) * baseScale;
-  const scaleY = (sex === "female" ? 0.95 : 1.0) * baseScale;
+  // VH_M_Skin: altura ~1.75m, escala 1:1. VH_F_Skin: similar. Pequeno
+  // ajuste pra centralizar (modelo HuBMAP tem origem no centro do corpo).
+  const baseScale = sex === "female" ? 0.96 : 1.0;
+  const yOffset = -0.05; // sutil pra encostar pés no plano de sombra
 
   return (
-    <group ref={groupRef}>
-      <primitive
-        object={cloned}
-        position={[0, 0, 0]}
-        scale={[scaleX, scaleY, scaleX]}
-      />
+    <group ref={groupRef} position={[0, yOffset, 0]} scale={baseScale}>
+      <primitive object={cloned} />
     </group>
   );
 }
