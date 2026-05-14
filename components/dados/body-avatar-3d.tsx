@@ -119,7 +119,11 @@ export function BodyAvatar3D({
   return (
     <div className={cn("relative aspect-[2/3] w-full", className)}>
       <Canvas
-        camera={{ position: [0, 0.85, 3.6], fov: 32 }}
+        // Modelo é normalizado pra altura 1.7 unidades com pés em Y=0
+        // → cabeça em ~Y=1.7. Camera mira no centro do corpo (Y=0.85)
+        // a partir de ~4.2 unidades, com fov 38° → enquadra altura ~3m,
+        // suficiente pra mostrar corpo todo com folga (pés + cabeça).
+        camera={{ position: [0, 0.85, 4.2], fov: 38 }}
         gl={{ alpha: true, antialias: true, preserveDrawingBuffer: true }}
         dpr={[1, 2]}
         style={{ background: "transparent" }}
@@ -199,7 +203,9 @@ function HumanModel({
   const { scene } = useGLTF(MODEL_PATHS[sex]);
   const groupRef = useRef<THREE.Group>(null);
 
-  // 1) Clona + material PBR + vertex colors habilitado
+  // 1) Clona + material PBR + vertex colors habilitado + AUTO-FIT
+  //    (HuBMAP tem origem no centro do torso e escala em metros do dataset;
+  //    isso calcula bbox e normaliza pra altura ~1.7 unidades com pés em Y=0).
   const cloned = useMemo(() => {
     const clone = scene.clone(true);
     clone.traverse((obj) => {
@@ -214,8 +220,23 @@ function HumanModel({
         obj.receiveShadow = false;
       }
     });
+
+    // Auto-fit: bbox → scale → reposition pés em Y=0
+    const TARGET_HEIGHT = 1.7;
+    const box = new THREE.Box3().setFromObject(clone);
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    const heightFactor =
+      TARGET_HEIGHT / Math.max(0.001, size.y) * (sex === "female" ? 0.98 : 1.0);
+    clone.scale.setScalar(heightFactor);
+    // Recalcula bbox após scale
+    box.setFromObject(clone);
+    const center = new THREE.Vector3();
+    box.getCenter(center);
+    clone.position.set(-center.x, -box.min.y, -center.z);
+
     return clone;
-  }, [scene]);
+  }, [scene, sex]);
 
   // 2) Vertex color highlight por posição Y do vertex (modelo é estático,
   //    sem skin weights). Pinta região da pele que corresponde à área.
@@ -292,13 +313,8 @@ function HumanModel({
     }
   });
 
-  // VH_M_Skin: altura ~1.75m, escala 1:1. VH_F_Skin: similar. Pequeno
-  // ajuste pra centralizar (modelo HuBMAP tem origem no centro do corpo).
-  const baseScale = sex === "female" ? 0.96 : 1.0;
-  const yOffset = -0.05; // sutil pra encostar pés no plano de sombra
-
   return (
-    <group ref={groupRef} position={[0, yOffset, 0]} scale={baseScale}>
+    <group ref={groupRef}>
       <primitive object={cloned} />
     </group>
   );
