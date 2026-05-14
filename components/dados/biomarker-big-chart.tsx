@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Area,
   AreaChart,
   CartesianGrid,
   ReferenceArea,
@@ -9,27 +8,72 @@ import {
   Tooltip,
   XAxis,
   YAxis,
+  Area,
 } from "recharts";
 import type { Biomarker, BiomarkerStatus } from "@/lib/mock-data";
 import { formatDatePtBR } from "@/lib/utils";
 import { useMeasuredSize } from "@/lib/use-measured-size";
 
-const STROKE: Record<BiomarkerStatus, string> = {
+const ZONE_COLOR: Record<BiomarkerStatus, string> = {
   optimal: "#10b981",
   normal: "#e6b845",
   out: "#e85d5d",
 };
+
+const ZONE_LABEL: Record<BiomarkerStatus, string> = {
+  optimal: "Ótimo",
+  normal: "Normal",
+  out: "Fora",
+};
+
+const LINE_COLOR = "#2d4a38"; // neutral dark-green — readable on all bg zones
 
 interface BiomarkerBigChartProps {
   biomarker: Biomarker;
   height?: number;
 }
 
+/** Classifica um valor escalar na zona correta dado optimalRange e normalRange. */
+function classifyZone(
+  value: number,
+  optimalRange?: [number, number],
+  normalRange?: [number, number],
+): BiomarkerStatus {
+  if (optimalRange) {
+    const [lo, hi] = optimalRange;
+    if (value >= lo && value <= hi) return "optimal";
+  }
+  if (normalRange) {
+    const [lo, hi] = normalRange;
+    if (value >= lo && value <= hi) return "normal";
+  }
+  return "out";
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function CustomDot(props: any) {
+  const { cx, cy, payload, optimalRange, normalRange } = props;
+  if (cx == null || cy == null) return null;
+  const zone = classifyZone(payload.value, optimalRange, normalRange);
+  const fill = ZONE_COLOR[zone];
+  return <circle cx={cx} cy={cy} r={3.5} fill={fill} stroke="none" />;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function CustomActiveDot(props: any) {
+  const { cx, cy, payload, optimalRange, normalRange } = props;
+  if (cx == null || cy == null) return null;
+  const zone = classifyZone(payload.value, optimalRange, normalRange);
+  const fill = ZONE_COLOR[zone];
+  return (
+    <circle cx={cx} cy={cy} r={5} fill={fill} stroke="#fff" strokeWidth={2} />
+  );
+}
+
 export function BiomarkerBigChart({
   biomarker,
   height = 320,
 }: BiomarkerBigChartProps) {
-  const color = STROKE[biomarker.status];
   const gradientId = `bio-big-${biomarker.id}`;
 
   const data = biomarker.history.map((p) => ({
@@ -53,9 +97,6 @@ export function BiomarkerBigChart({
 
   const rawMin = Math.min(...yCandidates);
   const rawMax = Math.max(...yCandidates);
-  // Padding mais generoso pra dar espaço visual à zona "Fora" — sem isso a
-  // faixa vermelha fica imperceptível quando o paciente está sempre dentro
-  // das ranges normais/ótimas.
   const span = rawMax - rawMin;
   const pad = Math.max(span * 0.25, rawMax * 0.08, 1);
   const yMin = Math.max(0, rawMin - pad);
@@ -64,23 +105,6 @@ export function BiomarkerBigChart({
   const lastPoint = data[data.length - 1];
   const { ref, width } = useMeasuredSize<HTMLDivElement>();
 
-  // Resolve a borda externa de cada lado pra zona "Fora".
-  // A faixa vermelha deve cobrir tudo ABAIXO do menor limite válido e tudo
-  // ACIMA do maior limite válido. Isso funciona para qualquer topologia:
-  //
-  //  - LDL:        optimalRange=[0,100],  normalRange=[100,130]
-  //                → lower=0, upper=130  (vermelho apenas >130)
-  //
-  //  - Vitamina D: optimalRange=[50,80], normalRange=[30,50]
-  //                → lower=30, upper=80  (vermelho <30 e >80)
-  //
-  //  - TSH:        optimalRange=[0.5,2], normalRange=[0.4,4]
-  //                → lower=0.4, upper=4  (vermelho <0.4 e >4)
-  //
-  // A lógica anterior usava normMin/normMax diretamente, o que pintava
-  // vermelho sobre a zona ótima quando optimalRange ficava fora do
-  // normalRange (ex: Vitamina D gerava upperOuterEdge=50, cobrindo
-  // a zona ótima 50-80 inteira de vermelho).
   const hasNormal = typeof normMin === "number" && typeof normMax === "number";
   const hasOptimal = typeof optMin === "number" && typeof optMax === "number";
 
@@ -97,11 +121,14 @@ export function BiomarkerBigChart({
   const lowerOuterEdge = allMins.length > 0 ? Math.min(...allMins) : undefined;
   const upperOuterEdge = allMaxes.length > 0 ? Math.max(...allMaxes) : undefined;
 
+  // Zona do último ponto — usado no ReferenceDot final
+  const lastZone = lastPoint
+    ? classifyZone(lastPoint.value, biomarker.optimalRange, biomarker.normalRange)
+    : "out";
+
   return (
     <div className="w-full">
-      {/* Legenda — SEMPRE acima do gráfico, com os 3 dots fixos. Mesmo
-          quando o biomarcador não tem normalRange, mostramos o dot Normal
-          pra padronizar visual entre todos os marcadores. */}
+      {/* Legenda */}
       <div className="mb-3 flex flex-wrap gap-3 text-[11px] text-muted">
         <span className="inline-flex items-center gap-1.5">
           <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#10b981]" />
@@ -126,9 +153,10 @@ export function BiomarkerBigChart({
             margin={{ top: 12, right: 24, bottom: 8, left: 8 }}
           >
             <defs>
+              {/* Gradiente neutro — a linha é cinza-escuro, o fill fica sutil */}
               <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={color} stopOpacity={0.3} />
-                <stop offset="100%" stopColor={color} stopOpacity={0} />
+                <stop offset="0%" stopColor={LINE_COLOR} stopOpacity={0.12} />
+                <stop offset="100%" stopColor={LINE_COLOR} stopOpacity={0} />
               </linearGradient>
             </defs>
 
@@ -159,11 +187,7 @@ export function BiomarkerBigChart({
               width={44}
             />
 
-            {/* Fora (vermelho) — desenhada primeiro, fica no fundo. Cobre
-                [yMin, lowerEdge] e [upperEdge, yMax]. Quando não há
-                normalRange, edge = optimalRange (sem zona normal
-                intermediária). Sempre renderiza ambos os lados quando
-                qualquer edge existe — garante 3 zonas visuais. */}
+            {/* Fora (vermelho) — fundo */}
             {typeof lowerOuterEdge === "number" ? (
               <ReferenceArea
                 y1={yMin}
@@ -185,7 +209,7 @@ export function BiomarkerBigChart({
               />
             ) : null}
 
-            {/* Normal (amarelo) — desenhada por cima da fora, antes da ótima */}
+            {/* Normal (amarelo) */}
             {hasNormal ? (
               <ReferenceArea
                 y1={normMin}
@@ -197,7 +221,7 @@ export function BiomarkerBigChart({
               />
             ) : null}
 
-            {/* Ótima (verde) — sempre por cima */}
+            {/* Ótima (verde) */}
             {hasOptimal ? (
               <ReferenceArea
                 y1={optMin}
@@ -214,6 +238,13 @@ export function BiomarkerBigChart({
               content={({ active, payload }) => {
                 if (!active || !payload || !payload.length) return null;
                 const p = payload[0].payload as { date: string; value: number };
+                const zone = classifyZone(
+                  p.value,
+                  biomarker.optimalRange,
+                  biomarker.normalRange,
+                );
+                const zoneColor = ZONE_COLOR[zone];
+                const zoneLabel = ZONE_LABEL[zone];
                 return (
                   <div className="rounded-lg border border-border bg-surface px-3 py-2 shadow-md">
                     <div className="text-[11px] text-muted">
@@ -225,29 +256,49 @@ export function BiomarkerBigChart({
                         {biomarker.unit}
                       </span>
                     </div>
+                    <div
+                      className="mt-1 text-[11px] font-medium"
+                      style={{ color: zoneColor }}
+                    >
+                      {zoneLabel}
+                    </div>
                   </div>
                 );
               }}
             />
 
+            {/* Linha neutra — cor fixa, pontos coloridos por zona */}
             <Area
               type="monotone"
               dataKey="value"
-              stroke={color}
+              stroke={LINE_COLOR}
               strokeWidth={2.25}
               fill={`url(#${gradientId})`}
-              dot={{ r: 3, fill: color, strokeWidth: 0 }}
-              activeDot={{ r: 5, stroke: "#fff", strokeWidth: 2, fill: color }}
+              dot={(props) => (
+                <CustomDot
+                  {...props}
+                  optimalRange={biomarker.optimalRange}
+                  normalRange={biomarker.normalRange}
+                />
+              )}
+              activeDot={(props) => (
+                <CustomActiveDot
+                  {...props}
+                  optimalRange={biomarker.optimalRange}
+                  normalRange={biomarker.normalRange}
+                />
+              )}
               isAnimationActive={true}
               animationDuration={600}
             />
 
+            {/* Ponto final destacado — colorido pela zona real do último valor */}
             {lastPoint ? (
               <ReferenceDot
                 x={lastPoint.date}
                 y={lastPoint.value}
                 r={6}
-                fill={color}
+                fill={ZONE_COLOR[lastZone]}
                 stroke="#fff"
                 strokeWidth={2.5}
                 ifOverflow="extendDomain"
