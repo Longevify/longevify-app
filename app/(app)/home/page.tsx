@@ -13,6 +13,7 @@ import { ScoreCard } from "@/components/dados/score-card";
 import { BioAgeCard } from "@/components/dados/bio-age-card";
 import { RecommendationsSection } from "@/components/loja/recommendations-section";
 import { GoalsSummary } from "@/components/wearables/goals-summary";
+import { PostExamStories } from "@/components/onboarding/post-exam-stories";
 import { BIOMARKERS, PATIENT, biomarkersStats } from "@/lib/mock-data";
 import { getRecommendedProducts } from "@/lib/product-recommender";
 import { formatDatePtBR } from "@/lib/utils";
@@ -33,6 +34,10 @@ export default async function HomePage() {
 
   return (
     <div className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6 sm:py-10">
+      {/* Apresentação Stories pós-exame — só na primeira visita (gerencia
+          via localStorage). Inspirado nos stories do Superpower app. */}
+      <PostExamStories patient={PATIENT} />
+
       <header className="flex flex-col gap-1 pb-6 sm:pb-8">
         <span className="text-[13px] text-muted">Olá, {user.firstName}</span>
         <h1 className="text-[28px] leading-[1.1] font-semibold tracking-tight sm:text-[40px] sm:leading-[1.05]">

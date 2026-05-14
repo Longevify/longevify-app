@@ -86,26 +86,30 @@ export function BioAgeCard({
           </div>
         </div>
 
-        <div className="relative mt-6">
-          <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-zinc-100">
+        <div className="relative mt-7 pb-2">
+          <div className="relative h-1.5 w-full">
+            <div className="absolute inset-0 overflow-hidden rounded-full bg-zinc-100">
+              <div
+                className="absolute inset-y-0 left-0 rounded-full"
+                style={{
+                  width: "100%",
+                  background:
+                    "linear-gradient(90deg, #10B981 0%, #79C98E 40%, #E6B845 70%, #E85D5D 100%)",
+                }}
+              />
+            </div>
+            {/* Marker da idade cronológica (linha vertical sutil) */}
             <div
-              className="absolute inset-y-0 left-0 rounded-full"
-              style={{
-                width: "100%",
-                background:
-                  "linear-gradient(90deg, #10B981 0%, #79C98E 40%, #E6B845 70%, #E85D5D 100%)",
-              }}
-            />
-            <div
-              className="absolute -top-1 h-3.5 w-[1.5px] bg-zinc-400/70"
+              className="absolute top-1/2 h-5 w-[1.5px] -translate-y-1/2 bg-zinc-400/70"
               style={{ left: `${chronoPct}%` }}
               title={`Cronológica ${chronologicalAge}`}
             />
+            {/* Thumb FORA da barra — círculo branco saliente */}
             <div
-              className="absolute -top-1 grid h-3.5 w-3.5 -translate-x-1/2 place-items-center rounded-full bg-white shadow-md ring-2 ring-emerald-500/40"
+              className="absolute top-1/2 grid h-5 w-5 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white shadow-[0_4px_12px_rgba(0,0,0,.15)] ring-2 ring-emerald-500"
               style={{ left: `${pct}%` }}
             >
-              <span className="h-1 w-1 rounded-full bg-emerald-500" />
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
             </div>
           </div>
           <div className="mt-2 flex justify-between text-[9.5px] font-medium text-zinc-400">
