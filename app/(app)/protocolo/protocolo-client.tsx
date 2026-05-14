@@ -230,27 +230,64 @@ function TaskRow({
 }
 
 // ─── WorkingOnRow ─────────────────────────────────────────────────────────────
+//
+// Visual premium em verde Longevify (Lucas 2026-05: "mais animações e verde,
+// algo melhor feito"). Cada card tem:
+//   - Gradient verde Longevify com saturação por severidade
+//   - Badge numerado com glow contextual
+//   - Sparkle decorativo flutuante (animação)
+//   - Pulse ring no badge de alta-prioridade
+//   - Fade-in stagger no mount (delay incremental)
+//   - Border subtle com glow ao hover
+//   - Mini progress hint na base
+//   - Label severity com cor sutil
 
-// ─── Severity → estilo colorido (Lucas: "colorido na parte working on") ──────
-
-const SEVERITY_STYLES = {
+const SEVERITY_THEME = {
   high: {
-    card: "bg-gradient-to-br from-rose-50 via-rose-50/60 to-white border-rose-200",
-    badge: "bg-rose-500 text-white",
-    accent: "text-rose-700",
+    // verde+ amber accent — atenção sem ser alarmante
+    card:
+      "bg-gradient-to-br from-emerald-50/90 via-brand-50 to-brand-100/40 " +
+      "border-brand-200 hover:border-brand-300 " +
+      "shadow-[0_4px_20px_-8px_rgba(31,93,63,0.15)] " +
+      "hover:shadow-[0_10px_30px_-10px_rgba(31,93,63,0.25)]",
+    badge:
+      "bg-gradient-to-br from-brand-700 via-brand-800 to-brand-900 " +
+      "text-white shadow-[0_6px_16px_-4px_rgba(31,93,63,0.4)] " +
+      "ring-2 ring-emerald-300/30",
+    pulse: true,
     label: "Prioridade alta",
+    labelColor: "text-brand-700 bg-brand-100/80",
+    progressPct: 18,
+    sparkleColor: "text-brand-400",
   },
   medium: {
-    card: "bg-gradient-to-br from-amber-50 via-amber-50/60 to-white border-amber-200",
-    badge: "bg-amber-500 text-white",
-    accent: "text-amber-700",
-    label: "Otimizar",
+    card:
+      "bg-gradient-to-br from-white via-brand-50/60 to-emerald-50/40 " +
+      "border-brand-100 hover:border-brand-200 " +
+      "shadow-[0_4px_16px_-8px_rgba(31,93,63,0.1)] " +
+      "hover:shadow-[0_8px_24px_-10px_rgba(31,93,63,0.18)]",
+    badge:
+      "bg-gradient-to-br from-brand-500 to-brand-700 text-white " +
+      "shadow-[0_4px_12px_-3px_rgba(63,154,107,0.35)]",
+    pulse: false,
+    label: "Em otimização",
+    labelColor: "text-brand-700 bg-brand-50",
+    progressPct: 45,
+    sparkleColor: "text-brand-300",
   },
   low: {
-    card: "bg-gradient-to-br from-emerald-50 via-emerald-50/60 to-white border-emerald-200",
-    badge: "bg-emerald-500 text-white",
-    accent: "text-emerald-700",
+    card:
+      "bg-gradient-to-br from-white via-white to-brand-50/30 " +
+      "border-zinc-200 hover:border-brand-200 " +
+      "shadow-sm hover:shadow-[0_4px_14px_-6px_rgba(31,93,63,0.12)]",
+    badge:
+      "bg-gradient-to-br from-brand-300 to-brand-500 text-white " +
+      "shadow-[0_3px_8px_-2px_rgba(159,212,179,0.4)]",
+    pulse: false,
     label: "Manutenção",
+    labelColor: "text-brand-600 bg-brand-50/70",
+    progressPct: 72,
+    sparkleColor: "text-brand-200",
   },
 } as const;
 
@@ -261,41 +298,123 @@ function WorkingOnRow({
   item: WorkingOnGoal;
   index: number;
 }) {
-  const style = SEVERITY_STYLES[item.severity];
+  const theme = SEVERITY_THEME[item.severity];
+  // Stagger: cada card entra com delay incremental (snappy fade-in + slide up)
+  const animationDelay = `${index * 80}ms`;
+
   return (
     <article
       className={cn(
-        "flex gap-4 rounded-2xl border px-5 py-4 transition hover:shadow-md",
-        style.card,
+        "working-on-card group relative overflow-hidden rounded-2xl border px-5 py-4 transition-all duration-300",
+        "hover:-translate-y-0.5",
+        theme.card,
       )}
+      style={{ animationDelay }}
     >
+      {/* Glow radial decorativo verde-Longevify */}
+      <span
+        className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-brand-300/15 blur-2xl transition-opacity duration-500 group-hover:bg-brand-400/25"
+        aria-hidden="true"
+      />
+
+      {/* Sparkle flutuante decorativo */}
       <span
         className={cn(
-          "grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[15px] font-bold shadow-sm",
-          style.badge,
+          "pointer-events-none absolute right-4 top-4 transition-transform duration-700",
+          "group-hover:rotate-180 group-hover:scale-110",
+          theme.sparkleColor,
         )}
+        aria-hidden="true"
       >
-        {index}
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 0l2.4 9.6L24 12l-9.6 2.4L12 24l-2.4-9.6L0 12l9.6-2.4z" opacity="0.6" />
+        </svg>
       </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <h3 className="text-[16px] font-semibold leading-snug text-ink">
-            {item.title}
-          </h3>
+
+      <div className="relative flex items-start gap-4">
+        {/* Badge numerado com pulse no high */}
+        <div className="relative shrink-0">
+          {theme.pulse && (
+            <span
+              className="absolute inset-0 rounded-2xl bg-brand-500/30 animate-ping-slow"
+              aria-hidden="true"
+            />
+          )}
           <span
             className={cn(
-              "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-              style.accent,
-              "bg-white/70 backdrop-blur",
+              "relative grid h-11 w-11 place-items-center rounded-2xl text-[18px] font-bold",
+              theme.badge,
             )}
           >
-            {style.label}
+            {index}
           </span>
         </div>
-        <p className="mt-1 text-[13px] leading-relaxed text-muted">
-          {item.description}
-        </p>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-[15.5px] font-semibold leading-snug text-ink">
+              {item.title}
+            </h3>
+            <span
+              className={cn(
+                "shrink-0 rounded-full px-2 py-0.5 text-[9.5px] font-semibold uppercase tracking-[0.12em] backdrop-blur",
+                theme.labelColor,
+              )}
+            >
+              {theme.label}
+            </span>
+          </div>
+          <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted">
+            {item.description}
+          </p>
+
+          {/* Mini barra de progresso visual — quanto perto está da meta */}
+          <div className="mt-3 flex items-center gap-2">
+            <div className="relative h-1 flex-1 overflow-hidden rounded-full bg-brand-100/60">
+              <span
+                className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-brand-400 to-brand-600 transition-[width] duration-1000"
+                style={{ width: `${theme.progressPct}%` }}
+              />
+            </div>
+            <span className="text-[10px] font-semibold tabular-nums text-brand-700/70">
+              {theme.progressPct}%
+            </span>
+          </div>
+        </div>
       </div>
+
+      {/* Animação fade-in + slide-up + pulse ping-slow — inline pra não
+          poluir tailwind.config global */}
+      <style jsx>{`
+        .working-on-card {
+          opacity: 0;
+          animation: workingOnEnter 600ms ease-out forwards;
+        }
+        @keyframes workingOnEnter {
+          0% {
+            opacity: 0;
+            transform: translateY(8px) scale(0.98);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        :global(.animate-ping-slow) {
+          animation: pingSlow 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+        @keyframes pingSlow {
+          0% {
+            transform: scale(1);
+            opacity: 0.6;
+          }
+          80%,
+          100% {
+            transform: scale(1.6);
+            opacity: 0;
+          }
+        }
+      `}</style>
     </article>
   );
 }
