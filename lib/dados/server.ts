@@ -173,8 +173,8 @@ export async function loadDadosForUser(opts: {
     latestExamDate: exams[0].taken_at as string,
     pendingResultsDays: MOCK_PATIENT.pendingResultsDays,
     scoreHistory: MOCK_PATIENT.scoreHistory, // TODO: derivar de longevify_scores quando virar uso real
-    biologicalAgeHistory: MOCK_PATIENT.biologicalAgeHistory, // TODO: derivar de longevify_scores
-    organBioAges: MOCK_PATIENT.organBioAges, // TODO: derivar de organ_bio_ages quando existir
+    biologicalAgeHistory: MOCK_PATIENT.biologicalAgeHistory,
+    organBioAges: MOCK_PATIENT.organBioAges,
   };
 
   return { patient, biomarkers: withData, hasExams: true };
