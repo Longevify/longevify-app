@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useRef } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Suspense, useMemo } from "react";
+import { Canvas } from "@react-three/fiber";
 import {
   OrbitControls,
   Environment,
@@ -13,255 +13,295 @@ import { cn } from "@/lib/utils";
 
 // ─── Cor & Material ──────────────────────────────────────────────────────────
 //
-// Material porcelana mate off-white — inspirado direto no avatar do app
-// Superpower (manequim 3D estilo de loja). Sem detalhes anatômicos, sem
-// face, sem textura — só forma orgânica em pose A natural.
-//
-// MeshPhysicalMaterial com sheen + clearcoat sutil = aparência de
-// porcelana de verdade (não plástico, não gesso).
+// Material porcelana mate off-white inspirado direto no avatar do app
+// Superpower. SUPER importante: TODOS os meshes compartilham o MESMO
+// material instance pra que as juntas entre cápsulas/esferas fiquem
+// invisíveis ao renderizador (mesma cor + mesma reflexão).
 
 const PORCELAIN = "#ECE5DA";
 
-// ─── Posições / Proporções (Vitruvian-style) ─────────────────────────────────
+// ─── Mesh do manequim ────────────────────────────────────────────────────────
 //
-// Coordenadas Y em metros (modelo ~1.75m altura, Y=0 nos pés).
-// Body landmarks aproximados de antropometria humana adulta:
-//   - cabeça top: 1.75
-//   - olhos: 1.65
-//   - queixo: 1.58
-//   - ombros: 1.45
-//   - peito: 1.30
-//   - umbigo: 1.05
-//   - quadril: 0.95
-//   - joelho: 0.50
-//   - tornozelo: 0.10
-//   - pé: 0.05
+// Estratégia anti-Lego:
+//   1. UMA capsule grande pro torso (não 3 partes empilhadas)
+//   2. Esferas de JUNTA grandes (overlap >50%) cobrindo cada interface:
+//      ombro, cotovelo, quadril, joelho
+//   3. Subdivisão alta (32+ segments) pra smoothing sem facetas
+//   4. Pose A muito leve (5°) — quase reto
+//   5. Material com sheen alto = aparência uniforme
 
 interface BodyMannequinMeshProps {
   sex: PatientSex;
 }
 
-/**
- * Mesh do manequim composto de cápsulas, esferas e cilindros mesclados.
- * Todos compartilham o mesmo material — as juntas ficam invisíveis no
- * render porque tudo é a mesma cor + mesma reflexão.
- *
- * Proporções masculino vs. feminino:
- *   - Male: ombros mais largos (0.50 raio), cintura+quadril mais estreitos
- *   - Female: ombros estreitos (0.42), quadril mais largo, peito sutil
- */
 function MannequinMesh({ sex }: BodyMannequinMeshProps) {
-  const groupRef = useRef<THREE.Group>(null);
   const isFemale = sex === "female";
 
-  // Auto-rotate suave (já tem OrbitControls autoRotate, esse é fallback)
-  useFrame((_, delta) => {
-    if (!groupRef.current) return;
-    // não rotaciona — OrbitControls cuida disso
-  });
-
-  // ─── Material compartilhado entre TODAS as partes ──────────────────────
-  // Importante: usar o MESMO material instance pra evitar seams visuais
-  // entre cápsulas/esferas.
-  const material = (
-    <meshPhysicalMaterial
-      color={PORCELAIN}
-      roughness={0.62}
-      metalness={0}
-      clearcoat={0.25}
-      clearcoatRoughness={0.6}
-      sheen={0.45}
-      sheenColor={new THREE.Color("#ffffff")}
-      sheenRoughness={0.85}
-      envMapIntensity={0.7}
-    />
+  // Material compartilhado (instance único pra eliminar seams)
+  const material = useMemo(
+    () =>
+      new THREE.MeshPhysicalMaterial({
+        color: PORCELAIN,
+        roughness: 0.55,
+        metalness: 0,
+        clearcoat: 0.3,
+        clearcoatRoughness: 0.55,
+        sheen: 0.5,
+        sheenColor: new THREE.Color("#ffffff"),
+        sheenRoughness: 0.8,
+        envMapIntensity: 0.6,
+      }),
+    [],
   );
 
   // Proporções variáveis por sexo
-  const shoulderWidth = isFemale ? 0.21 : 0.27; // half-width
-  const chestRadius = isFemale ? 0.155 : 0.175;
-  const waistRadius = isFemale ? 0.11 : 0.13;
-  const hipRadius = isFemale ? 0.165 : 0.155;
-  const armOffset = isFemale ? 0.27 : 0.32; // distância centro→braço
+  const shoulderWidth = isFemale ? 0.19 : 0.245;
+  const torsoRadius = isFemale ? 0.155 : 0.175;
+  const armOffset = isFemale ? 0.245 : 0.295;
 
   return (
-    <group ref={groupRef}>
-      {/* ─── Cabeça ─── */}
-      <mesh position={[0, 1.65, 0]} castShadow receiveShadow>
-        <sphereGeometry args={[0.105, 48, 32]} />
-        {material}
-      </mesh>
-
-      {/* Pescoço */}
-      <mesh position={[0, 1.51, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[0.055, 0.07, 0.08, 32]} />
-        {material}
-      </mesh>
-
-      {/* ─── Tórax (peito/parte superior) ─── */}
-      {/* Capsule esticada lateralmente pra dar forma de tórax */}
-      <mesh position={[0, 1.32, 0]} castShadow receiveShadow>
-        <capsuleGeometry args={[chestRadius, 0.22, 12, 32]} />
-        {material}
-      </mesh>
-
-      {/* ─── Cintura ─── */}
-      <mesh position={[0, 1.08, 0]} castShadow receiveShadow>
-        <capsuleGeometry args={[waistRadius, 0.12, 12, 32]} />
-        {material}
-      </mesh>
-
-      {/* ─── Quadril ─── */}
-      <mesh position={[0, 0.94, 0]} castShadow receiveShadow>
-        <capsuleGeometry args={[hipRadius, 0.1, 12, 32]} />
-        {material}
-      </mesh>
-
-      {/* ─── Ombros (esferas grandes que cobrem a junção) ─── */}
+    <group>
+      {/* ─── Cabeça (oval, não esfera) ─── */}
       <mesh
-        position={[-shoulderWidth, 1.42, 0]}
+        position={[0, 1.66, 0]}
+        scale={[1, 1.18, 0.92]}
+        material={material}
+        castShadow
+        receiveShadow
+      >
+        <sphereGeometry args={[0.092, 48, 32]} />
+      </mesh>
+
+      {/* Mandíbula sutil — sphere achatada à frente da cabeça pra dar dimensão */}
+      <mesh
+        position={[0, 1.61, 0.02]}
+        scale={[0.85, 0.7, 0.85]}
+        material={material}
         castShadow
         receiveShadow
       >
         <sphereGeometry args={[0.075, 32, 24]} />
-        {material}
-      </mesh>
-      <mesh position={[shoulderWidth, 1.42, 0]} castShadow receiveShadow>
-        <sphereGeometry args={[0.075, 32, 24]} />
-        {material}
       </mesh>
 
-      {/* ─── Braços superiores (esquerdo e direito) ─── */}
-      {/* Inclinação ~6° pra ficar pose A natural */}
+      {/* ─── Pescoço (tapered cylinder) ─── */}
+      <mesh position={[0, 1.51, 0]} material={material} castShadow receiveShadow>
+        <cylinderGeometry args={[0.052, 0.075, 0.1, 32]} />
+      </mesh>
+
+      {/* ─── Torso (UMA capsule alta cobrindo peito + cintura + pelvis) ─── */}
+      <mesh position={[0, 1.18, 0]} material={material} castShadow receiveShadow>
+        <capsuleGeometry args={[torsoRadius, 0.46, 16, 48]} />
+      </mesh>
+
+      {/* Detalhe sutil de peito — sphere achatada à frente do torso (só male) */}
+      {!isFemale ? (
+        <>
+          <mesh
+            position={[-0.08, 1.32, 0.085]}
+            scale={[1, 0.7, 0.5]}
+            material={material}
+            castShadow
+            receiveShadow
+          >
+            <sphereGeometry args={[0.078, 24, 16]} />
+          </mesh>
+          <mesh
+            position={[0.08, 1.32, 0.085]}
+            scale={[1, 0.7, 0.5]}
+            material={material}
+            castShadow
+            receiveShadow
+          >
+            <sphereGeometry args={[0.078, 24, 16]} />
+          </mesh>
+        </>
+      ) : null}
+
+      {/* ─── Ombros (esferas GRANDES sobrepondo topo torso + braço) ─── */}
       <mesh
-        position={[-armOffset, 1.21, 0]}
-        rotation={[0, 0, 0.1]}
+        position={[-shoulderWidth, 1.4, 0]}
+        material={material}
         castShadow
         receiveShadow
       >
-        <capsuleGeometry args={[0.045, 0.32, 8, 24]} />
-        {material}
+        <sphereGeometry args={[0.095, 32, 24]} />
       </mesh>
       <mesh
-        position={[armOffset, 1.21, 0]}
-        rotation={[0, 0, -0.1]}
+        position={[shoulderWidth, 1.4, 0]}
+        material={material}
         castShadow
         receiveShadow
       >
-        <capsuleGeometry args={[0.045, 0.32, 8, 24]} />
-        {material}
+        <sphereGeometry args={[0.095, 32, 24]} />
       </mesh>
 
-      {/* Cotovelos (esferas pra ocultar junção) */}
-      <mesh position={[-armOffset - 0.024, 1.0, 0]} castShadow receiveShadow>
-        <sphereGeometry args={[0.045, 20, 16]} />
-        {material}
+      {/* ─── Braços superiores ─── */}
+      {/* Inclinação 5° (pose A levíssima) */}
+      <mesh
+        position={[-armOffset, 1.18, 0]}
+        rotation={[0, 0, 0.08]}
+        material={material}
+        castShadow
+        receiveShadow
+      >
+        <capsuleGeometry args={[0.052, 0.36, 12, 32]} />
       </mesh>
-      <mesh position={[armOffset + 0.024, 1.0, 0]} castShadow receiveShadow>
-        <sphereGeometry args={[0.045, 20, 16]} />
-        {material}
+      <mesh
+        position={[armOffset, 1.18, 0]}
+        rotation={[0, 0, -0.08]}
+        material={material}
+        castShadow
+        receiveShadow
+      >
+        <capsuleGeometry args={[0.052, 0.36, 12, 32]} />
+      </mesh>
+
+      {/* ─── Cotovelos (grandes, sobrepondo braço sup + antebraço) ─── */}
+      <mesh
+        position={[-armOffset - 0.034, 0.94, 0]}
+        material={material}
+        castShadow
+        receiveShadow
+      >
+        <sphereGeometry args={[0.058, 28, 20]} />
+      </mesh>
+      <mesh
+        position={[armOffset + 0.034, 0.94, 0]}
+        material={material}
+        castShadow
+        receiveShadow
+      >
+        <sphereGeometry args={[0.058, 28, 20]} />
       </mesh>
 
       {/* ─── Antebraços ─── */}
       <mesh
-        position={[-armOffset - 0.024, 0.78, 0]}
+        position={[-armOffset - 0.034, 0.72, 0]}
         rotation={[0, 0, 0.06]}
+        material={material}
         castShadow
         receiveShadow
       >
-        <capsuleGeometry args={[0.04, 0.28, 8, 24]} />
-        {material}
+        <capsuleGeometry args={[0.044, 0.3, 12, 32]} />
       </mesh>
       <mesh
-        position={[armOffset + 0.024, 0.78, 0]}
+        position={[armOffset + 0.034, 0.72, 0]}
         rotation={[0, 0, -0.06]}
+        material={material}
         castShadow
         receiveShadow
       >
-        <capsuleGeometry args={[0.04, 0.28, 8, 24]} />
-        {material}
+        <capsuleGeometry args={[0.044, 0.3, 12, 32]} />
       </mesh>
 
-      {/* ─── Mãos ─── */}
+      {/* ─── Punhos (esferas sobrepondo antebraço + mão) ─── */}
       <mesh
-        position={[-armOffset - 0.04, 0.58, 0]}
-        scale={[1, 1.4, 0.6]}
+        position={[-armOffset - 0.05, 0.51, 0]}
+        material={material}
         castShadow
         receiveShadow
       >
-        <sphereGeometry args={[0.05, 24, 18]} />
-        {material}
+        <sphereGeometry args={[0.045, 24, 18]} />
       </mesh>
       <mesh
-        position={[armOffset + 0.04, 0.58, 0]}
-        scale={[1, 1.4, 0.6]}
+        position={[armOffset + 0.05, 0.51, 0]}
+        material={material}
         castShadow
         receiveShadow
       >
-        <sphereGeometry args={[0.05, 24, 18]} />
-        {material}
+        <sphereGeometry args={[0.045, 24, 18]} />
+      </mesh>
+
+      {/* ─── Mãos (esfera achatada, alongada pra baixo) ─── */}
+      <mesh
+        position={[-armOffset - 0.06, 0.43, 0]}
+        scale={[0.85, 1.5, 0.55]}
+        material={material}
+        castShadow
+        receiveShadow
+      >
+        <sphereGeometry args={[0.06, 28, 20]} />
+      </mesh>
+      <mesh
+        position={[armOffset + 0.06, 0.43, 0]}
+        scale={[0.85, 1.5, 0.55]}
+        material={material}
+        castShadow
+        receiveShadow
+      >
+        <sphereGeometry args={[0.06, 28, 20]} />
+      </mesh>
+
+      {/* ─── Quadril (esfera GRANDE escondendo bottom torso + topo coxas) ─── */}
+      <mesh position={[-0.08, 0.85, 0]} material={material} castShadow receiveShadow>
+        <sphereGeometry args={[0.1, 32, 24]} />
+      </mesh>
+      <mesh position={[0.08, 0.85, 0]} material={material} castShadow receiveShadow>
+        <sphereGeometry args={[0.1, 32, 24]} />
       </mesh>
 
       {/* ─── Coxas ─── */}
-      <mesh position={[-0.08, 0.69, 0]} castShadow receiveShadow>
-        <capsuleGeometry args={[0.075, 0.34, 12, 24]} />
-        {material}
+      <mesh position={[-0.085, 0.6, 0]} material={material} castShadow receiveShadow>
+        <capsuleGeometry args={[0.082, 0.38, 12, 32]} />
       </mesh>
-      <mesh position={[0.08, 0.69, 0]} castShadow receiveShadow>
-        <capsuleGeometry args={[0.075, 0.34, 12, 24]} />
-        {material}
+      <mesh position={[0.085, 0.6, 0]} material={material} castShadow receiveShadow>
+        <capsuleGeometry args={[0.082, 0.38, 12, 32]} />
       </mesh>
 
-      {/* Joelhos */}
-      <mesh position={[-0.08, 0.46, 0]} castShadow receiveShadow>
-        <sphereGeometry args={[0.073, 24, 18]} />
-        {material}
+      {/* ─── Joelhos (sobrepondo coxa + canela) ─── */}
+      <mesh position={[-0.085, 0.36, 0]} material={material} castShadow receiveShadow>
+        <sphereGeometry args={[0.085, 28, 20]} />
       </mesh>
-      <mesh position={[0.08, 0.46, 0]} castShadow receiveShadow>
-        <sphereGeometry args={[0.073, 24, 18]} />
-        {material}
+      <mesh position={[0.085, 0.36, 0]} material={material} castShadow receiveShadow>
+        <sphereGeometry args={[0.085, 28, 20]} />
       </mesh>
 
       {/* ─── Canelas ─── */}
-      <mesh position={[-0.08, 0.24, 0]} castShadow receiveShadow>
-        <capsuleGeometry args={[0.06, 0.32, 12, 24]} />
-        {material}
+      <mesh position={[-0.085, 0.16, 0]} material={material} castShadow receiveShadow>
+        <capsuleGeometry args={[0.062, 0.32, 12, 32]} />
       </mesh>
-      <mesh position={[0.08, 0.24, 0]} castShadow receiveShadow>
-        <capsuleGeometry args={[0.06, 0.32, 12, 24]} />
-        {material}
+      <mesh position={[0.085, 0.16, 0]} material={material} castShadow receiveShadow>
+        <capsuleGeometry args={[0.062, 0.32, 12, 32]} />
       </mesh>
 
-      {/* ─── Pés (achatados, ligeiramente alongados pra frente) ─── */}
+      {/* ─── Tornozelos (sobrepondo canela + pé) ─── */}
       <mesh
-        position={[-0.08, 0.04, 0.04]}
-        scale={[1, 0.6, 1.8]}
+        position={[-0.085, -0.018, 0]}
+        material={material}
         castShadow
         receiveShadow
       >
-        <sphereGeometry args={[0.062, 24, 18]} />
-        {material}
+        <sphereGeometry args={[0.058, 24, 18]} />
       </mesh>
       <mesh
-        position={[0.08, 0.04, 0.04]}
-        scale={[1, 0.6, 1.8]}
+        position={[0.085, -0.018, 0]}
+        material={material}
         castShadow
         receiveShadow
       >
-        <sphereGeometry args={[0.062, 24, 18]} />
-        {material}
+        <sphereGeometry args={[0.058, 24, 18]} />
+      </mesh>
+
+      {/* ─── Pés (rounded box alongado pra frente) ─── */}
+      <mesh
+        position={[-0.085, -0.045, 0.05]}
+        scale={[1, 0.4, 2.1]}
+        material={material}
+        castShadow
+        receiveShadow
+      >
+        <sphereGeometry args={[0.062, 28, 20]} />
+      </mesh>
+      <mesh
+        position={[0.085, -0.045, 0.05]}
+        scale={[1, 0.4, 2.1]}
+        material={material}
+        castShadow
+        receiveShadow
+      >
+        <sphereGeometry args={[0.062, 28, 20]} />
       </mesh>
     </group>
-  );
-}
-
-// ─── Loading skeleton (mostra enquanto Three.js carrega) ─────────────────────
-
-function LoadingFallback() {
-  return (
-    <div className="flex h-full w-full items-center justify-center">
-      <div className="text-[11px] text-zinc-300">Carregando…</div>
-    </div>
   );
 }
 
@@ -270,17 +310,12 @@ function LoadingFallback() {
 interface BodyMannequinProps {
   sex: PatientSex;
   className?: string;
-  /** Habilita rotação automática lenta. Default true. */
   autoRotate?: boolean;
 }
 
 /**
- * Avatar manequim 3D feito do zero (sem GLB importado, sem PNG/WebP) —
- * geometria composta de cápsulas, esferas e cilindros com material
- * porcelana branco fosco. Lighting estúdio + auto-rotação opcional.
- *
- * Substitui a silhueta SVG e o viewer 360° de frames. Estilo direto do
- * app Superpower.
+ * Avatar manequim 3D — geometria composta inteligente com material
+ * porcelana branco fosco. Estilo Superpower app.
  */
 export function BodyMannequin({
   sex,
@@ -290,67 +325,62 @@ export function BodyMannequin({
   return (
     <div className={cn("aspect-[2/3] w-full", className)}>
       <Canvas
-        camera={{ position: [0, 0.9, 2.4], fov: 32 }}
+        camera={{ position: [0, 0.9, 2.6], fov: 28 }}
         shadows
-        gl={{
-          antialias: true,
-          alpha: true,
-          preserveDrawingBuffer: false,
-        }}
+        gl={{ antialias: true, alpha: true, preserveDrawingBuffer: false }}
         dpr={[1, 2]}
       >
         <Suspense fallback={null}>
-          {/* Lighting estúdio */}
+          {/* Lighting estúdio soft */}
           <hemisphereLight
-            args={["#fff5e8", "#e0e7eb", 0.45]}
+            args={["#fff8ee", "#dde4e8", 0.55]}
             position={[0, 1, 0]}
           />
           <directionalLight
-            position={[2, 4, 3]}
-            intensity={1.3}
-            color="#fff8ee"
+            position={[2.5, 4, 3]}
+            intensity={1.2}
+            color="#fff5e8"
             castShadow
-            shadow-mapSize={[1024, 1024]}
+            shadow-mapSize={[2048, 2048]}
             shadow-camera-left={-1.5}
             shadow-camera-right={1.5}
             shadow-camera-top={2}
             shadow-camera-bottom={-0.5}
+            shadow-bias={-0.0005}
           />
-          {/* Rim light de trás pra dar contorno */}
+          {/* Rim light traseira */}
           <directionalLight
-            position={[-3, 2, -2]}
-            intensity={0.35}
-            color="#cfe1eb"
+            position={[-3, 2, -2.5]}
+            intensity={0.4}
+            color="#d6e4ed"
           />
-          {/* Fill light frontal sutil */}
-          <pointLight position={[0, 1.5, 3]} intensity={0.3} color="#fff" />
+          {/* Fill frontal */}
+          <pointLight position={[0, 1.5, 3.5]} intensity={0.4} color="#fff" />
 
-          {/* Environment HDRI pra reflexos sutis */}
-          <Environment preset="studio" />
+          <Environment preset="studio" environmentIntensity={0.6} />
 
           {/* Manequim */}
           <group position={[0, -0.85, 0]}>
             <MannequinMesh sex={sex} />
           </group>
 
-          {/* Sombra de contato no chão */}
+          {/* Sombra de contato */}
           <ContactShadows
             position={[0, -0.85, 0]}
-            opacity={0.28}
-            scale={2.2}
-            blur={2.6}
+            opacity={0.32}
+            scale={2.4}
+            blur={2.8}
             far={1}
-            color="#9aa39d"
+            color="#7a8480"
           />
 
-          {/* Controle de câmera — auto-rotate horizontal */}
           <OrbitControls
             enableZoom={false}
             enablePan={false}
             autoRotate={autoRotate}
-            autoRotateSpeed={0.8}
-            minPolarAngle={Math.PI / 2.4}
-            maxPolarAngle={Math.PI / 1.9}
+            autoRotateSpeed={0.7}
+            minPolarAngle={Math.PI / 2.3}
+            maxPolarAngle={Math.PI / 1.95}
             target={[0, 0, 0]}
           />
         </Suspense>
@@ -358,6 +388,3 @@ export function BodyMannequin({
     </div>
   );
 }
-
-// Re-export pra LoadingFallback ser usado em dynamic import wrapper
-export { LoadingFallback };
