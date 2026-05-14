@@ -292,7 +292,6 @@ export function BiomarkerBigChart({
                 fill={`url(#${glowId})`}
                 stroke="none"
                 ifOverflow="extendDomain"
-                isFront={false}
               />
             ) : null}
 
