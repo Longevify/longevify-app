@@ -43,6 +43,11 @@ export interface Product {
   reviewsCount: number;
   /** caminho da imagem no /public, ex: /marketplace/vitamina-d.png */
   image?: string;
+  /**
+   * Duração estimada de um frasco em dias (usado pelo helper de estoque).
+   * Ex: 60 cápsulas × 1/dia = 60. Ausente em exames/não-consumíveis.
+   */
+  durationDays?: number;
 }
 
 export const CATEGORY_LABELS: Record<ProductCategory, string> = {
@@ -184,6 +189,7 @@ export const PRODUCTS: Product[] = [
     usage: "1 cápsula mole/dia, com refeição que contenha gordura.",
     packageSize: "60 cápsulas moles",
     posology: "1 cápsula/dia",
+    durationDays: 60,
     recurrence: {
       intervalDays: 60,
       label: "a cada 2 meses",
@@ -217,6 +223,7 @@ export const PRODUCTS: Product[] = [
       "1 comprimido dissolvido em 200ml de água/dia. De preferência pela manhã.",
     packageSize: "20 comprimidos efervescentes · 80g",
     posology: "1 comprimido/dia",
+    durationDays: 20,
     recurrence: {
       intervalDays: 20,
       label: "a cada 20 dias",
@@ -251,6 +258,7 @@ export const PRODUCTS: Product[] = [
       "1 dose (30g) em 200ml de água ou leite, pós-treino ou substituindo lanche.",
     packageSize: "900g · 30 porções",
     posology: "1 dose/dia",
+    durationDays: 30,
     recurrence: {
       intervalDays: 30,
       label: "todo mês",
@@ -287,6 +295,7 @@ export const PRODUCTS: Product[] = [
       "2 cápsulas/dia, preferencialmente 30-60 min antes de dormir.",
     packageSize: "120 cápsulas",
     posology: "2 cápsulas/dia",
+    durationDays: 60,
     recurrence: {
       intervalDays: 60,
       label: "a cada 2 meses",
@@ -324,6 +333,7 @@ export const PRODUCTS: Product[] = [
       "1 cápsula 30-60 min antes do horário-alvo de dormir, em ambiente escuro.",
     packageSize: "120 cápsulas",
     posology: "1 cápsula/noite",
+    durationDays: 120,
     recurrence: {
       intervalDays: 120,
       label: "a cada 4 meses",
@@ -358,6 +368,7 @@ export const PRODUCTS: Product[] = [
       "2 cápsulas/dia, com refeição rica em gordura.",
     packageSize: "120 cápsulas",
     posology: "2 cápsulas/dia",
+    durationDays: 60,
     recurrence: {
       intervalDays: 60,
       label: "a cada 2 meses",
@@ -396,6 +407,7 @@ export const PRODUCTS: Product[] = [
     usage: "1 dose (5g) hidratada em água, todo dia, no horário que preferir.",
     packageSize: "300g · 60 porções",
     posology: "1 dose/dia",
+    durationDays: 60,
     recurrence: {
       intervalDays: 60,
       label: "a cada 2 meses",
@@ -429,6 +441,7 @@ export const PRODUCTS: Product[] = [
       "1 cápsula/dia com refeição. Evite tomar junto com café ou ferro.",
     packageSize: "100 cápsulas",
     posology: "1 cápsula/dia",
+    durationDays: 100,
     recurrence: {
       intervalDays: 100,
       label: "a cada 100 dias",
