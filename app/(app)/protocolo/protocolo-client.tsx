@@ -214,10 +214,11 @@ function TaskRow({
         )}
       </div>
 
-      {/* Botão "Comprar X" — só pra tasks com produto vinculado, e não-done */}
+      {/* Botão "Comprar X" — leva direto pra grade de produtos da loja
+          (anchor #produtos pula seção de recomendados) */}
       {task.product && !isDone && task.shopQuery && (
         <Link
-          href={`/loja?q=${encodeURIComponent(task.shopQuery)}`}
+          href={`/loja?q=${encodeURIComponent(task.shopQuery)}#produtos`}
           className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-brand-700 px-3 py-1.5 text-[11.5px] font-semibold text-white shadow-sm transition hover:bg-brand-800"
         >
           <ShoppingCart className="h-3 w-3" />
@@ -230,6 +231,29 @@ function TaskRow({
 
 // ─── WorkingOnRow ─────────────────────────────────────────────────────────────
 
+// ─── Severity → estilo colorido (Lucas: "colorido na parte working on") ──────
+
+const SEVERITY_STYLES = {
+  high: {
+    card: "bg-gradient-to-br from-rose-50 via-rose-50/60 to-white border-rose-200",
+    badge: "bg-rose-500 text-white",
+    accent: "text-rose-700",
+    label: "Prioridade alta",
+  },
+  medium: {
+    card: "bg-gradient-to-br from-amber-50 via-amber-50/60 to-white border-amber-200",
+    badge: "bg-amber-500 text-white",
+    accent: "text-amber-700",
+    label: "Otimizar",
+  },
+  low: {
+    card: "bg-gradient-to-br from-emerald-50 via-emerald-50/60 to-white border-emerald-200",
+    badge: "bg-emerald-500 text-white",
+    accent: "text-emerald-700",
+    label: "Manutenção",
+  },
+} as const;
+
 function WorkingOnRow({
   item,
   index,
@@ -237,15 +261,37 @@ function WorkingOnRow({
   item: WorkingOnGoal;
   index: number;
 }) {
+  const style = SEVERITY_STYLES[item.severity];
   return (
-    <article className="flex gap-4 rounded-2xl border border-border bg-surface px-5 py-4">
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-50 text-[14px] font-semibold text-brand-700">
+    <article
+      className={cn(
+        "flex gap-4 rounded-2xl border px-5 py-4 transition hover:shadow-md",
+        style.card,
+      )}
+    >
+      <span
+        className={cn(
+          "grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[15px] font-bold shadow-sm",
+          style.badge,
+        )}
+      >
         {index}
       </span>
       <div className="min-w-0 flex-1">
-        <h3 className="text-[16px] font-semibold leading-snug text-ink">
-          {item.title}
-        </h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-[16px] font-semibold leading-snug text-ink">
+            {item.title}
+          </h3>
+          <span
+            className={cn(
+              "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+              style.accent,
+              "bg-white/70 backdrop-blur",
+            )}
+          >
+            {style.label}
+          </span>
+        </div>
         <p className="mt-1 text-[13px] leading-relaxed text-muted">
           {item.description}
         </p>

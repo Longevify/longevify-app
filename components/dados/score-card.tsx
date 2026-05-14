@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { TrendingUp, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScoreDetailPopup } from "@/components/dados/score-detail-popup";
 import type { ScorePoint, OrganScore } from "@/lib/mock-data";
@@ -9,7 +10,6 @@ interface ScoreCardProps {
   score: number;
   status: "on-track" | "attention" | "at-risk";
   scoreHistory: ScorePoint[];
-  /** Score 0–100 por sistema orgânico — mostrado no popup ao clicar. */
   organScores: OrganScore[];
   className?: string;
 }
@@ -25,13 +25,16 @@ export function ScoreCard({
 
   const statusLabel =
     status === "on-track"
-      ? "On Track"
+      ? "No caminho"
       : status === "attention"
         ? "Atenção"
         : "Em Risco";
 
-  // position the progress thumb along the 0-100 bar
   const thumbPct = Math.min(Math.max(score, 0), 100);
+
+  // Compara com histórico anterior pra mostrar delta
+  const previous = scoreHistory[scoreHistory.length - 2]?.score;
+  const delta = previous !== undefined ? score - previous : 0;
 
   return (
     <>
@@ -43,28 +46,57 @@ export function ScoreCard({
           if (e.key === "Enter" || e.key === " ") setOpen(true);
         }}
         className={cn(
-          // border-transparent: alinha caixa de conteúdo com BioAgeCard (que tem border-border).
-          // Sem isso, box-sizing: border-box subtrai 2px da BioAgeCard e a barra interna fica desalinhada.
-          "relative overflow-hidden rounded-[20px] border border-transparent p-6",
-          "bg-gradient-to-br from-[#143D28] via-[#0F3020] to-[#0C2418] text-white",
-          "shadow-[0_1px_2px_rgba(13,40,24,.08)]",
-          "cursor-pointer transition hover:shadow-lg",
+          // Card escuro premium com gradient e borda sutil
+          "group relative overflow-hidden rounded-[24px] border border-white/5 p-6",
+          "bg-gradient-to-br from-[#0d2818] via-[#143D28] to-[#0F3020] text-white",
+          "shadow-[0_10px_40px_-12px_rgba(13,40,24,.4)]",
+          "cursor-pointer transition-all duration-300 hover:shadow-[0_20px_50px_-12px_rgba(13,40,24,.5)] hover:-translate-y-0.5",
           className,
         )}
       >
-        <div className="text-[11px] font-semibold tracking-[0.14em] text-white/70 uppercase">
-          Longevify Score
+        {/* Sparkle decorativo flutuante */}
+        <span className="pointer-events-none absolute right-5 top-5 text-emerald-300/40 transition group-hover:text-emerald-300/60">
+          <Sparkles className="h-4 w-4" />
+        </span>
+
+        {/* Glow radial decorativo */}
+        <span className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-emerald-500/10 blur-3xl" />
+
+        {/* Header */}
+        <div className="relative flex items-center justify-between">
+          <div className="text-[10px] font-semibold tracking-[0.18em] text-white/60 uppercase">
+            Longevify Score
+          </div>
         </div>
-        <div className="mt-3 flex items-end gap-3">
-          <span className="text-[56px] leading-none font-semibold tracking-tight">
+
+        {/* Score + status */}
+        <div className="relative mt-3 flex items-end gap-3">
+          <span className="bg-gradient-to-b from-white to-white/80 bg-clip-text text-[64px] leading-none font-semibold tracking-tight text-transparent">
             {score}
           </span>
-          <span className="mb-2 inline-flex items-center rounded-full bg-white/10 px-3 h-7 text-[12px] font-medium text-white/90 backdrop-blur">
-            {statusLabel}
-          </span>
+          <div className="mb-2 flex flex-col gap-1">
+            <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-emerald-400/15 px-2.5 py-0.5 text-[10.5px] font-semibold text-emerald-200 backdrop-blur ring-1 ring-emerald-400/20">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              {statusLabel}
+            </span>
+            {delta !== 0 && (
+              <span className="inline-flex items-center gap-1 text-[10.5px] text-white/70">
+                <TrendingUp
+                  className={cn(
+                    "h-3 w-3",
+                    delta > 0 ? "text-emerald-300" : "text-rose-300 rotate-180",
+                  )}
+                />
+                {delta > 0 ? "+" : ""}
+                {delta} vs mês passado
+              </span>
+            )}
+          </div>
         </div>
-        <div className="mt-6">
-          <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-white/15">
+
+        {/* Range bar com gradient + thumb */}
+        <div className="relative mt-6">
+          <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-white/10">
             <div
               className="absolute inset-y-0 left-0 rounded-full"
               style={{
@@ -74,9 +106,16 @@ export function ScoreCard({
               }}
             />
             <div
-              className="absolute -top-1 h-3.5 w-[2px] bg-white"
-              style={{ left: `calc(${thumbPct}% - 1px)` }}
-            />
+              className="absolute -top-1 grid h-3.5 w-3.5 -translate-x-1/2 place-items-center rounded-full bg-white shadow-md ring-2 ring-emerald-400/40"
+              style={{ left: `${thumbPct}%` }}
+            >
+              <span className="h-1 w-1 rounded-full bg-emerald-500" />
+            </div>
+          </div>
+          <div className="mt-2 flex justify-between text-[9.5px] font-medium text-white/40">
+            <span>0</span>
+            <span>50</span>
+            <span>100</span>
           </div>
         </div>
       </article>

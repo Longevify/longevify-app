@@ -6,7 +6,6 @@ import {
   getRecommendedProducts,
   getDiagnosticExams,
 } from "@/lib/product-recommender";
-import { RecommendationStrip } from "@/components/loja/recommendation-strip";
 import { RecommendationsSection } from "@/components/loja/recommendations-section";
 import { CategoryFilter } from "@/components/loja/category-filter";
 import { ProductCard } from "@/components/loja/product-card";
@@ -35,12 +34,14 @@ export default function LojaPage() {
       <RecommendationsSection
         recommendations={recommendations}
         title="Recomendados pra você"
-        className="mb-8"
+        className="mb-10"
       />
 
-      <RecommendationStrip recommendations={recommendations} />
-
-      <CategoryFilter products={PRODUCTS} />
+      {/* Anchor pra `/loja?q=X#produtos` — botão "Comprar" no protocolo
+          leva direto pra grade filtrada, pulando recomendações */}
+      <section id="produtos" className="scroll-mt-24">
+        <CategoryFilter products={PRODUCTS} />
+      </section>
 
       {/* ── Seção dedicada de exames diagnósticos ──
           Painéis são EXTRAS — não aparecem nas recomendações principais
