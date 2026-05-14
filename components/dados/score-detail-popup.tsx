@@ -162,7 +162,7 @@ export function ScoreDetailPopup({
                     border: "1px solid #c9e9d6",
                     fontSize: 13,
                   }}
-                  formatter={(val: number) => [val, "Score"]}
+                  formatter={(val: unknown) => [Number(val), "Score"]}
                 />
                 <Line
                   type="monotone"
