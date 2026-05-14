@@ -118,7 +118,14 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
       </div>
       <div className="mt-1">
         {filtered.map((b) => (
-          <BiomarkerRow key={b.id} biomarker={b} />
+          <BiomarkerRow
+            key={b.id}
+            biomarker={b}
+            related={biomarkers.filter(
+              (other) =>
+                other.id !== b.id && other.categoryId === b.categoryId,
+            )}
+          />
         ))}
         {filtered.length === 0 ? (
           <div className="px-5 py-10 text-center text-sm text-muted">

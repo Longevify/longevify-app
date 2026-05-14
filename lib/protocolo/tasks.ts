@@ -44,6 +44,8 @@ export interface WorkingOnGoal {
   id: string;
   title: string;
   description: string;
+  /** Severidade pra colorir o card visualmente. */
+  severity: "high" | "medium" | "low";
 }
 
 // ─── Mapping biomarker → suplemento + posologia ──────────────────────────────
@@ -216,16 +218,18 @@ export function generateWorkingOnGoals(
       id: `goal-${biomarker.id}`,
       title: entry.goalTitle,
       description: entry.goalDescriptionTemplate(biomarker),
+      severity: biomarker.status === "out" ? "high" : "medium",
     });
   }
 
-  // Sempre mostrar pelo menos 1 goal lifestyle universal
+  // Sempre mostrar pelo menos 1 goal lifestyle universal (severidade baixa)
   if (goals.length === 0) {
     goals.push({
       id: "goal-zone2",
       title: "Construir base aeróbica em Zona 2",
       description:
         "150 min/semana de zona 2 (caminhada rápida, bike leve) é o investimento mais robusto pra longevidade cardiovascular.",
+      severity: "low",
     });
   }
 
