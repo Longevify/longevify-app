@@ -8,11 +8,16 @@ import type { ScorePoint } from "@/lib/mock-data";
 interface ScoreCardProps {
   score: number;
   status: "on-track" | "attention" | "at-risk";
-  scoreHistory?: ScorePoint[];
+  scoreHistory: ScorePoint[];
   className?: string;
 }
 
-export function ScoreCard({ score, status, scoreHistory, className }: ScoreCardProps) {
+export function ScoreCard({
+  score,
+  status,
+  scoreHistory,
+  className,
+}: ScoreCardProps) {
   const [open, setOpen] = useState(false);
 
   const statusLabel =
@@ -32,20 +37,15 @@ export function ScoreCard({ score, status, scoreHistory, className }: ScoreCardP
         role="button"
         tabIndex={0}
         onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            setOpen(true);
-          }
+          if (e.key === "Enter" || e.key === " ") setOpen(true);
         }}
-        aria-label="Ver histórico do Longevify Score"
         className={cn(
           // border-transparent: alinha caixa de conteúdo com BioAgeCard (que tem border-border).
           // Sem isso, box-sizing: border-box subtrai 2px da BioAgeCard e a barra interna fica desalinhada.
           "relative overflow-hidden rounded-[20px] border border-transparent p-6",
           "bg-gradient-to-br from-[#143D28] via-[#0F3020] to-[#0C2418] text-white",
           "shadow-[0_1px_2px_rgba(13,40,24,.08)]",
-          "cursor-pointer select-none",
-          "transition-transform hover:scale-[1.015] active:scale-[0.99]",
+          "cursor-pointer transition hover:shadow-lg",
           className,
         )}
       >
@@ -76,11 +76,6 @@ export function ScoreCard({ score, status, scoreHistory, className }: ScoreCardP
             />
           </div>
         </div>
-
-        {/* Hint */}
-        <div className="absolute bottom-3 right-4 text-[10px] text-white/35 font-medium">
-          Toque para detalhar
-        </div>
       </article>
 
       <ScoreDetailPopup
@@ -88,7 +83,7 @@ export function ScoreCard({ score, status, scoreHistory, className }: ScoreCardP
         onClose={() => setOpen(false)}
         score={score}
         status={status}
-        history={scoreHistory ?? []}
+        scoreHistory={scoreHistory}
       />
     </>
   );
