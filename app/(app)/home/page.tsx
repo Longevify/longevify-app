@@ -58,10 +58,13 @@ export default async function HomePage() {
           <ScoreCard
             score={PATIENT.longevifyScore}
             status={PATIENT.scoreStatus}
+            scoreHistory={PATIENT.scoreHistory}
           />
           <BioAgeCard
             biologicalAge={PATIENT.biologicalAge}
             chronologicalAge={PATIENT.chronologicalAge}
+            biologicalAgeHistory={PATIENT.biologicalAgeHistory}
+            organBioAges={PATIENT.organBioAges}
           />
         </div>
 
