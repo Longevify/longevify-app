@@ -50,6 +50,15 @@ export interface OrganBioAge {
   status: "optimal" | "normal" | "out";
 }
 
+export interface OrganScore {
+  organ: string;
+  /** Score 0–100 — média ponderada dos biomarcadores do órgão */
+  score: number;
+  /** Number of biomarkers for this organ */
+  markersCount: number;
+  status: "optimal" | "normal" | "out";
+}
+
 export type PatientSex = "male" | "female";
 
 export interface Patient {
@@ -67,6 +76,7 @@ export interface Patient {
   scoreHistory: ScorePoint[];
   biologicalAgeHistory: BioAgePoint[];
   organBioAges: OrganBioAge[];
+  organScores: OrganScore[];
 }
 
 // Sidebar de /dados — 8 categorias alinhadas com o avatar 3D (1 "Resumo" +
@@ -123,6 +133,17 @@ export const PATIENT: Patient = {
     { organ: "Rins", age: 25.0, markersCount: 14, status: "optimal" },
     { organ: "Intestino", age: 23.5, markersCount: 19, status: "optimal" },
     { organ: "Cérebro", age: 25.6, markersCount: 11, status: "optimal" },
+  ],
+  // Score 0-100 por órgão — média ponderada dos biomarcadores. Mock
+  // alinhado com os status das organBioAges (normal→70s, optimal→80s+).
+  organScores: [
+    { organ: "Coração", score: 72, markersCount: 22, status: "normal" },
+    { organ: "Pulmões", score: 88, markersCount: 12, status: "optimal" },
+    { organ: "Fígado", score: 91, markersCount: 15, status: "optimal" },
+    { organ: "Pâncreas", score: 68, markersCount: 16, status: "normal" },
+    { organ: "Rins", score: 84, markersCount: 14, status: "optimal" },
+    { organ: "Intestino", score: 86, markersCount: 19, status: "optimal" },
+    { organ: "Cérebro", score: 82, markersCount: 11, status: "optimal" },
   ],
 };
 

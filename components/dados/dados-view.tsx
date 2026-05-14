@@ -6,7 +6,7 @@ import { BioAgeCard } from "@/components/dados/bio-age-card";
 import { CategoryList } from "@/components/dados/category-list";
 import { BiomarkersSummary } from "@/components/dados/biomarkers-summary";
 import { BiomarkerRow } from "@/components/dados/biomarker-row";
-import { Body360View } from "@/components/dados/body-360-view";
+import { BodySilhouette } from "@/components/dados/body-silhouette";
 import { Card } from "@/components/ui/card";
 import {
   CATEGORIES,
@@ -144,15 +144,12 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
             compact
           />
           <div className="flex flex-col items-center gap-2">
-            {/* Wrapper aplica ring/glow com a cor do grade da categoria
-                ativa — substitui o destaque por vertex color do antigo
-                BodyAvatar3D, sem precisar de WebGL. */}
-            <div
-              className="relative w-full max-w-[140px] rounded-2xl transition-shadow"
-              style={{ boxShadow: `0 0 0 2px ${activeColor}22, 0 8px 24px -8px ${activeColor}44` }}
-            >
-              <Body360View sex={displaySex} />
-            </div>
+            <BodySilhouette
+              sex={displaySex}
+              activeOrgan={categoryId === "all" ? null : categoryId}
+              activeColor={activeColor}
+              className="w-full max-w-[140px]"
+            />
             {renderSexToggle()}
           </div>
         </div>
@@ -193,12 +190,12 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
         </aside>
 
         <aside className="lg:sticky lg:top-24 lg:flex lg:flex-col lg:items-center lg:gap-3 lg:self-start">
-          <div
-            className="relative w-[280px] rounded-2xl transition-shadow"
-            style={{ boxShadow: `0 0 0 2px ${activeColor}22, 0 8px 24px -8px ${activeColor}44` }}
-          >
-            <Body360View sex={displaySex} />
-          </div>
+          <BodySilhouette
+            sex={displaySex}
+            activeOrgan={categoryId === "all" ? null : categoryId}
+            activeColor={activeColor}
+            className="w-[260px]"
+          />
           {renderSexToggle()}
         </aside>
 
@@ -222,6 +219,7 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
               score={patient.longevifyScore}
               status={patient.scoreStatus}
               scoreHistory={patient.scoreHistory}
+              organScores={patient.organScores}
             />
             <BioAgeCard
               biologicalAge={patient.biologicalAge}

@@ -3,12 +3,14 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { ScoreDetailPopup } from "@/components/dados/score-detail-popup";
-import type { ScorePoint } from "@/lib/mock-data";
+import type { ScorePoint, OrganScore } from "@/lib/mock-data";
 
 interface ScoreCardProps {
   score: number;
   status: "on-track" | "attention" | "at-risk";
   scoreHistory: ScorePoint[];
+  /** Score 0–100 por sistema orgânico — mostrado no popup ao clicar. */
+  organScores: OrganScore[];
   className?: string;
 }
 
@@ -16,6 +18,7 @@ export function ScoreCard({
   score,
   status,
   scoreHistory,
+  organScores,
   className,
 }: ScoreCardProps) {
   const [open, setOpen] = useState(false);
@@ -84,6 +87,7 @@ export function ScoreCard({
         score={score}
         status={status}
         scoreHistory={scoreHistory}
+        organScores={organScores}
       />
     </>
   );

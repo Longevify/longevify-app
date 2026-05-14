@@ -175,6 +175,7 @@ export async function loadDadosForUser(opts: {
     scoreHistory: MOCK_PATIENT.scoreHistory, // TODO: derivar de longevify_scores quando virar uso real
     biologicalAgeHistory: MOCK_PATIENT.biologicalAgeHistory,
     organBioAges: MOCK_PATIENT.organBioAges,
+    organScores: MOCK_PATIENT.organScores,
   };
 
   return { patient, biomarkers: withData, hasExams: true };
