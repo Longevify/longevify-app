@@ -66,24 +66,23 @@ interface RegionBounds {
   xMinAbs?: number;
   xMaxAbs?: number;
 }
+// Bounds escalados pra altura TARGET=2.0 (antes era 1.7). Fator ≈ 1.176.
 const REGION_BOUNDS: Record<Exclude<BodyRegion, "body">, RegionBounds> = {
-  head: { yMin: 1.55, yMax: 1.85 },
-  neck: { yMin: 1.42, yMax: 1.55 },
-  chest: { yMin: 1.18, yMax: 1.42, xMaxAbs: 0.22 },
-  "abdomen-upper": { yMin: 1.05, yMax: 1.18, xMaxAbs: 0.2 },
-  "abdomen-mid": { yMin: 0.92, yMax: 1.05, xMaxAbs: 0.2 },
-  "abdomen-low": { yMin: 0.78, yMax: 0.92, xMaxAbs: 0.22 },
-  arms: { yMin: 0.65, yMax: 1.55, xMinAbs: 0.18 },
-  legs: { yMin: 0, yMax: 0.78 },
-  // órgãos individuais — esses não usam vertex color (têm OrganOverlay).
-  // Mantemos entries pra type completar, mas com bounds que não casam ninguém.
-  heart: { yMin: 1.28, yMax: 1.42, xMaxAbs: 0.18 },
-  brain: { yMin: 1.6, yMax: 1.78, xMaxAbs: 0.12 },
-  liver: { yMin: 1.08, yMax: 1.2, xMaxAbs: 0.2 },
-  kidneys: { yMin: 0.95, yMax: 1.1 },
-  lungs: { yMin: 1.18, yMax: 1.42 },
-  intestine: { yMin: 0.85, yMax: 1.0, xMaxAbs: 0.2 },
-  pancreas: { yMin: 1.0, yMax: 1.12, xMaxAbs: 0.18 },
+  head: { yMin: 1.82, yMax: 2.18 },
+  neck: { yMin: 1.67, yMax: 1.82 },
+  chest: { yMin: 1.39, yMax: 1.67, xMaxAbs: 0.26 },
+  "abdomen-upper": { yMin: 1.23, yMax: 1.39, xMaxAbs: 0.24 },
+  "abdomen-mid": { yMin: 1.08, yMax: 1.23, xMaxAbs: 0.24 },
+  "abdomen-low": { yMin: 0.92, yMax: 1.08, xMaxAbs: 0.26 },
+  arms: { yMin: 0.76, yMax: 1.82, xMinAbs: 0.22 },
+  legs: { yMin: 0, yMax: 0.92 },
+  heart: { yMin: 1.5, yMax: 1.67, xMaxAbs: 0.22 },
+  brain: { yMin: 1.88, yMax: 2.1, xMaxAbs: 0.14 },
+  liver: { yMin: 1.27, yMax: 1.41, xMaxAbs: 0.24 },
+  kidneys: { yMin: 1.12, yMax: 1.29 },
+  lungs: { yMin: 1.39, yMax: 1.67 },
+  intestine: { yMin: 1.0, yMax: 1.18, xMaxAbs: 0.24 },
+  pancreas: { yMin: 1.18, yMax: 1.32, xMaxAbs: 0.22 },
 };
 
 // Modelo HuBMAP CCF Visible Human Skin — atlas anatômico clínico real
@@ -119,11 +118,10 @@ export function BodyAvatar3D({
   return (
     <div className={cn("relative aspect-[2/3] w-full", className)}>
       <Canvas
-        // Modelo é normalizado pra altura 1.7 unidades com pés em Y=0
-        // → cabeça em ~Y=1.7. Camera mira no centro do corpo (Y=0.85)
-        // a partir de ~4.2 unidades, com fov 38° → enquadra altura ~3m,
-        // suficiente pra mostrar corpo todo com folga (pés + cabeça).
-        camera={{ position: [0, 0.85, 4.2], fov: 38 }}
+        // Modelo normalizado pra altura 2.0 unidades (cabeça em ~Y=2,
+        // pés em Y=0). Camera olha o centro (Y=1.0) a partir de 3.8 com
+        // fov 38° → altura visível ~2.6m, avatar ocupa bem o frame.
+        camera={{ position: [0, 1.0, 3.8], fov: 38 }}
         gl={{ alpha: true, antialias: true, preserveDrawingBuffer: true }}
         dpr={[1, 2]}
         style={{ background: "transparent" }}
@@ -164,7 +162,7 @@ export function BodyAvatar3D({
           enableDamping
           dampingFactor={0.08}
           rotateSpeed={0.8}
-          target={[0, 0.85, 0]}
+          target={[0, 1.0, 0]}
           minPolarAngle={Math.PI / 2.6}
           maxPolarAngle={Math.PI / 1.7}
           autoRotate
@@ -203,9 +201,8 @@ function HumanModel({
   const { scene } = useGLTF(MODEL_PATHS[sex]);
   const groupRef = useRef<THREE.Group>(null);
 
-  // 1) Clona + material PBR + vertex colors habilitado + AUTO-FIT
-  //    (HuBMAP tem origem no centro do torso e escala em metros do dataset;
-  //    isso calcula bbox e normaliza pra altura ~1.7 unidades com pés em Y=0).
+  // 1) Clona + material PBR + vertex colors habilitado + AJUSTE DE POSE
+  //    + AUTO-FIT pra altura desejada com pés em Y=0.
   const cloned = useMemo(() => {
     const clone = scene.clone(true);
     clone.traverse((obj) => {
@@ -221,15 +218,59 @@ function HumanModel({
       }
     });
 
-    // Auto-fit: bbox → scale → reposition pés em Y=0
-    const TARGET_HEIGHT = 1.7;
+    // 1a) "Tuck arms" — modelo HuBMAP vem em pose T (braços extensos).
+    //     Rotacionar vertices laterais em torno do pivô do ombro pra
+    //     trazer braços mais próximo do tronco. Coords em espaço original
+    //     do GLB (antes de scale/translate do auto-fit).
+    //
+    //     Pivôs (calibrados pra VH_M/F_Skin — bbox Y de ~-0.9 a +0.9):
+    //       shoulderY ≈ 0.48 (logo abaixo do topo cabeça/pescoço)
+    //       shoulderX ≈ ±0.16 (ombro lateral, depois disso é braço)
+    //     Ângulo: ~28° pra dentro pra cada lado. Aplica decay vertical
+    //     suave pra não deformar abruptamente a junta do ombro.
+    const SHOULDER_Y = 0.48;
+    const SHOULDER_X_ABS = 0.16;
+    const TUCK_ANGLE = -0.5; // ~28° pro braço do paciente esquerdo (x>0)
+    clone.traverse((obj) => {
+      if (!(obj instanceof THREE.Mesh)) return;
+      const pos = obj.geometry.attributes.position;
+      if (!pos) return;
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i);
+        const y = pos.getY(i);
+        // Só vertices laterais (braço extendido)
+        if (Math.abs(x) <= SHOULDER_X_ABS) continue;
+        // Limita região vertical do braço (acima do quadril, abaixo cabeça)
+        if (y > SHOULDER_Y + 0.18 || y < -0.4) continue;
+        const isLeft = x > 0; // do paciente
+        const pivotX = isLeft ? SHOULDER_X_ABS : -SHOULDER_X_ABS;
+        const dx = x - pivotX;
+        const dy = y - SHOULDER_Y;
+        // Angle decay: vertices mais perto do ombro rotacionam menos
+        const reach = Math.abs(dx); // distância horizontal do pivô
+        const t = Math.min(1, reach / 0.32); // 0..1 (transição até ~ponta mão)
+        const angle = (isLeft ? TUCK_ANGLE : -TUCK_ANGLE) * t;
+        const c = Math.cos(angle);
+        const s = Math.sin(angle);
+        pos.setX(i, dx * c - dy * s + pivotX);
+        pos.setY(i, dx * s + dy * c + SHOULDER_Y);
+      }
+      pos.needsUpdate = true;
+      // Recalcula normais pra lighting ficar correto após deformação
+      obj.geometry.computeVertexNormals();
+      obj.geometry.computeBoundingBox();
+      obj.geometry.computeBoundingSphere();
+    });
+
+    // 1b) Auto-fit: bbox final → scale → reposition pés em Y=0
+    const TARGET_HEIGHT = 2.0; // antes 1.7 — avatar maior
     const box = new THREE.Box3().setFromObject(clone);
     const size = new THREE.Vector3();
     box.getSize(size);
     const heightFactor =
-      TARGET_HEIGHT / Math.max(0.001, size.y) * (sex === "female" ? 0.98 : 1.0);
+      (TARGET_HEIGHT / Math.max(0.001, size.y)) *
+      (sex === "female" ? 0.98 : 1.0);
     clone.scale.setScalar(heightFactor);
-    // Recalcula bbox após scale
     box.setFromObject(clone);
     const center = new THREE.Vector3();
     box.getCenter(center);
