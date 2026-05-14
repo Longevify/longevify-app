@@ -109,35 +109,43 @@ const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
       `Sua testosterona está em ${b.value} ${b.unit}. Zinco é cofator essencial da síntese — combine com treino de força 3x/semana.`,
   },
   ferritin: {
-    productId: "", // sem produto direto — placeholder, vira lifestyle/medical
+    productId: "", // sem produto direto — task vira ação one-time daily-completable
     posology:
-      "Consultar médico sobre suplementação de ferro adequada ao seu caso.",
+      "Enviar mensagem ao Concierge pedindo avaliação de suplementação de ferro.",
     goalTitle: "Restaurar reservas de ferro",
     goalDescriptionTemplate: (b) =>
       `Sua ferritina está em ${b.value} ${b.unit}. Avaliação médica é necessária — ferro oral mal dosado pode causar saturação. Vamos investigar causas (perda, absorção).`,
   },
   hdl: {
-    productId: "", // sem suplemento — lifestyle
+    productId: "", // sem suplemento — task DIÁRIA (não semanal!) de exercício
     posology:
-      "150 min/semana de exercício aeróbico em Zona 2 (caminhada rápida, bike leve).",
+      "Fazer 30 min de caminhada em Zona 2 hoje (ritmo conversável, FC 60-70% da máx).",
     goalTitle: "Aumentar HDL acima de 60 mg/dL",
     goalDescriptionTemplate: (b) =>
-      `Seu HDL em ${b.value} ${b.unit} sobe principalmente com exercício aeróbico de baixa intensidade — não com suplemento.`,
+      `Seu HDL em ${b.value} ${b.unit} sobe principalmente com exercício aeróbico consistente — 150 min/semana de Zona 2 é a meta cumulativa.`,
   },
 };
 
 // ─── Tasks lifestyle universais (independem de biomarker) ───────────────────
 
+// Tarefas lifestyle DIÁRIAS — todas concluíveis em 1 dia, sem prescrições
+// semanais/cumulativas. Lucas (2026-05): "tem que ter apenas tasks que
+// possam ser completadas em 1 dia, não pode ter 150 min de cardio/semana".
 const LIFESTYLE_TASKS: ProtocolTask[] = [
   {
-    id: "sol-zona2",
-    label: "10 min de sol matinal + 30 min de caminhada em Zona 2",
+    id: "sol-manha",
+    label: "Pegar 10 min de sol matinal sem protetor (antes das 10h).",
     lifestyleIcon: "sun",
   },
   {
     id: "agua",
-    label: "Beber 2L de água ao longo do dia",
+    label: "Beber 2L de água ao longo do dia.",
     lifestyleIcon: "droplet",
+  },
+  {
+    id: "sono",
+    label: "Dormir entre 7h e 9h hoje (priorize horário consistente).",
+    lifestyleIcon: "moon",
   },
 ];
 
