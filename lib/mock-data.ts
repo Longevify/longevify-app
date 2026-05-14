@@ -36,6 +36,25 @@ export interface ScorePoint {
   score: number;
 }
 
+export interface BiologicalAgePoint {
+  date: string; // ISO
+  age: number;
+}
+
+export interface OrganBioAge {
+  organId:
+    | "heart"
+    | "brain"
+    | "liver"
+    | "kidneys"
+    | "lungs"
+    | "intestine"
+    | "pancreas";
+  label: string;
+  age: number;
+  delta: number; // age - chronologicalAge (negative = better)
+}
+
 export type PatientSex = "male" | "female";
 
 export interface Patient {
@@ -51,27 +70,21 @@ export interface Patient {
   latestExamDate: string;
   pendingResultsDays: [number, number]; // e.g. [7, 10]
   scoreHistory: ScorePoint[];
+  biologicalAgeHistory: BiologicalAgePoint[];
+  organBioAges: OrganBioAge[];
 }
 
 export const CATEGORIES: BiomarkerCategory[] = [
   { id: "all", label: "Todos os Dados", shortLabel: "Resumo", grade: "A" },
   { id: "longevity", label: "Marcadores de Longevidade", shortLabel: "Longevidade", grade: "A" },
-  { id: "cardiac", label: "Saúde Cardíaca", shortLabel: "Cardiovascular", grade: "B" },
+  { id: "cardiac", label: "Saúde Cardíaca", shortLabel: "Coração", grade: "B" },
   { id: "thyroid", label: "Saúde da Tireoide", shortLabel: "Tireoide", grade: "A" },
   { id: "immune", label: "Regulação Imune", shortLabel: "Imune", grade: "A" },
   { id: "hormonal", label: "Saúde Hormonal", shortLabel: "Hormônios", grade: "A" },
   { id: "metabolic", label: "Saúde Metabólica", shortLabel: "Metabolismo", grade: "A" },
   { id: "nutrients", label: "Nutrientes", shortLabel: "Nutrientes", grade: "B" },
-  { id: "hepatic", label: "Saúde Hepática", shortLabel: "Hepático", grade: "A" },
+  { id: "hepatic", label: "Saúde Hepática", shortLabel: "Fígado", grade: "A" },
   { id: "heavy-metals", label: "Metais Pesados", shortLabel: "Metais", grade: "A" },
-  // Categorias por órgão específico — destacam órgãos individuais no avatar 3D
-  { id: "heart", label: "Coração", shortLabel: "Coração", grade: "B" },
-  { id: "brain", label: "Cérebro", shortLabel: "Cérebro", grade: "A" },
-  { id: "liver", label: "Fígado", shortLabel: "Fígado", grade: "A" },
-  { id: "kidneys", label: "Rins", shortLabel: "Rins", grade: "A" },
-  { id: "lungs", label: "Pulmões", shortLabel: "Pulmões", grade: "A" },
-  { id: "intestine", label: "Intestino", shortLabel: "Intestino", grade: "B" },
-  { id: "pancreas", label: "Pâncreas", shortLabel: "Pâncreas", grade: "A" },
 ];
 
 export const PATIENT: Patient = {
@@ -90,6 +103,22 @@ export const PATIENT: Patient = {
     { date: "2025-01-01", score: 66 },
     { date: "2025-06-01", score: 68 },
     { date: "2025-09-01", score: 70 },
+  ],
+  biologicalAgeHistory: [
+    { date: "2024-01-01", age: 28 },
+    { date: "2024-06-01", age: 27 },
+    { date: "2025-01-01", age: 26 },
+    { date: "2025-06-01", age: 25.5 },
+    { date: "2026-03-15", age: 25 },
+  ],
+  organBioAges: [
+    { organId: "heart", label: "Coração", age: 23, delta: -4 },
+    { organId: "brain", label: "Cérebro", age: 24, delta: -3 },
+    { organId: "liver", label: "Fígado", age: 25, delta: -2 },
+    { organId: "kidneys", label: "Rins", age: 24, delta: -3 },
+    { organId: "lungs", label: "Pulmões", age: 22, delta: -5 },
+    { organId: "intestine", label: "Intestino", age: 26, delta: -1 },
+    { organId: "pancreas", label: "Pâncreas", age: 25, delta: -2 },
   ],
 };
 

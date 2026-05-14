@@ -185,10 +185,13 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
             <ScoreCard
               score={patient.longevifyScore}
               status={patient.scoreStatus}
+              scoreHistory={patient.scoreHistory}
             />
             <BioAgeCard
               biologicalAge={patient.biologicalAge}
               chronologicalAge={patient.chronologicalAge}
+              biologicalAgeHistory={patient.biologicalAgeHistory}
+              organBioAges={patient.organBioAges}
             />
           </div>
 
