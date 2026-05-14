@@ -36,23 +36,18 @@ export interface ScorePoint {
   score: number;
 }
 
-export interface BiologicalAgePoint {
+export interface BioAgePoint {
   date: string; // ISO
   age: number;
 }
 
 export interface OrganBioAge {
-  organId:
-    | "heart"
-    | "brain"
-    | "liver"
-    | "kidneys"
-    | "lungs"
-    | "intestine"
-    | "pancreas";
-  label: string;
+  organ: string;
+  /** Age in years */
   age: number;
-  delta: number; // age - chronologicalAge (negative = better)
+  /** Number of biomarkers for this organ */
+  markersCount: number;
+  status: "optimal" | "normal" | "out";
 }
 
 export type PatientSex = "male" | "female";
@@ -70,7 +65,7 @@ export interface Patient {
   latestExamDate: string;
   pendingResultsDays: [number, number]; // e.g. [7, 10]
   scoreHistory: ScorePoint[];
-  biologicalAgeHistory: BiologicalAgePoint[];
+  biologicalAgeHistory: BioAgePoint[];
   organBioAges: OrganBioAge[];
 }
 
@@ -105,20 +100,22 @@ export const PATIENT: Patient = {
     { date: "2025-09-01", score: 70 },
   ],
   biologicalAgeHistory: [
-    { date: "2024-01-01", age: 28 },
-    { date: "2024-06-01", age: 27 },
-    { date: "2025-01-01", age: 26 },
+    { date: "2023-06-01", age: 29.4 },
+    { date: "2024-01-01", age: 28.1 },
+    { date: "2024-06-01", age: 27.0 },
+    { date: "2025-01-01", age: 26.2 },
     { date: "2025-06-01", age: 25.5 },
-    { date: "2026-03-15", age: 25 },
+    { date: "2026-03-15", age: 25.0 },
   ],
   organBioAges: [
-    { organId: "heart", label: "Coração", age: 23, delta: -4 },
-    { organId: "brain", label: "Cérebro", age: 24, delta: -3 },
-    { organId: "liver", label: "Fígado", age: 25, delta: -2 },
-    { organId: "kidneys", label: "Rins", age: 24, delta: -3 },
-    { organId: "lungs", label: "Pulmões", age: 22, delta: -5 },
-    { organId: "intestine", label: "Intestino", age: 26, delta: -1 },
-    { organId: "pancreas", label: "Pâncreas", age: 25, delta: -2 },
+    { organ: "Digestivo", age: 23.5, markersCount: 19, status: "optimal" },
+    { organ: "Respiratório", age: 24.2, markersCount: 12, status: "optimal" },
+    { organ: "Cardiovascular", age: 26.8, markersCount: 22, status: "normal" },
+    { organ: "Hepático", age: 22.1, markersCount: 15, status: "optimal" },
+    { organ: "Hormonal", age: 25.0, markersCount: 18, status: "optimal" },
+    { organ: "Metabólico", age: 27.4, markersCount: 16, status: "normal" },
+    { organ: "Imunológico", age: 24.8, markersCount: 14, status: "optimal" },
+    { organ: "Neurológico", age: 25.6, markersCount: 11, status: "optimal" },
   ],
 };
 
