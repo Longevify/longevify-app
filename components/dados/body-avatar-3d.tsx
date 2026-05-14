@@ -94,7 +94,7 @@ const MODEL_PATHS: Record<PatientSex, string> = {
   female: "/avatars/VH_F_Skin.glb",
 };
 
-const BASE_COLOR = new THREE.Color("#e8ecef"); // off-white clínico
+const BASE_COLOR = new THREE.Color("#f5ebe0"); // pele warm muito claro (estilo Superpower)
 const DEFAULT_ACTIVE_COLOR = "#1f5d3f";
 
 interface BodyAvatar3DProps {
@@ -126,12 +126,41 @@ export function BodyAvatar3D({
         dpr={[1, 2]}
         style={{ background: "transparent" }}
       >
-        <directionalLight position={[2.5, 4.5, 3]} intensity={1.0} />
-        <directionalLight position={[-2.5, 2.5, 2]} intensity={0.4} />
-        <directionalLight position={[0, 1.5, -3]} intensity={0.6} />
-        <ambientLight intensity={0.25} />
+        {/* Lighting estúdio profissional — 5 pontos com soft shadows pra
+            simular o look "Superpower / Function Health". */}
+        {/* Key light (frontal alta direita) */}
+        <directionalLight
+          position={[3.5, 5.5, 4]}
+          intensity={1.6}
+          color="#fff4e8"
+        />
+        {/* Fill (frontal baixa esquerda) */}
+        <directionalLight
+          position={[-3.5, 2, 3]}
+          intensity={0.55}
+          color="#e6efff"
+        />
+        {/* Rim back (alto centro atrás) — define silhueta */}
+        <directionalLight
+          position={[0, 4, -4]}
+          intensity={0.9}
+          color="#fff5ec"
+        />
+        {/* Top wrap */}
+        <directionalLight
+          position={[0, 6, 0.5]}
+          intensity={0.5}
+          color="#fff8f0"
+        />
+        {/* Bounce floor (de baixo, suave) */}
+        <directionalLight
+          position={[0, -2, 2]}
+          intensity={0.25}
+          color="#fff0e6"
+        />
+        <ambientLight intensity={0.35} color="#fdf6ee" />
 
-        <Environment preset="studio" environmentIntensity={0.35} />
+        <Environment preset="studio" environmentIntensity={0.55} />
 
         <Suspense fallback={<SkeletonFallback />}>
           <HumanModel
@@ -201,16 +230,25 @@ function HumanModel({
   const { scene } = useGLTF(MODEL_PATHS[sex]);
   const groupRef = useRef<THREE.Group>(null);
 
-  // 1) Clona + material PBR + vertex colors habilitado + AJUSTE DE POSE
-  //    + AUTO-FIT pra altura desejada com pés em Y=0.
+  // 1) Clona + material PBR físico (MeshPhysicalMaterial) com sheen +
+  //    clearcoat — simula pele com subsurface scattering sutil. Estética
+  //    "Superpower / Function Health": branco quente, fosco, com leve
+  //    brilho na borda (rim light) e textura visual de cera/porcelana.
   const cloned = useMemo(() => {
     const clone = scene.clone(true);
     clone.traverse((obj) => {
       if (obj instanceof THREE.Mesh) {
-        obj.material = new THREE.MeshStandardMaterial({
-          color: 0xffffff,
-          roughness: 0.55,
-          metalness: 0.08,
+        obj.material = new THREE.MeshPhysicalMaterial({
+          color: 0xffffff, // multiplicado pelos vertex colors
+          roughness: 0.42, // pele tem rugosidade média
+          metalness: 0.0,
+          clearcoat: 0.15, // verniz sutil
+          clearcoatRoughness: 0.55,
+          sheen: 0.5, // simula subsurface (peach fuzz)
+          sheenColor: new THREE.Color("#fde6d2"),
+          sheenRoughness: 0.8,
+          emissive: new THREE.Color("#fff0e2"),
+          emissiveIntensity: 0.03, // warmth interna sutil
           vertexColors: true,
         });
         obj.castShadow = false;
