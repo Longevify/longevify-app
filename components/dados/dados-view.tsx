@@ -81,6 +81,27 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
     return GRADE_COLORS[cat?.grade ?? "A"];
   }, [categoryId]);
 
+  // Mapping órgão → status clínico real (a partir das organBioAges/Scores).
+  // Usado no modo "Todos" pra colorir cada região com cor de status.
+  // organ.organ vem como "Coração"/"Pulmões"/etc — converte pro ID interno.
+  const organStatuses = useMemo(() => {
+    const ORGAN_NAME_TO_ID: Record<string, string> = {
+      "Coração": "heart",
+      "Pulmões": "lungs",
+      "Fígado": "liver",
+      "Pâncreas": "pancreas",
+      "Rins": "kidneys",
+      "Intestino": "intestine",
+      "Cérebro": "brain",
+    };
+    const map: Record<string, "optimal" | "normal" | "out"> = {};
+    for (const o of patient.organBioAges) {
+      const id = ORGAN_NAME_TO_ID[o.organ];
+      if (id) map[id] = o.status;
+    }
+    return map;
+  }, [patient.organBioAges]);
+
   // Toggle de sexo (só visível no demo) — pra Lucas comparar male/female
   const renderSexToggle = () => (
     <div className="flex items-center gap-1 rounded-full border border-border bg-surface/80 p-1 backdrop-blur">
@@ -180,6 +201,7 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
                 sex={displaySex}
                 activeOrgan={categoryId}
                 activeColor={activeColor}
+                organStatuses={organStatuses}
               />
             </div>
             {renderSexToggle()}
@@ -263,6 +285,7 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
               sex={displaySex}
               activeOrgan={categoryId}
               activeColor={activeColor}
+              organStatuses={organStatuses}
             />
           </div>
           {renderSexToggle()}

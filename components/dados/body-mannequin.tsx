@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useRef } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas } from "@react-three/fiber";
 import {
   OrbitControls,
   useGLTF,
@@ -192,15 +192,19 @@ function paintOrganZones(
   geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
 }
 
-// Cores fixas pra modo "Todos" — cada órgão sua cor distinta
-const ALL_ORGAN_COLORS: Record<string, string> = {
-  brain: "#7C3AED",    // roxo (neurológico)
-  heart: "#E11D48",    // vermelho (cardio)
-  lungs: "#0EA5E9",    // azul (respiratório)
-  liver: "#A16207",    // marrom (hepático)
-  pancreas: "#EAB308", // amarelo (metabólico)
-  kidneys: "#0D9488",  // teal (renal)
-  intestine: "#EA580C", // laranja (digestivo)
+/**
+ * Cores por STATUS clínico (verde/amarelo/vermelho) — usadas no modo
+ * "Todos" pra refletir saúde de cada órgão.
+ *
+ * Lucas (2026-05): "quando clicar em todos os dados, cada parte tem que
+ * aparecer com as cores devidas (verde, amarelo ou vermelho)".
+ */
+export type OrganStatus = "optimal" | "normal" | "out";
+
+const STATUS_COLORS: Record<OrganStatus, string> = {
+  optimal: "#10B981", // emerald — saudável
+  normal: "#F59E0B", // amber — atenção
+  out: "#EF4444", // red — fora da faixa
 };
 
 // ─── Model component ───────────────────────────────────────────────────────
@@ -209,9 +213,17 @@ interface MannequinModelProps {
   sex: PatientSex;
   activeOrgan?: string | null;
   activeColor?: string;
+  /** Mapa órgão → status clínico (optimal/normal/out). Usado no modo
+   *  'all' pra colorir cada região com a cor do status real. */
+  organStatuses?: Record<string, OrganStatus>;
 }
 
-function MannequinModel({ sex, activeOrgan, activeColor }: MannequinModelProps) {
+function MannequinModel({
+  sex,
+  activeOrgan,
+  activeColor,
+  organStatuses,
+}: MannequinModelProps) {
   const { scene } = useGLTF(MODEL_PATHS[sex]);
   const meshesRef = useRef<THREE.Mesh[]>([]);
 
@@ -261,10 +273,15 @@ function MannequinModel({ sex, activeOrgan, activeColor }: MannequinModelProps) 
     let zonesToPaint: Array<{ zone: OrganZone; color: THREE.Color }> = [];
 
     if (activeOrgan === "all") {
-      zonesToPaint = Object.entries(sexZones).map(([orgId, zone]) => ({
-        zone,
-        color: new THREE.Color(ALL_ORGAN_COLORS[orgId] ?? "#0E7B45"),
-      }));
+      // Cor de cada órgão = cor do status clínico real (verde/amarelo/vermelho).
+      // Default optimal se status não vier (fallback)
+      zonesToPaint = Object.entries(sexZones).map(([orgId, zone]) => {
+        const status = organStatuses?.[orgId] ?? "optimal";
+        return {
+          zone,
+          color: new THREE.Color(STATUS_COLORS[status]),
+        };
+      });
     } else if (activeOrgan && sexZones[activeOrgan]) {
       zonesToPaint = [
         {
@@ -281,86 +298,27 @@ function MannequinModel({ sex, activeOrgan, activeColor }: MannequinModelProps) 
         (geo.attributes.color as THREE.BufferAttribute).needsUpdate = true;
       }
     }
-  }, [activeOrgan, activeColor, sex, baseColor]);
+  }, [activeOrgan, activeColor, sex, baseColor, organStatuses]);
 
   return <primitive object={clonedScene} />;
 }
 
-// ─── Camera controller — anima câmera pra focar órgão ──────────────────────
-//
-// Quando activeOrgan muda, interpola camera.position + controls.target
-// pra novos valores via useFrame. Lerp factor 0.08 = transition ~1s.
-
-// DEFAULT_CAM_POSITION com Z maior pra full body caber inteiro no canvas
-// (Lucas: "todos os dados não mostra o corpo inteiro do manequin")
-const DEFAULT_CAM_POSITION: [number, number, number] = [0, 0, 3.0];
-const DEFAULT_CAM_TARGET: [number, number, number] = [0, 0, 0];
-
-interface CameraFocusProps {
-  sex: PatientSex;
-  activeOrgan?: string | null;
-  groupOffsetY: number; // o group offset Y aplicado ao model
-}
-
-function CameraFocus({ sex, activeOrgan, groupOffsetY }: CameraFocusProps) {
-  const { camera, controls } = useThree();
-  const targetPosRef = useRef(new THREE.Vector3(...DEFAULT_CAM_POSITION));
-  const targetLookRef = useRef(new THREE.Vector3(...DEFAULT_CAM_TARGET));
-
-  useEffect(() => {
-    if (!activeOrgan || activeOrgan === "all" || !ORGAN_ZONES[sex]?.[activeOrgan]) {
-      // Volta pra default (full body view)
-      targetPosRef.current.set(...DEFAULT_CAM_POSITION);
-      targetLookRef.current.set(...DEFAULT_CAM_TARGET);
-      return;
-    }
-    const zone = ORGAN_ZONES[sex][activeOrgan];
-    // Position relativa ao centro do órgão NO espaço do canvas
-    // (após group offset Y=-0.88 do model)
-    const lookAtWorld: [number, number, number] = [
-      zone.center[0],
-      zone.center[1] + groupOffsetY, // converte model space → world space
-      zone.center[2],
-    ];
-    const camPosWorld: [number, number, number] = [
-      lookAtWorld[0] + zone.cameraOffset[0],
-      lookAtWorld[1] + zone.cameraOffset[1],
-      lookAtWorld[2] + zone.cameraOffset[2],
-    ];
-    targetPosRef.current.set(...camPosWorld);
-    targetLookRef.current.set(...lookAtWorld);
-  }, [activeOrgan, sex, groupOffsetY]);
-
-  useFrame(() => {
-    const LERP = 0.08;
-    camera.position.lerp(targetPosRef.current, LERP);
-
-    // Lerp controls target
-    if (
-      controls &&
-      "target" in controls &&
-      controls.target instanceof THREE.Vector3
-    ) {
-      controls.target.lerp(targetLookRef.current, LERP);
-      if ("update" in controls && typeof controls.update === "function") {
-        controls.update();
-      }
-    } else {
-      camera.lookAt(targetLookRef.current);
-    }
-  });
-
-  return null;
-}
+// Câmera fixa em posição padrão — Lucas (2026-05): "Não precisa dar
+// zoom que eu te pedi inicialmente". Removed CameraFocus + cameraOffset
+// fields ainda existem em ORGAN_ZONES mas não são mais usados.
 
 // ─── Componente principal ───────────────────────────────────────────────────
 
 interface BodyMannequinProps {
   sex: PatientSex;
   className?: string;
-  /** ID do órgão ativo. Quando definido (e !=="all"), câmera foca + auto-rotate desliga. */
+  /** ID do órgão a destacar. Câmera fica sempre em posição padrão
+   *  (full body) — Lucas 2026-05: "Não precisa dar zoom". */
   activeOrgan?: string | null;
   activeColor?: string;
+  /** Mapping órgão → status clínico. Usado no modo 'all' pra colorir
+   *  cada região com cor do status (verde/amarelo/vermelho). */
+  organStatuses?: Record<string, OrganStatus>;
 }
 
 const GROUP_OFFSET_Y = -0.88; // centraliza model (height 1.77) em Y=0
@@ -370,10 +328,8 @@ export function BodyMannequin({
   className,
   activeOrgan,
   activeColor = "#0E7B45",
+  organStatuses,
 }: BodyMannequinProps) {
-  const hasFocus =
-    !!activeOrgan && activeOrgan !== "all" && !!ORGAN_ZONES[sex]?.[activeOrgan];
-
   return (
     <div className={cn("aspect-[3/4] w-full", className)}>
       <Canvas
@@ -414,6 +370,7 @@ export function BodyMannequin({
                 sex={sex}
                 activeOrgan={activeOrgan}
                 activeColor={activeColor}
+                organStatuses={organStatuses}
               />
             </group>
           </Bounds>
@@ -427,21 +384,17 @@ export function BodyMannequin({
             color="#7a8480"
           />
 
+          {/* Auto-rotate sempre ligado — sem zoom no órgão (Lucas 2026-05).
+              CameraFocus removido — câmera fica em posição padrão. */}
           <OrbitControls
             enableZoom={false}
             enablePan={false}
-            autoRotate={!hasFocus}
+            autoRotate
             autoRotateSpeed={0.7}
             minPolarAngle={Math.PI / 2.3}
             maxPolarAngle={Math.PI / 1.95}
             target={[0, 0, 0]}
             makeDefault
-          />
-
-          <CameraFocus
-            sex={sex}
-            activeOrgan={activeOrgan}
-            groupOffsetY={GROUP_OFFSET_Y}
           />
         </Suspense>
       </Canvas>
