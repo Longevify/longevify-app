@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useCallback, useState } from "react";
-import { X, ChevronDown, Sparkles } from "lucide-react";
+import Image from "next/image";
+import { X, ChevronDown } from "lucide-react";
 import {
   AreaChart,
   Area,
@@ -234,9 +235,17 @@ function OrganExpandableRow({
 
           {/* Diagnóstico Dr. Lon */}
           <div className="rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50 to-white p-4">
-            <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-brand-700">
-              <Sparkles className="h-3 w-3" />
-              Como está e como melhorar
+            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-brand-700">
+              <span className="relative grid h-5 w-5 shrink-0 place-items-center overflow-hidden rounded-full ring-1 ring-brand-200">
+                <Image
+                  src="/dr-lon-avatar.webp"
+                  alt="Dr. Lon"
+                  width={20}
+                  height={20}
+                  className="h-5 w-5 object-cover"
+                />
+              </span>
+              Dr. Lon — como está e como melhorar
             </div>
             <p className="mt-2 text-[12.5px] leading-relaxed text-zinc-700">
               {insight.summary}
