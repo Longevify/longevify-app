@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useMemo, useRef } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Suspense, useEffect, useMemo, useRef } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
   OrbitControls,
   useGLTF,
@@ -13,8 +13,6 @@ import * as THREE from "three";
 import type { PatientSex } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
-// ─── Material porcelana ─────────────────────────────────────────────────────
-
 const PORCELAIN_COLOR = "#ECE5DA";
 
 const MODEL_PATHS: Record<PatientSex, string> = {
@@ -25,126 +23,177 @@ const MODEL_PATHS: Record<PatientSex, string> = {
 useGLTF.preload(MODEL_PATHS.male);
 useGLTF.preload(MODEL_PATHS.female);
 
-// ─── Mapping órgão → posição XYZ + scale ─────────────────────────────────────
+// ─── Mapping órgão → região 3D no corpo (coords em espaço modelo) ──────────
 //
-// Coords no espaço do modelo CENTRADO (drei <Center> coloca origin no
-// meio da bbox). Modelo Stichless: bbox Z=0..1.77, então após Center
-// o modelo vai de Y=-0.885 (pés) a Y=+0.885 (cabeça).
+// `center`: ponto central do órgão no body (X,Y,Z em metros, Y=0 nos pés)
+// `radius`: extent do efeito (raios elipsóide nos 3 eixos)
+// `cameraFocus`: posição da câmera quando esse órgão for focado
 //
-// Posições anatômicas aproximadas (centro de massa do órgão):
+// Coords ligeiramente diferentes pra male vs female porque os modelos
+// têm proporções diferentes (Stichless tem ombros mais largos, Female
+// Base Mesh tem cintura mais estreita).
 
-interface OrganPos {
-  position: [number, number, number];
-  scale: [number, number, number];
+interface OrganZone {
+  center: [number, number, number];
+  radius: [number, number, number];
+  cameraOffset: [number, number, number]; // offset relativo ao center
 }
 
-// Coords em ESPAÇO DO MODELO (Y=0 nos pés, Y=1.77 na cabeça).
-// Anatomia humana adulta (proporções % da altura):
-//   topo cabeça/cérebro: 100% = Y=1.77
-//   ombros: 82% = Y=1.45
-//   peito (coração): 77% = Y=1.35
-//   pulmões centro: 75% = Y=1.33
-//   abdomen sup (fígado): 65% = Y=1.15
-//   pâncreas: 60% = Y=1.06
-//   rins (atrás): 58% = Y=1.03
-//   umbigo (intestino): 56% = Y=0.99
-const ORGAN_POSITIONS: Record<string, OrganPos> = {
-  brain:     { position: [0,     1.68, 0],     scale: [0.075, 0.085, 0.085] },
-  lungs:     { position: [0,     1.33, 0.02],  scale: [0.14,  0.13,  0.10]  },
-  heart:     { position: [-0.04, 1.35, 0.06],  scale: [0.06,  0.07,  0.06]  },
-  liver:     { position: [0.07,  1.15, 0.06],  scale: [0.10,  0.07,  0.08]  },
-  pancreas:  { position: [-0.02, 1.06, 0.04],  scale: [0.07,  0.04,  0.06]  },
-  kidneys:   { position: [0,     1.03, -0.06], scale: [0.13,  0.05,  0.05]  },
-  intestine: { position: [0,     0.95, 0.06],  scale: [0.10,  0.09,  0.08]  },
+const ORGAN_ZONES: Record<PatientSex, Record<string, OrganZone>> = {
+  male: {
+    brain: {
+      center: [0, 1.66, 0],
+      radius: [0.13, 0.11, 0.12],
+      cameraOffset: [0, 0.05, 0.7],
+    },
+    heart: {
+      center: [-0.06, 1.36, 0.06],
+      radius: [0.11, 0.10, 0.10],
+      cameraOffset: [0, 0.04, 0.7],
+    },
+    lungs: {
+      center: [0, 1.38, 0.04],
+      radius: [0.18, 0.13, 0.12],
+      cameraOffset: [0, 0.04, 0.75],
+    },
+    liver: {
+      center: [0.09, 1.18, 0.06],
+      radius: [0.12, 0.10, 0.10],
+      cameraOffset: [0.1, 0.02, 0.7],
+    },
+    pancreas: {
+      center: [-0.03, 1.09, 0.04],
+      radius: [0.10, 0.06, 0.08],
+      cameraOffset: [0, 0.02, 0.7],
+    },
+    kidneys: {
+      center: [0, 1.05, -0.07],
+      radius: [0.17, 0.07, 0.07],
+      cameraOffset: [0, 0.04, -0.75], // câmera nas costas
+    },
+    intestine: {
+      center: [0, 0.96, 0.05],
+      radius: [0.13, 0.11, 0.10],
+      cameraOffset: [0, 0.02, 0.7],
+    },
+  },
+  female: {
+    // Female: ombros mais estreitos, cintura mais marcada
+    brain: {
+      center: [0, 1.69, 0],
+      radius: [0.11, 0.10, 0.11],
+      cameraOffset: [0, 0.05, 0.65],
+    },
+    heart: {
+      center: [-0.05, 1.39, 0.06],
+      radius: [0.09, 0.10, 0.09],
+      cameraOffset: [0, 0.04, 0.65],
+    },
+    lungs: {
+      center: [0, 1.41, 0.04],
+      radius: [0.15, 0.12, 0.10],
+      cameraOffset: [0, 0.04, 0.7],
+    },
+    liver: {
+      center: [0.07, 1.22, 0.05],
+      radius: [0.10, 0.09, 0.09],
+      cameraOffset: [0.08, 0.02, 0.65],
+    },
+    pancreas: {
+      center: [-0.02, 1.13, 0.04],
+      radius: [0.09, 0.06, 0.08],
+      cameraOffset: [0, 0.02, 0.65],
+    },
+    kidneys: {
+      center: [0, 1.08, -0.06],
+      radius: [0.15, 0.07, 0.07],
+      cameraOffset: [0, 0.04, -0.7],
+    },
+    intestine: {
+      center: [0, 1.00, 0.05],
+      radius: [0.12, 0.11, 0.09],
+      cameraOffset: [0, 0.02, 0.65],
+    },
+  },
 };
 
-// ─── OrganHighlight ─────────────────────────────────────────────────────────
+// ─── Vertex color painting ──────────────────────────────────────────────────
 //
-// Esfera/elipsoide colorida posicionada sobre o órgão. Pulsa de leve pra
-// chamar atenção. Material emissive + transparent pra dar sensação de
-// "iluminação interna".
+// Pra colorir REGIÃO do mesh (não esfera flutuante):
+//   1. Itera vértices do body mesh
+//   2. Pra cada vértice, calcula distância ao centro do órgão (elipsoide)
+//   3. Vertice DENTRO da zona → cor do órgão; FORA → porcelana
+//   4. Falloff suave (smoothstep) cria gradiente nas bordas
+//
+// Material precisa `vertexColors: true` + `color: white` pra não tingir
+// por cima do vertex color.
 
-function OrganHighlight({
-  organId,
-  color,
-}: {
-  organId: string;
-  color: string;
-}) {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const glowRef = useRef<THREE.Mesh>(null);
+function smoothstep(edge0: number, edge1: number, x: number): number {
+  const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+}
 
-  const pos = ORGAN_POSITIONS[organId];
-  const colorObj = useMemo(() => new THREE.Color(color), [color]);
+function paintOrganZone(
+  mesh: THREE.Mesh,
+  zone: OrganZone | null,
+  organColor: THREE.Color,
+  baseColor: THREE.Color,
+) {
+  const geo = mesh.geometry as THREE.BufferGeometry;
+  const pos = geo.attributes.position;
+  const count = pos.count;
+  const colors = new Float32Array(count * 3);
 
-  // useFrame multiplica o base scale por pulse (não sobrescreve).
-  // Bug fix de versão anterior: setScalar() descartava o base scale
-  // e fazia esfera virar raio 1m (cobria todo o canvas).
-  useFrame(({ clock }) => {
-    if (!pos) return;
-    const t = clock.elapsedTime;
-    const pulse = 1 + 0.08 * Math.sin(t * 2);
-    if (meshRef.current) {
-      meshRef.current.scale.set(
-        pos.scale[0] * pulse,
-        pos.scale[1] * pulse,
-        pos.scale[2] * pulse,
-      );
+  for (let i = 0; i < count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+
+    let weight = 0;
+    if (zone) {
+      // Distância normalizada num elipsoide (Mahalanobis)
+      const dx = (x - zone.center[0]) / zone.radius[0];
+      const dy = (y - zone.center[1]) / zone.radius[1];
+      const dz = (z - zone.center[2]) / zone.radius[2];
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      // dist=0 → centro (weight=1), dist=1 → borda da zona (weight=0)
+      // smoothstep dá falloff suave no edge
+      weight = 1 - smoothstep(0.65, 1.05, dist);
     }
-    const glowMul = 1.5 + 0.15 * Math.sin(t * 2);
-    if (glowRef.current) {
-      glowRef.current.scale.set(
-        pos.scale[0] * glowMul,
-        pos.scale[1] * glowMul,
-        pos.scale[2] * glowMul,
-      );
-    }
-  });
 
-  if (!pos) return null;
+    // Lerp entre base e organ
+    const r = baseColor.r * (1 - weight) + organColor.r * weight;
+    const g = baseColor.g * (1 - weight) + organColor.g * weight;
+    const b = baseColor.b * (1 - weight) + organColor.b * weight;
+    colors[i * 3] = r;
+    colors[i * 3 + 1] = g;
+    colors[i * 3 + 2] = b;
+  }
 
-  return (
-    <group position={pos.position}>
-      {/* Inner solid — represents the organ */}
-      <mesh ref={meshRef} renderOrder={2}>
-        <sphereGeometry args={[1, 32, 24]} />
-        <meshStandardMaterial
-          color={colorObj}
-          emissive={colorObj}
-          emissiveIntensity={0.7}
-          transparent
-          opacity={0.7}
-          depthWrite={false}
-        />
-      </mesh>
-
-      {/* Outer glow halo */}
-      <mesh ref={glowRef} renderOrder={1}>
-        <sphereGeometry args={[1, 24, 18]} />
-        <meshBasicMaterial
-          color={colorObj}
-          transparent
-          opacity={0.18}
-          depthWrite={false}
-        />
-      </mesh>
-    </group>
-  );
+  geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
 }
 
 // ─── Model component ───────────────────────────────────────────────────────
 
 interface MannequinModelProps {
   sex: PatientSex;
+  activeOrgan?: string | null;
+  activeColor?: string;
 }
 
-function MannequinModel({ sex }: MannequinModelProps) {
+function MannequinModel({ sex, activeOrgan, activeColor }: MannequinModelProps) {
   const { scene } = useGLTF(MODEL_PATHS[sex]);
+  const meshRef = useRef<THREE.Mesh | null>(null);
 
+  const baseColor = useMemo(() => new THREE.Color(PORCELAIN_COLOR), []);
+
+  // Clone scene + setup material com vertexColors
   const clonedScene = useMemo(() => {
     const clone = scene.clone(true);
     const material = new THREE.MeshPhysicalMaterial({
-      color: PORCELAIN_COLOR,
+      // Color white pra vertex color funcionar sem tinge
+      color: 0xffffff,
+      vertexColors: true,
       roughness: 0.55,
       metalness: 0,
       clearcoat: 0.25,
@@ -160,12 +209,95 @@ function MannequinModel({ sex }: MannequinModelProps) {
         obj.material = material;
         obj.castShadow = true;
         obj.receiveShadow = true;
+        meshRef.current = obj;
       }
     });
     return clone;
   }, [scene]);
 
+  // Re-pinta vertices quando activeOrgan ou activeColor muda
+  useEffect(() => {
+    if (!meshRef.current) return;
+    const zone =
+      activeOrgan && ORGAN_ZONES[sex]?.[activeOrgan]
+        ? ORGAN_ZONES[sex][activeOrgan]
+        : null;
+    const organColor = new THREE.Color(activeColor ?? "#0E7B45");
+    paintOrganZone(meshRef.current, zone, organColor, baseColor);
+
+    // Marca needsUpdate
+    const geo = meshRef.current.geometry;
+    if (geo.attributes.color) {
+      (geo.attributes.color as THREE.BufferAttribute).needsUpdate = true;
+    }
+  }, [activeOrgan, activeColor, sex, baseColor]);
+
   return <primitive object={clonedScene} />;
+}
+
+// ─── Camera controller — anima câmera pra focar órgão ──────────────────────
+//
+// Quando activeOrgan muda, interpola camera.position + controls.target
+// pra novos valores via useFrame. Lerp factor 0.08 = transition ~1s.
+
+const DEFAULT_CAM_POSITION: [number, number, number] = [0, 0, 2.6];
+const DEFAULT_CAM_TARGET: [number, number, number] = [0, 0, 0];
+
+interface CameraFocusProps {
+  sex: PatientSex;
+  activeOrgan?: string | null;
+  groupOffsetY: number; // o group offset Y aplicado ao model
+}
+
+function CameraFocus({ sex, activeOrgan, groupOffsetY }: CameraFocusProps) {
+  const { camera, controls } = useThree();
+  const targetPosRef = useRef(new THREE.Vector3(...DEFAULT_CAM_POSITION));
+  const targetLookRef = useRef(new THREE.Vector3(...DEFAULT_CAM_TARGET));
+
+  useEffect(() => {
+    if (!activeOrgan || activeOrgan === "all" || !ORGAN_ZONES[sex]?.[activeOrgan]) {
+      // Volta pra default (full body view)
+      targetPosRef.current.set(...DEFAULT_CAM_POSITION);
+      targetLookRef.current.set(...DEFAULT_CAM_TARGET);
+      return;
+    }
+    const zone = ORGAN_ZONES[sex][activeOrgan];
+    // Position relativa ao centro do órgão NO espaço do canvas
+    // (após group offset Y=-0.88 do model)
+    const lookAtWorld: [number, number, number] = [
+      zone.center[0],
+      zone.center[1] + groupOffsetY, // converte model space → world space
+      zone.center[2],
+    ];
+    const camPosWorld: [number, number, number] = [
+      lookAtWorld[0] + zone.cameraOffset[0],
+      lookAtWorld[1] + zone.cameraOffset[1],
+      lookAtWorld[2] + zone.cameraOffset[2],
+    ];
+    targetPosRef.current.set(...camPosWorld);
+    targetLookRef.current.set(...lookAtWorld);
+  }, [activeOrgan, sex, groupOffsetY]);
+
+  useFrame(() => {
+    const LERP = 0.08;
+    camera.position.lerp(targetPosRef.current, LERP);
+
+    // Lerp controls target
+    if (
+      controls &&
+      "target" in controls &&
+      controls.target instanceof THREE.Vector3
+    ) {
+      controls.target.lerp(targetLookRef.current, LERP);
+      if ("update" in controls && typeof controls.update === "function") {
+        controls.update();
+      }
+    } else {
+      camera.lookAt(targetLookRef.current);
+    }
+  });
+
+  return null;
 }
 
 // ─── Componente principal ───────────────────────────────────────────────────
@@ -173,23 +305,21 @@ function MannequinModel({ sex }: MannequinModelProps) {
 interface BodyMannequinProps {
   sex: PatientSex;
   className?: string;
-  autoRotate?: boolean;
-  /** ID do órgão pra destacar — heart, brain, lungs, liver, kidneys,
-   *  intestine, pancreas. Quando "all" ou ausente, não destaca nada. */
+  /** ID do órgão ativo. Quando definido (e !=="all"), câmera foca + auto-rotate desliga. */
   activeOrgan?: string | null;
-  /** Cor do destaque do órgão (vem do grade da categoria no dados-view). */
   activeColor?: string;
 }
+
+const GROUP_OFFSET_Y = -0.88; // centraliza model (height 1.77) em Y=0
 
 export function BodyMannequin({
   sex,
   className,
-  autoRotate = true,
   activeOrgan,
   activeColor = "#0E7B45",
 }: BodyMannequinProps) {
-  const showOrgan =
-    activeOrgan && activeOrgan !== "all" && ORGAN_POSITIONS[activeOrgan];
+  const hasFocus =
+    !!activeOrgan && activeOrgan !== "all" && !!ORGAN_ZONES[sex]?.[activeOrgan];
 
   return (
     <div className={cn("aspect-[3/4] w-full", className)}>
@@ -225,25 +355,16 @@ export function BodyMannequin({
 
           <Environment preset="studio" environmentIntensity={0.6} />
 
-          {/* Bounds escala pro avatar caber no canvas. Removi o <Center>
-              do drei e centralizo manualmente com group position Y=-0.88
-              (metade da altura do modelo 1.77m, alinhando centro com 0).
-              ORGAN_POSITIONS agora em coords do MODELO (Y=0 nos pés). */}
           <Bounds fit clip={false} observe margin={1.02}>
-            <group position={[0, -0.88, 0]}>
-              <MannequinModel sex={sex} />
-              {showOrgan && (
-                <OrganHighlight
-                  organId={activeOrgan!}
-                  color={activeColor}
-                />
-              )}
+            <group position={[0, GROUP_OFFSET_Y, 0]}>
+              <MannequinModel
+                sex={sex}
+                activeOrgan={activeOrgan}
+                activeColor={activeColor}
+              />
             </group>
           </Bounds>
 
-          {/* Posicionada nos PÉS do avatar (Y=-0.88, same como o group
-              offset que centraliza o modelo). Antes Y=-1 deixava sombra
-              12cm abaixo dos pés — avatar parecia flutuando. */}
           <ContactShadows
             position={[0, -0.88, 0]}
             opacity={0.36}
@@ -256,12 +377,18 @@ export function BodyMannequin({
           <OrbitControls
             enableZoom={false}
             enablePan={false}
-            autoRotate={autoRotate}
+            autoRotate={!hasFocus}
             autoRotateSpeed={0.7}
             minPolarAngle={Math.PI / 2.3}
             maxPolarAngle={Math.PI / 1.95}
             target={[0, 0, 0]}
             makeDefault
+          />
+
+          <CameraFocus
+            sex={sex}
+            activeOrgan={activeOrgan}
+            groupOffsetY={GROUP_OFFSET_Y}
           />
         </Suspense>
       </Canvas>
