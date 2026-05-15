@@ -122,12 +122,11 @@ export function BodyMannequin({
 
           <Environment preset="studio" environmentIntensity={0.6} />
 
-          {/* Bounds + Center auto-frame — margin 0.85 (< 1.0) faz o
-              avatar OCUPAR a maior parte do canvas. Center cuida da
-              centralização XYZ.
-              Lucas (2026-05): "tem que aumentar o tamanho e ajustar
-              a posição dos avatares". */}
-          <Bounds fit clip observe margin={0.85}>
+          {/* Bounds margin 1.0 = fit exato no canvas (avatar maximizado).
+              Center cuida da centralização XYZ ao redor de origin.
+              Valores < 1.0 cortam o modelo (zoom in demais).
+              Valores > 1.0 deixam padding (avatar menor). */}
+          <Bounds fit clip observe margin={1}>
             <Center>
               <MannequinModel sex={sex} />
             </Center>
