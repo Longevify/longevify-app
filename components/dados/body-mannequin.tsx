@@ -122,11 +122,13 @@ export function BodyMannequin({
 
           <Environment preset="studio" environmentIntensity={0.6} />
 
-          {/* Bounds margin 1.0 = fit exato no canvas (avatar maximizado).
-              Center cuida da centralização XYZ ao redor de origin.
-              Valores < 1.0 cortam o modelo (zoom in demais).
-              Valores > 1.0 deixam padding (avatar menor). */}
-          <Bounds fit clip observe margin={1}>
+          {/* Bounds margin 1.18 — fit com buffer pra auto-rotate.
+              Bounds calcula bbox UMA VEZ no mount. Ao girar 90° em Y,
+              o "width aparente" do modelo vira a profundidade (diagonal).
+              Sem buffer, o modelo é cortado nas laterais durante a rotação.
+              1.18 cobre o pior caso (sqrt(2) ≈ 1.41 do diagonal, mas
+              modelo é mais alto que largo então 1.18 basta). */}
+          <Bounds fit clip={false} observe margin={1.18}>
             <Center>
               <MannequinModel sex={sex} />
             </Center>
