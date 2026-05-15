@@ -65,23 +65,39 @@ function OrganHighlight({
   const meshRef = useRef<THREE.Mesh>(null);
   const glowRef = useRef<THREE.Mesh>(null);
 
+  const pos = ORGAN_POSITIONS[organId];
+  const colorObj = useMemo(() => new THREE.Color(color), [color]);
+
+  // useFrame multiplica o base scale por pulse (não sobrescreve).
+  // Bug fix de versão anterior: setScalar() descartava o base scale
+  // e fazia esfera virar raio 1m (cobria todo o canvas).
   useFrame(({ clock }) => {
+    if (!pos) return;
     const t = clock.elapsedTime;
-    const pulse = 1 + 0.06 * Math.sin(t * 2);
-    if (meshRef.current) meshRef.current.scale.setScalar(pulse);
-    const glowPulse = 1.4 + 0.12 * Math.sin(t * 2);
-    if (glowRef.current) glowRef.current.scale.setScalar(glowPulse);
+    const pulse = 1 + 0.08 * Math.sin(t * 2);
+    if (meshRef.current) {
+      meshRef.current.scale.set(
+        pos.scale[0] * pulse,
+        pos.scale[1] * pulse,
+        pos.scale[2] * pulse,
+      );
+    }
+    const glowMul = 1.5 + 0.15 * Math.sin(t * 2);
+    if (glowRef.current) {
+      glowRef.current.scale.set(
+        pos.scale[0] * glowMul,
+        pos.scale[1] * glowMul,
+        pos.scale[2] * glowMul,
+      );
+    }
   });
 
-  const pos = ORGAN_POSITIONS[organId];
   if (!pos) return null;
-
-  const colorObj = useMemo(() => new THREE.Color(color), [color]);
 
   return (
     <group position={pos.position}>
       {/* Inner solid — represents the organ */}
-      <mesh ref={meshRef} scale={pos.scale} renderOrder={2}>
+      <mesh ref={meshRef} renderOrder={2}>
         <sphereGeometry args={[1, 32, 24]} />
         <meshStandardMaterial
           color={colorObj}
@@ -94,7 +110,7 @@ function OrganHighlight({
       </mesh>
 
       {/* Outer glow halo */}
-      <mesh ref={glowRef} scale={pos.scale} renderOrder={1}>
+      <mesh ref={glowRef} renderOrder={1}>
         <sphereGeometry args={[1, 24, 18]} />
         <meshBasicMaterial
           color={colorObj}
