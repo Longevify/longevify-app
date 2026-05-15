@@ -39,14 +39,19 @@ interface OrganPos {
   scale: [number, number, number];
 }
 
+// Coords calibradas empiricamente pós-Center. Modelo height 1.77m,
+// pés Y≈-0.6 (com Bounds offset), cabeça Y≈+1.0. Anatomia humana:
+//   peito (coração/pulmões) ~85% da altura = ~Y=+0.5
+//   umbigo (intestino) ~58% = ~Y=+0.1
+//   topo cabeça (cérebro) ~95% = ~Y=+1.0
 const ORGAN_POSITIONS: Record<string, OrganPos> = {
-  brain:     { position: [0,     0.75, 0],     scale: [0.075, 0.085, 0.085] },
-  lungs:     { position: [0,     0.40, 0.02],  scale: [0.14,  0.13,  0.10]  }, // 2 pulmões = mais largo
-  heart:     { position: [-0.04, 0.40, 0.06],  scale: [0.06,  0.07,  0.06]  }, // ligeiramente esquerda anatômica
-  liver:     { position: [0.07,  0.22, 0.06],  scale: [0.10,  0.07,  0.08]  }, // direita anatômica
-  pancreas:  { position: [-0.02, 0.14, 0.04],  scale: [0.07,  0.04,  0.06]  },
-  kidneys:   { position: [0,     0.10, -0.06], scale: [0.13,  0.05,  0.05]  }, // 2 rins, atrás
-  intestine: { position: [0,     0.00, 0.06],  scale: [0.10,  0.09,  0.08]  },
+  brain:     { position: [0,     1.05, 0],     scale: [0.075, 0.085, 0.085] },
+  lungs:     { position: [0,     0.70, 0.02],  scale: [0.14,  0.13,  0.10]  },
+  heart:     { position: [-0.04, 0.70, 0.06],  scale: [0.06,  0.07,  0.06]  },
+  liver:     { position: [0.07,  0.52, 0.06],  scale: [0.10,  0.07,  0.08]  },
+  pancreas:  { position: [-0.02, 0.44, 0.04],  scale: [0.07,  0.04,  0.06]  },
+  kidneys:   { position: [0,     0.40, -0.06], scale: [0.13,  0.05,  0.05]  },
+  intestine: { position: [0,     0.30, 0.06],  scale: [0.10,  0.09,  0.08]  },
 };
 
 // ─── OrganHighlight ─────────────────────────────────────────────────────────
