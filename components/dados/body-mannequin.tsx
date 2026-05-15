@@ -88,9 +88,9 @@ export function BodyMannequin({
   autoRotate = true,
 }: BodyMannequinProps) {
   return (
-    <div className={cn("aspect-[1/2] w-full", className)}>
+    <div className={cn("aspect-[3/4] w-full", className)}>
       <Canvas
-        camera={{ position: [0, 0.9, 2.8], fov: 28 }}
+        camera={{ position: [0, 0, 2.6], fov: 32 }}
         shadows
         gl={{ antialias: true, alpha: true, preserveDrawingBuffer: false }}
         dpr={[1, 2]}
@@ -122,20 +122,24 @@ export function BodyMannequin({
 
           <Environment preset="studio" environmentIntensity={0.6} />
 
-          {/* Bounds + Center auto-frame — margin 1.05 deixa avatar GRANDE
-              (Lucas 2026-05: "o avatar está pequeno, pode aumentar") */}
-          <Bounds fit clip observe margin={1.05}>
+          {/* Bounds + Center auto-frame — margin 0.85 (< 1.0) faz o
+              avatar OCUPAR a maior parte do canvas. Center cuida da
+              centralização XYZ.
+              Lucas (2026-05): "tem que aumentar o tamanho e ajustar
+              a posição dos avatares". */}
+          <Bounds fit clip observe margin={0.85}>
             <Center>
               <MannequinModel sex={sex} />
             </Center>
           </Bounds>
 
+          {/* ContactShadows posicionada nos pés (-1) do modelo centralizado */}
           <ContactShadows
-            position={[0, -1.05, 0]}
+            position={[0, -1, 0]}
             opacity={0.32}
-            scale={2.4}
+            scale={3}
             blur={2.8}
-            far={1}
+            far={1.5}
             color="#7a8480"
           />
 
@@ -147,6 +151,7 @@ export function BodyMannequin({
             minPolarAngle={Math.PI / 2.3}
             maxPolarAngle={Math.PI / 1.95}
             target={[0, 0, 0]}
+            makeDefault
           />
         </Suspense>
       </Canvas>
