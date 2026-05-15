@@ -15,14 +15,6 @@ import type { PatientSex } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
 // ─── Material porcelana ─────────────────────────────────────────────────────
-//
-// Material aplicado sobre o GLB do Stichless Mannequin (Sketchfab CC-BY).
-// Pose ajustada via bpy (Blender Python lib) — braços baixados 75° em pose
-// natural neutra. Fonte:
-//   https://sketchfab.com/3d-models/stichless-mannequin-7de2b540a6014077b7a2206d8c25ca12
-//
-// Material porcelana fosca off-white com sheen sutil — mesmo tom usado nas
-// imagens estáticas anteriores (#ECE5DA).
 
 const PORCELAIN_COLOR = "#ECE5DA";
 
@@ -31,11 +23,91 @@ const MODEL_PATHS: Record<PatientSex, string> = {
   female: "/avatars/mannequin/female.glb",
 };
 
-// Preload pra ficar instantâneo no toggle ♂/♀
 useGLTF.preload(MODEL_PATHS.male);
 useGLTF.preload(MODEL_PATHS.female);
 
-// ─── Mesh component ─────────────────────────────────────────────────────────
+// ─── Mapping órgão → posição XYZ + scale ─────────────────────────────────────
+//
+// Coords no espaço do modelo CENTRADO (drei <Center> coloca origin no
+// meio da bbox). Modelo Stichless: bbox Z=0..1.77, então após Center
+// o modelo vai de Y=-0.885 (pés) a Y=+0.885 (cabeça).
+//
+// Posições anatômicas aproximadas (centro de massa do órgão):
+
+interface OrganPos {
+  position: [number, number, number];
+  scale: [number, number, number];
+}
+
+const ORGAN_POSITIONS: Record<string, OrganPos> = {
+  brain:     { position: [0,     0.75, 0],     scale: [0.075, 0.085, 0.085] },
+  lungs:     { position: [0,     0.40, 0.02],  scale: [0.14,  0.13,  0.10]  }, // 2 pulmões = mais largo
+  heart:     { position: [-0.04, 0.40, 0.06],  scale: [0.06,  0.07,  0.06]  }, // ligeiramente esquerda anatômica
+  liver:     { position: [0.07,  0.22, 0.06],  scale: [0.10,  0.07,  0.08]  }, // direita anatômica
+  pancreas:  { position: [-0.02, 0.14, 0.04],  scale: [0.07,  0.04,  0.06]  },
+  kidneys:   { position: [0,     0.10, -0.06], scale: [0.13,  0.05,  0.05]  }, // 2 rins, atrás
+  intestine: { position: [0,     0.00, 0.06],  scale: [0.10,  0.09,  0.08]  },
+};
+
+// ─── OrganHighlight ─────────────────────────────────────────────────────────
+//
+// Esfera/elipsoide colorida posicionada sobre o órgão. Pulsa de leve pra
+// chamar atenção. Material emissive + transparent pra dar sensação de
+// "iluminação interna".
+
+function OrganHighlight({
+  organId,
+  color,
+}: {
+  organId: string;
+  color: string;
+}) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const glowRef = useRef<THREE.Mesh>(null);
+
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime;
+    const pulse = 1 + 0.06 * Math.sin(t * 2);
+    if (meshRef.current) meshRef.current.scale.setScalar(pulse);
+    const glowPulse = 1.4 + 0.12 * Math.sin(t * 2);
+    if (glowRef.current) glowRef.current.scale.setScalar(glowPulse);
+  });
+
+  const pos = ORGAN_POSITIONS[organId];
+  if (!pos) return null;
+
+  const colorObj = useMemo(() => new THREE.Color(color), [color]);
+
+  return (
+    <group position={pos.position}>
+      {/* Inner solid — represents the organ */}
+      <mesh ref={meshRef} scale={pos.scale} renderOrder={2}>
+        <sphereGeometry args={[1, 32, 24]} />
+        <meshStandardMaterial
+          color={colorObj}
+          emissive={colorObj}
+          emissiveIntensity={0.7}
+          transparent
+          opacity={0.7}
+          depthWrite={false}
+        />
+      </mesh>
+
+      {/* Outer glow halo */}
+      <mesh ref={glowRef} scale={pos.scale} renderOrder={1}>
+        <sphereGeometry args={[1, 24, 18]} />
+        <meshBasicMaterial
+          color={colorObj}
+          transparent
+          opacity={0.18}
+          depthWrite={false}
+        />
+      </mesh>
+    </group>
+  );
+}
+
+// ─── Model component ───────────────────────────────────────────────────────
 
 interface MannequinModelProps {
   sex: PatientSex;
@@ -43,9 +115,7 @@ interface MannequinModelProps {
 
 function MannequinModel({ sex }: MannequinModelProps) {
   const { scene } = useGLTF(MODEL_PATHS[sex]);
-  const groupRef = useRef<THREE.Group>(null);
 
-  // Clone scene + aplica material porcelana em todos os meshes
   const clonedScene = useMemo(() => {
     const clone = scene.clone(true);
     const material = new THREE.MeshPhysicalMaterial({
@@ -70,7 +140,7 @@ function MannequinModel({ sex }: MannequinModelProps) {
     return clone;
   }, [scene]);
 
-  return <primitive ref={groupRef} object={clonedScene} />;
+  return <primitive object={clonedScene} />;
 }
 
 // ─── Componente principal ───────────────────────────────────────────────────
@@ -78,15 +148,24 @@ function MannequinModel({ sex }: MannequinModelProps) {
 interface BodyMannequinProps {
   sex: PatientSex;
   className?: string;
-  /** Habilita rotação automática lenta. Default true. */
   autoRotate?: boolean;
+  /** ID do órgão pra destacar — heart, brain, lungs, liver, kidneys,
+   *  intestine, pancreas. Quando "all" ou ausente, não destaca nada. */
+  activeOrgan?: string | null;
+  /** Cor do destaque do órgão (vem do grade da categoria no dados-view). */
+  activeColor?: string;
 }
 
 export function BodyMannequin({
   sex,
   className,
   autoRotate = true,
+  activeOrgan,
+  activeColor = "#0E7B45",
 }: BodyMannequinProps) {
+  const showOrgan =
+    activeOrgan && activeOrgan !== "all" && ORGAN_POSITIONS[activeOrgan];
+
   return (
     <div className={cn("aspect-[3/4] w-full", className)}>
       <Canvas
@@ -96,7 +175,6 @@ export function BodyMannequin({
         dpr={[1, 2]}
       >
         <Suspense fallback={null}>
-          {/* Lighting estúdio */}
           <hemisphereLight
             args={["#fff8ee", "#dde4e8", 0.55]}
             position={[0, 1, 0]}
@@ -122,19 +200,21 @@ export function BodyMannequin({
 
           <Environment preset="studio" environmentIntensity={0.6} />
 
-          {/* Bounds margin 1.18 — fit com buffer pra auto-rotate.
-              Bounds calcula bbox UMA VEZ no mount. Ao girar 90° em Y,
-              o "width aparente" do modelo vira a profundidade (diagonal).
-              Sem buffer, o modelo é cortado nas laterais durante a rotação.
-              1.18 cobre o pior caso (sqrt(2) ≈ 1.41 do diagonal, mas
-              modelo é mais alto que largo então 1.18 basta). */}
-          <Bounds fit clip={false} observe margin={1.18}>
+          {/* Avatar MAIOR — margin 1.02 (apertado, com buffer mínimo
+              pra auto-rotate não cortar). Modelo + organ highlight
+              dentro do mesmo Bounds pra escalarem juntos. */}
+          <Bounds fit clip={false} observe margin={1.02}>
             <Center>
               <MannequinModel sex={sex} />
+              {showOrgan && (
+                <OrganHighlight
+                  organId={activeOrgan!}
+                  color={activeColor}
+                />
+              )}
             </Center>
           </Bounds>
 
-          {/* ContactShadows posicionada nos pés (-1) do modelo centralizado */}
           <ContactShadows
             position={[0, -1, 0]}
             opacity={0.32}

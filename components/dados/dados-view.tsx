@@ -157,7 +157,7 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
           Lista de categorias (shortLabels) à esquerda + avatar 3D à direita.
           Avatar tem altura própria pra não esticar a lista (auto rows).
         */}
-        <div className="grid grid-cols-[1fr_240px] items-start gap-3">
+        <div className="grid grid-cols-[1fr_280px] items-start gap-3">
           <CategoryList
             categories={visibleCategories}
             activeId={categoryId}
@@ -168,7 +168,7 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
             {/* Ring sutil ao redor do avatar tinge na cor do grade da
                 categoria ativa — mesma técnica do antigo BodyAvatar3D. */}
             <div
-              className="relative w-full max-w-[240px] rounded-2xl transition-shadow"
+              className="relative w-full max-w-[280px] rounded-2xl transition-shadow"
               style={{
                 boxShadow:
                   categoryId === "all"
@@ -176,7 +176,11 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
                     : `0 0 0 2px ${activeColor}22, 0 12px 32px -10px ${activeColor}55`,
               }}
             >
-              <BodyMannequin sex={displaySex} />
+              <BodyMannequin
+                sex={displaySex}
+                activeOrgan={categoryId}
+                activeColor={activeColor}
+              />
             </div>
             {renderSexToggle()}
           </div>
@@ -236,7 +240,7 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
           DESKTOP (lg+) — grid de 3 colunas: categorias | avatar | section.
           Nada muda do que já existia.
           ────────────────────────────────────────────────────────────────── */}
-      <div className="hidden lg:grid lg:grid-cols-[220px_400px_1fr] lg:gap-6">
+      <div className="hidden lg:grid lg:grid-cols-[200px_480px_1fr] lg:gap-6">
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <CategoryList
             categories={visibleCategories}
@@ -247,7 +251,7 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
 
         <aside className="lg:sticky lg:top-24 lg:flex lg:flex-col lg:items-center lg:gap-3 lg:self-start">
           <div
-            className="relative w-[400px] rounded-2xl transition-shadow"
+            className="relative w-[480px] rounded-2xl transition-shadow"
             style={{
               boxShadow:
                 categoryId === "all"
@@ -255,7 +259,11 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
                   : `0 0 0 2px ${activeColor}22, 0 12px 32px -10px ${activeColor}55`,
             }}
           >
-            <BodyMannequin sex={displaySex} />
+            <BodyMannequin
+              sex={displaySex}
+              activeOrgan={categoryId}
+              activeColor={activeColor}
+            />
           </div>
           {renderSexToggle()}
         </aside>
