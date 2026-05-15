@@ -2,6 +2,7 @@
 
 import { useEffect, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { X, ArrowRight, ShoppingCart } from "lucide-react";
 import {
   AreaChart,
@@ -419,7 +420,16 @@ export function BiomarkerDetailPopup({
 
           {/* Diagnóstico Dr. Lon */}
           <div className="border-t border-zinc-100 bg-gradient-to-br from-brand-50 to-white px-6 py-5">
-            <div className="text-[10.5px] font-semibold uppercase tracking-wide text-brand-700">
+            <div className="flex items-center gap-2 text-[10.5px] font-semibold uppercase tracking-wide text-brand-700">
+              <span className="relative grid h-6 w-6 shrink-0 place-items-center overflow-hidden rounded-full ring-1 ring-brand-200">
+                <Image
+                  src="/dr-lon-avatar.webp"
+                  alt="Dr. Lon"
+                  width={24}
+                  height={24}
+                  className="h-6 w-6 object-cover"
+                />
+              </span>
               Diagnóstico Dr. Lon
             </div>
             <h3 className="mt-1 text-[15px] font-semibold text-zinc-900">

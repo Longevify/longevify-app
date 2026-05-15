@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Sparkles, ChevronRight } from "lucide-react";
+import Image from "next/image";
+import { Plus, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {
   MealEntry,
@@ -80,7 +81,15 @@ export function DietaClient({
       {insights.length > 0 && (
         <section className="mb-6 rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50 to-white p-5">
           <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-brand-700">
-            <Sparkles className="h-3.5 w-3.5" />
+            <span className="relative grid h-6 w-6 shrink-0 place-items-center overflow-hidden rounded-full ring-1 ring-brand-200">
+              <Image
+                src="/dr-lon-avatar.webp"
+                alt="Dr. Lon"
+                width={24}
+                height={24}
+                className="h-6 w-6 object-cover"
+              />
+            </span>
             Análise da semana — Dr. Lon
           </div>
           <ul className="mt-3 flex flex-col gap-2">
