@@ -14,6 +14,7 @@ import { BioAgeCard } from "@/components/dados/bio-age-card";
 import { RecommendationsSection } from "@/components/loja/recommendations-section";
 import { GoalsSummary } from "@/components/wearables/goals-summary";
 import { PostExamStories } from "@/components/onboarding/post-exam-stories";
+import { ReplayStoriesButton } from "@/components/onboarding/replay-stories-button";
 import { BIOMARKERS, PATIENT, biomarkersStats } from "@/lib/mock-data";
 import { getRecommendedProducts } from "@/lib/product-recommender";
 import { formatDatePtBR } from "@/lib/utils";
@@ -40,9 +41,13 @@ export default async function HomePage() {
 
       <header className="flex flex-col gap-1 pb-6 sm:pb-8">
         <span className="text-[13px] text-muted">Olá, {user.firstName}</span>
-        <h1 className="text-[28px] leading-[1.1] font-semibold tracking-tight sm:text-[40px] sm:leading-[1.05]">
-          Sua saúde hoje
-        </h1>
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <h1 className="text-[28px] leading-[1.1] font-semibold tracking-tight sm:text-[40px] sm:leading-[1.05]">
+            Sua saúde hoje
+          </h1>
+          {/* Botão pra rever apresentação — só na conta demo (Lucas) */}
+          <ReplayStoriesButton patient={PATIENT} />
+        </div>
       </header>
 
       {/* 1. SAÚDE — destaque principal */}

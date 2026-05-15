@@ -41,9 +41,10 @@ interface OrganZone {
 
 const ORGAN_ZONES: Record<PatientSex, Record<string, OrganZone>> = {
   male: {
+    // Cérebro: cobre topo da cabeça inteiro acima dos olhos (Lucas 2026-05)
     brain: {
-      center: [0, 1.66, 0],
-      radius: [0.13, 0.11, 0.12],
+      center: [0, 1.72, 0],
+      radius: [0.14, 0.13, 0.14],
       cameraOffset: [0, 0.05, 0.7],
     },
     heart: {
@@ -78,41 +79,42 @@ const ORGAN_ZONES: Record<PatientSex, Record<string, OrganZone>> = {
     },
   },
   female: {
-    // Female: ombros mais estreitos, cintura mais marcada
+    // Female (height 1.80) — ombros estreitos, cintura marcada
     brain: {
-      center: [0, 1.69, 0],
-      radius: [0.11, 0.10, 0.11],
-      cameraOffset: [0, 0.05, 0.65],
+      center: [0, 1.75, 0],
+      radius: [0.13, 0.12, 0.13],
+      cameraOffset: [0, 0.05, 0.7],
     },
     heart: {
-      center: [-0.05, 1.39, 0.06],
+      center: [-0.05, 1.41, 0.06],
       radius: [0.09, 0.10, 0.09],
-      cameraOffset: [0, 0.04, 0.65],
+      cameraOffset: [0, 0.04, 0.8], // câmera mais longe (era 0.65, zoom agressivo demais)
     },
     lungs: {
-      center: [0, 1.41, 0.04],
+      center: [0, 1.43, 0.04],
       radius: [0.15, 0.12, 0.10],
-      cameraOffset: [0, 0.04, 0.7],
+      cameraOffset: [0, 0.04, 0.8],
     },
     liver: {
-      center: [0.07, 1.22, 0.05],
+      center: [0.07, 1.24, 0.05],
       radius: [0.10, 0.09, 0.09],
-      cameraOffset: [0.08, 0.02, 0.65],
+      cameraOffset: [0.08, 0.02, 0.75],
     },
     pancreas: {
-      center: [-0.02, 1.13, 0.04],
+      center: [-0.02, 1.15, 0.04],
       radius: [0.09, 0.06, 0.08],
-      cameraOffset: [0, 0.02, 0.65],
+      cameraOffset: [0, 0.02, 0.75],
     },
     kidneys: {
-      center: [0, 1.08, -0.06],
+      center: [0, 1.10, -0.06],
       radius: [0.15, 0.07, 0.07],
-      cameraOffset: [0, 0.04, -0.7],
+      cameraOffset: [0, 0.04, -0.75],
     },
+    // Intestino: subido pra umbigo (Lucas: "está muito baixo")
     intestine: {
-      center: [0, 1.00, 0.05],
+      center: [0, 1.10, 0.05],
       radius: [0.12, 0.11, 0.09],
-      cameraOffset: [0, 0.02, 0.65],
+      cameraOffset: [0, 0.02, 0.75],
     },
   },
 };
@@ -133,10 +135,19 @@ function smoothstep(edge0: number, edge1: number, x: number): number {
   return t * t * (3 - 2 * t);
 }
 
-function paintOrganZone(
+/**
+ * Pinta vertex colors do mesh em uma OU múltiplas zonas.
+ *
+ * - `zones=[]` → tudo porcelana (sem highlight)
+ * - `zones=[{zone, color}]` → uma região colorida (modo categoria órgão)
+ * - `zones=[...7 zones]` → modo "Todos" — todos órgãos coloridos
+ *
+ * Vertice pode estar em múltiplas zonas. Algoritmo: pega zone com maior
+ * weight (= mais próxima do centro). Lerp entre porcelain e essa cor.
+ */
+function paintOrganZones(
   mesh: THREE.Mesh,
-  zone: OrganZone | null,
-  organColor: THREE.Color,
+  zones: Array<{ zone: OrganZone; color: THREE.Color }>,
   baseColor: THREE.Color,
 ) {
   const geo = mesh.geometry as THREE.BufferGeometry;
@@ -149,29 +160,48 @@ function paintOrganZone(
     const y = pos.getY(i);
     const z = pos.getZ(i);
 
-    let weight = 0;
-    if (zone) {
-      // Distância normalizada num elipsoide (Mahalanobis)
+    let bestWeight = 0;
+    let bestColor: THREE.Color | null = null;
+
+    for (const { zone, color } of zones) {
       const dx = (x - zone.center[0]) / zone.radius[0];
       const dy = (y - zone.center[1]) / zone.radius[1];
       const dz = (z - zone.center[2]) / zone.radius[2];
       const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      // dist=0 → centro (weight=1), dist=1 → borda da zona (weight=0)
-      // smoothstep dá falloff suave no edge
-      weight = 1 - smoothstep(0.65, 1.05, dist);
+      const weight = 1 - smoothstep(0.65, 1.05, dist);
+      if (weight > bestWeight) {
+        bestWeight = weight;
+        bestColor = color;
+      }
     }
 
-    // Lerp entre base e organ
-    const r = baseColor.r * (1 - weight) + organColor.r * weight;
-    const g = baseColor.g * (1 - weight) + organColor.g * weight;
-    const b = baseColor.b * (1 - weight) + organColor.b * weight;
-    colors[i * 3] = r;
-    colors[i * 3 + 1] = g;
-    colors[i * 3 + 2] = b;
+    if (bestColor && bestWeight > 0) {
+      const r = baseColor.r * (1 - bestWeight) + bestColor.r * bestWeight;
+      const g = baseColor.g * (1 - bestWeight) + bestColor.g * bestWeight;
+      const b = baseColor.b * (1 - bestWeight) + bestColor.b * bestWeight;
+      colors[i * 3] = r;
+      colors[i * 3 + 1] = g;
+      colors[i * 3 + 2] = b;
+    } else {
+      colors[i * 3] = baseColor.r;
+      colors[i * 3 + 1] = baseColor.g;
+      colors[i * 3 + 2] = baseColor.b;
+    }
   }
 
   geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
 }
+
+// Cores fixas pra modo "Todos" — cada órgão sua cor distinta
+const ALL_ORGAN_COLORS: Record<string, string> = {
+  brain: "#7C3AED",    // roxo (neurológico)
+  heart: "#E11D48",    // vermelho (cardio)
+  lungs: "#0EA5E9",    // azul (respiratório)
+  liver: "#A16207",    // marrom (hepático)
+  pancreas: "#EAB308", // amarelo (metabólico)
+  kidneys: "#0D9488",  // teal (renal)
+  intestine: "#EA580C", // laranja (digestivo)
+};
 
 // ─── Model component ───────────────────────────────────────────────────────
 
@@ -183,7 +213,7 @@ interface MannequinModelProps {
 
 function MannequinModel({ sex, activeOrgan, activeColor }: MannequinModelProps) {
   const { scene } = useGLTF(MODEL_PATHS[sex]);
-  const meshRef = useRef<THREE.Mesh | null>(null);
+  const meshesRef = useRef<THREE.Mesh[]>([]);
 
   const baseColor = useMemo(() => new THREE.Color(PORCELAIN_COLOR), []);
 
@@ -204,31 +234,52 @@ function MannequinModel({ sex, activeOrgan, activeColor }: MannequinModelProps) 
       envMapIntensity: 0.7,
     });
 
+    // IMPORTANTE: itera TODOS meshes (não só último). Female pode ter
+    // vários submeshes; pintar só um deixa parte do corpo sem cor.
+    const allMeshes: THREE.Mesh[] = [];
     clone.traverse((obj) => {
       if (obj instanceof THREE.Mesh) {
         obj.material = material;
         obj.castShadow = true;
         obj.receiveShadow = true;
-        meshRef.current = obj;
+        allMeshes.push(obj);
       }
     });
+    meshesRef.current = allMeshes;
     return clone;
   }, [scene]);
 
   // Re-pinta vertices quando activeOrgan ou activeColor muda
   useEffect(() => {
-    if (!meshRef.current) return;
-    const zone =
-      activeOrgan && ORGAN_ZONES[sex]?.[activeOrgan]
-        ? ORGAN_ZONES[sex][activeOrgan]
-        : null;
-    const organColor = new THREE.Color(activeColor ?? "#0E7B45");
-    paintOrganZone(meshRef.current, zone, organColor, baseColor);
+    if (meshesRef.current.length === 0) return;
 
-    // Marca needsUpdate
-    const geo = meshRef.current.geometry;
-    if (geo.attributes.color) {
-      (geo.attributes.color as THREE.BufferAttribute).needsUpdate = true;
+    // Determina zonas a pintar:
+    // - 'all' → todas as 7 zonas com cores ALL_ORGAN_COLORS
+    // - órgão específico → 1 zona com activeColor
+    // - default → nenhuma zona (porcelana)
+    const sexZones = ORGAN_ZONES[sex] ?? {};
+    let zonesToPaint: Array<{ zone: OrganZone; color: THREE.Color }> = [];
+
+    if (activeOrgan === "all") {
+      zonesToPaint = Object.entries(sexZones).map(([orgId, zone]) => ({
+        zone,
+        color: new THREE.Color(ALL_ORGAN_COLORS[orgId] ?? "#0E7B45"),
+      }));
+    } else if (activeOrgan && sexZones[activeOrgan]) {
+      zonesToPaint = [
+        {
+          zone: sexZones[activeOrgan],
+          color: new THREE.Color(activeColor ?? "#0E7B45"),
+        },
+      ];
+    }
+
+    for (const mesh of meshesRef.current) {
+      paintOrganZones(mesh, zonesToPaint, baseColor);
+      const geo = mesh.geometry;
+      if (geo.attributes.color) {
+        (geo.attributes.color as THREE.BufferAttribute).needsUpdate = true;
+      }
     }
   }, [activeOrgan, activeColor, sex, baseColor]);
 
@@ -240,7 +291,9 @@ function MannequinModel({ sex, activeOrgan, activeColor }: MannequinModelProps) 
 // Quando activeOrgan muda, interpola camera.position + controls.target
 // pra novos valores via useFrame. Lerp factor 0.08 = transition ~1s.
 
-const DEFAULT_CAM_POSITION: [number, number, number] = [0, 0, 2.6];
+// DEFAULT_CAM_POSITION com Z maior pra full body caber inteiro no canvas
+// (Lucas: "todos os dados não mostra o corpo inteiro do manequin")
+const DEFAULT_CAM_POSITION: [number, number, number] = [0, 0, 3.0];
 const DEFAULT_CAM_TARGET: [number, number, number] = [0, 0, 0];
 
 interface CameraFocusProps {
@@ -324,7 +377,7 @@ export function BodyMannequin({
   return (
     <div className={cn("aspect-[3/4] w-full", className)}>
       <Canvas
-        camera={{ position: [0, 0, 2.6], fov: 32 }}
+        camera={{ position: [0, 0, 3.0], fov: 32 }}
         shadows
         gl={{ antialias: true, alpha: true, preserveDrawingBuffer: false }}
         dpr={[1, 2]}
