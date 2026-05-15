@@ -88,9 +88,9 @@ export function BodyMannequin({
   autoRotate = true,
 }: BodyMannequinProps) {
   return (
-    <div className={cn("aspect-[2/3] w-full", className)}>
+    <div className={cn("aspect-[1/2] w-full", className)}>
       <Canvas
-        camera={{ position: [0, 0.9, 3.6], fov: 26 }}
+        camera={{ position: [0, 0.9, 2.8], fov: 28 }}
         shadows
         gl={{ antialias: true, alpha: true, preserveDrawingBuffer: false }}
         dpr={[1, 2]}
@@ -122,8 +122,9 @@ export function BodyMannequin({
 
           <Environment preset="studio" environmentIntensity={0.6} />
 
-          {/* Bounds + Center auto-frame o modelo respeitando a câmera */}
-          <Bounds fit clip observe margin={1.45}>
+          {/* Bounds + Center auto-frame — margin 1.05 deixa avatar GRANDE
+              (Lucas 2026-05: "o avatar está pequeno, pode aumentar") */}
+          <Bounds fit clip observe margin={1.05}>
             <Center>
               <MannequinModel sex={sex} />
             </Center>
