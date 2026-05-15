@@ -90,7 +90,7 @@ export function BodyMannequin({
   return (
     <div className={cn("aspect-[2/3] w-full", className)}>
       <Canvas
-        camera={{ position: [0, 0.9, 3], fov: 28 }}
+        camera={{ position: [0, 0.9, 3.6], fov: 26 }}
         shadows
         gl={{ antialias: true, alpha: true, preserveDrawingBuffer: false }}
         dpr={[1, 2]}
@@ -123,7 +123,7 @@ export function BodyMannequin({
           <Environment preset="studio" environmentIntensity={0.6} />
 
           {/* Bounds + Center auto-frame o modelo respeitando a câmera */}
-          <Bounds fit clip observe margin={1.15}>
+          <Bounds fit clip observe margin={1.45}>
             <Center>
               <MannequinModel sex={sex} />
             </Center>
