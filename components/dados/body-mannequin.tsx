@@ -308,25 +308,37 @@ function MannequinModel({
 // zoom que eu te pedi inicialmente". Removed CameraFocus + cameraOffset
 // fields ainda existem em ORGAN_ZONES mas não são mais usados.
 
-// ─── BackViewRig — gira pra costas quando categoria = rins ─────────────────
+// ─── CameraCenteringRig — sempre centraliza câmera frente/costas ──────────
 //
-// Lucas (2026-05): "quando eu clicar na categoria rins, vire o boneco de
-// costas para mostrar os rins". Rins ficam na altura da lombar, na parte
-// posterior. Pra evidenciar:
+// Lucas (2026-05): "você tem que sempre centralizar (escolhendo frente do
+// personagem ou costas do personagem)". Comportamento:
 //
-//   1. autoRotate desliga (prop do OrbitControls externo) quando categoryId
-//      = "kidneys", senão fica girando indefinidamente.
-//   2. Aqui dentro, animamos azimuth do OrbitControls até π (= back view),
-//      usando shortest-arc lerp pra evitar voltar pelo lado errado.
-//   3. Quando categoria sai de "kidneys", autoRotate religa e o lerp para
-//      (target=null) — orbit retoma do ângulo atual, sem teleporte.
+//   - activeOrgan = null | "all" → sem alvo, autoRotate continua girando
+//   - activeOrgan = "kidneys"    → câmera vai PRAS COSTAS (azimuth π)
+//   - qualquer outro órgão       → câmera vai PRA FRENTE (azimuth 0)
 //
-// `controlsRef` precisa apontar pro <OrbitControls>. Como o ref dele é
-// no objeto de three-stdlib, usamos o tipo importado pra ts feliz.
+// Lerp factor 0.22 (era 0.08) — Lucas: "a mudança de ângulo tinha que
+// ser mais rapida". Completa rotação de 180° em ~0.3-0.4s.
+//
+// Shortest-arc lerp pra ir pelo caminho curto. Ex: indo de π pra 0,
+// pode girar +π OR -π (mesma distância) — fica na direção atual.
+//
+// Quando target está setado, autoRotate é desligado externamente (no
+// OrbitControls). Quando não há target, autoRotate fica livre.
 
 const BACK_AZIMUTH = Math.PI; // 180° = costas do boneco
+const FRONT_AZIMUTH = 0; // 0 = frente do boneco
+const LERP_FACTOR = 0.22; // velocidade da animação
 
-function BackViewRig({
+/** Órgãos que ficam atrás do tronco e precisam da câmera nas costas. */
+const BACK_ORGANS = new Set<string>(["kidneys"]);
+
+function organTargetAzimuth(organ: string | null | undefined): number | null {
+  if (!organ || organ === "all") return null;
+  return BACK_ORGANS.has(organ) ? BACK_AZIMUTH : FRONT_AZIMUTH;
+}
+
+function CameraCenteringRig({
   activeOrgan,
   controlsRef,
 }: {
@@ -337,7 +349,7 @@ function BackViewRig({
   const targetAzimuth = useRef<number | null>(null);
 
   useEffect(() => {
-    targetAzimuth.current = activeOrgan === "kidneys" ? BACK_AZIMUTH : null;
+    targetAzimuth.current = organTargetAzimuth(activeOrgan);
   }, [activeOrgan]);
 
   useFrame(() => {
@@ -350,7 +362,7 @@ function BackViewRig({
     const diff = ((rawDiff + Math.PI) % (2 * Math.PI)) - Math.PI;
 
     if (Math.abs(diff) > 0.005) {
-      controls.setAzimuthalAngle(current + diff * 0.08);
+      controls.setAzimuthalAngle(current + diff * LERP_FACTOR);
       controls.update();
     } else {
       controls.setAzimuthalAngle(targetAzimuth.current);
@@ -385,9 +397,11 @@ export function BodyMannequin({
   organStatuses,
 }: BodyMannequinProps) {
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
-  // Rins → desliga autoRotate pra back view ficar estático; resto continua
-  // girando como antes (Lucas só pediu pra rins).
-  const isKidneys = activeOrgan === "kidneys";
+  // Quando há órgão específico selecionado (não null/"all"), centraliza
+  // a câmera (frente ou costas, conforme órgão) e desliga autoRotate
+  // pra view ficar estática. autoRotate volta quando vai pro modo
+  // "all" ou sem órgão.
+  const hasCameraTarget = organTargetAzimuth(activeOrgan) !== null;
 
   return (
     <div className={cn("aspect-[3/4] w-full", className)}>
@@ -443,13 +457,14 @@ export function BodyMannequin({
             color="#7a8480"
           />
 
-          {/* Auto-rotate ligado por padrão — desliga só pra rins, onde o
-              BackViewRig fixa a câmera atrás do boneco. */}
+          {/* Auto-rotate só quando NÃO tem órgão específico selecionado
+              (= modo "all" ou null). Pra órgãos específicos o
+              CameraCenteringRig centraliza câmera frente/costas. */}
           <OrbitControls
             ref={controlsRef}
             enableZoom={false}
             enablePan={false}
-            autoRotate={!isKidneys}
+            autoRotate={!hasCameraTarget}
             autoRotateSpeed={0.7}
             minPolarAngle={Math.PI / 2.3}
             maxPolarAngle={Math.PI / 1.95}
@@ -457,7 +472,10 @@ export function BodyMannequin({
             makeDefault
           />
 
-          <BackViewRig activeOrgan={activeOrgan} controlsRef={controlsRef} />
+          <CameraCenteringRig
+            activeOrgan={activeOrgan}
+            controlsRef={controlsRef}
+          />
         </Suspense>
       </Canvas>
     </div>
