@@ -157,7 +157,7 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
           Lista de categorias (shortLabels) à esquerda + avatar 3D à direita.
           Avatar tem altura própria pra não esticar a lista (auto rows).
         */}
-        <div className="grid grid-cols-[1fr_140px] items-start gap-3">
+        <div className="grid grid-cols-[1fr_200px] items-start gap-3">
           <CategoryList
             categories={visibleCategories}
             activeId={categoryId}
@@ -168,7 +168,7 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
             {/* Ring sutil ao redor do avatar tinge na cor do grade da
                 categoria ativa — mesma técnica do antigo BodyAvatar3D. */}
             <div
-              className="relative w-full max-w-[140px] rounded-2xl transition-shadow"
+              className="relative w-full max-w-[200px] rounded-2xl transition-shadow"
               style={{
                 boxShadow:
                   categoryId === "all"
@@ -236,7 +236,7 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
           DESKTOP (lg+) — grid de 3 colunas: categorias | avatar | section.
           Nada muda do que já existia.
           ────────────────────────────────────────────────────────────────── */}
-      <div className="hidden lg:grid lg:grid-cols-[260px_280px_1fr] lg:gap-8">
+      <div className="hidden lg:grid lg:grid-cols-[240px_340px_1fr] lg:gap-7">
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <CategoryList
             categories={visibleCategories}
@@ -247,7 +247,7 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
 
         <aside className="lg:sticky lg:top-24 lg:flex lg:flex-col lg:items-center lg:gap-3 lg:self-start">
           <div
-            className="relative w-[280px] rounded-2xl transition-shadow"
+            className="relative w-[340px] rounded-2xl transition-shadow"
             style={{
               boxShadow:
                 categoryId === "all"
