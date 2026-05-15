@@ -142,7 +142,6 @@ export function ConciergeView({ addressName }: ConciergeViewProps) {
             className="h-14 w-14 object-cover"
             priority
           />
-          <span className="absolute right-0.5 bottom-0.5 h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-white" />
         </span>
         <div>
           <span className="text-[13px] text-muted">

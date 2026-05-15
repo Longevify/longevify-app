@@ -117,7 +117,6 @@ export function DrLonFloating() {
             height={28}
             className="h-7 w-7 object-cover"
           />
-          <span className="absolute right-0 bottom-0 h-2 w-2 rounded-full bg-emerald-400 ring-2 ring-brand-700" />
         </span>
         <span>Dr. Lon</span>
       </button>
@@ -144,7 +143,6 @@ export function DrLonFloating() {
                 height={40}
                 className="h-10 w-10 object-cover"
               />
-              <span className="absolute right-0 bottom-0 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-brand-700" />
             </span>
             <div>
               <div className="text-[13px] font-semibold leading-tight">
