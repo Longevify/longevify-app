@@ -23,6 +23,12 @@ interface PostExamStoriesProps {
   patient: Patient;
   /** Localstorage flag pra não mostrar 2x. */
   storageKey?: string;
+  /** Quando true, força exibição mesmo se já foi visto. Usado pelo
+   *  botão "Rever apresentação" da home demo. */
+  forceShow?: boolean;
+  /** Callback chamado quando o user fecha. Permite ao parent resetar
+   *  o forceShow. */
+  onClose?: () => void;
 }
 
 interface SlideContent {
@@ -118,15 +124,19 @@ const SLIDES: SlideContent[] = [
             }}
           />
         </div>
-        {/* Silhueta avatar */}
+        {/* Silhueta avatar — usa GLB do manequim novo via render 2D
+            (frame estático). Path antigo /avatars/360/male/000.webp era
+            o manequim AI-generated (descontinuado). Agora usa um snapshot
+            do mannequin Three.js renderizado em /public/avatars/mannequin/
+            preview-male.webp. */}
         <div className="pointer-events-none absolute inset-x-0 bottom-32 top-12 grid place-items-center">
           <div className="relative h-[60%] w-auto">
             <Image
-              src="/avatars/360/male/000.webp"
+              src="/avatars/mannequin/preview-male.webp"
               alt=""
               fill
               priority
-              className="object-contain mix-blend-luminosity opacity-90"
+              className="object-contain opacity-90"
               sizes="400px"
             />
           </div>
@@ -323,10 +333,10 @@ const SLIDES: SlideContent[] = [
                 Longevify
               </div>
 
-              {/* Mini silhueta */}
+              {/* Mini silhueta — manequim atualizado */}
               <div className="relative mx-auto mt-4 h-[200px] w-[140px]">
                 <Image
-                  src={`/avatars/360/${patient.sex}/000.webp`}
+                  src={`/avatars/mannequin/preview-${patient.sex}.webp`}
                   alt=""
                   fill
                   className="object-contain"
@@ -456,14 +466,22 @@ const SLIDES: SlideContent[] = [
 export function PostExamStories({
   patient,
   storageKey = "longevify-stories-shown-v1",
+  forceShow = false,
+  onClose,
 }: PostExamStoriesProps) {
   const [open, setOpen] = useState(false);
   const [slideIdx, setSlideIdx] = useState(0);
   const [progress, setProgress] = useState(0);
   const progressRef = useRef<number | null>(null);
 
-  // Check localStorage no mount
+  // Abre por forceShow OU por flag localStorage não setada
   useEffect(() => {
+    if (forceShow) {
+      setOpen(true);
+      setSlideIdx(0);
+      setProgress(0);
+      return;
+    }
     try {
       const shown = localStorage.getItem(storageKey);
       if (!shown) {
@@ -472,7 +490,7 @@ export function PostExamStories({
     } catch {
       // ignore
     }
-  }, [storageKey]);
+  }, [storageKey, forceShow]);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -481,7 +499,8 @@ export function PostExamStories({
     } catch {
       // ignore
     }
-  }, [storageKey]);
+    onClose?.();
+  }, [storageKey, onClose]);
 
   const advance = useCallback(() => {
     setSlideIdx((prev) => {
@@ -548,8 +567,15 @@ export function PostExamStories({
         isLightSlide ? "bg-white" : "bg-gradient-to-br from-[#0d2818] via-[#143D28] to-[#0F3020]",
       )}
     >
-      {/* Header: progress bars + close */}
-      <header className="relative z-10 flex items-center gap-2 px-4 pt-4 pb-2">
+      {/* Header: progress bars + close.
+          pt-[max(env(safe-area-inset-top),16px)] respeita Dynamic Island
+          do iPhone (Lucas 2026-05: progress bar estava na altura da ilha). */}
+      <header
+        className="relative z-10 flex items-center gap-2 px-4 pb-2"
+        style={{
+          paddingTop: "max(env(safe-area-inset-top), 1rem)",
+        }}
+      >
         <div className="flex flex-1 items-center gap-1.5">
           {SLIDES.map((_, i) => (
             <div
@@ -587,17 +613,42 @@ export function PostExamStories({
         </button>
       </header>
 
-      {/* Logo Longevify topo (quando não-light) */}
+      {/* Logo Longevify topo (quando não-light) — abaixo do safe area */}
       {!isLightSlide && (
-        <div className="absolute left-1/2 top-12 z-10 -translate-x-1/2 text-[14px] font-semibold tracking-wide text-white/90">
+        <div
+          className="absolute left-1/2 z-10 -translate-x-1/2 text-[14px] font-semibold tracking-wide text-white/90"
+          style={{
+            top: "calc(max(env(safe-area-inset-top), 1rem) + 1.75rem)",
+          }}
+        >
           longevify
         </div>
       )}
 
-      {/* Slide content */}
-      <div className="relative flex flex-1 items-center justify-center">
+      {/* Slide content — key={slideIdx} força remount + animation
+          (fade-in + slight slide up) toda vez que muda slide. */}
+      <div
+        key={slideIdx}
+        className="stories-slide relative flex flex-1 items-center justify-center"
+      >
         {Slide.render(patient)}
       </div>
+
+      <style jsx>{`
+        :global(.stories-slide) {
+          animation: storyFadeIn 380ms cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes storyFadeIn {
+          0% {
+            opacity: 0;
+            transform: translateY(12px) scale(0.985);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+      `}</style>
 
       {/* Tap zones (left = back, right = forward) */}
       <button
@@ -630,18 +681,22 @@ export function PostExamStories({
         </button>
       </div>
 
-      {/* Back button (small, top-left) — só não no primeiro slide */}
+      {/* Back button (small, top-left) — só não no primeiro slide.
+          Posicionado abaixo do safe-area-inset-top + header */}
       {slideIdx > 0 && (
         <button
           type="button"
           onClick={back}
           aria-label="Voltar"
           className={cn(
-            "absolute left-4 top-16 z-30 grid h-9 w-9 place-items-center rounded-full transition",
+            "absolute left-4 z-30 grid h-9 w-9 place-items-center rounded-full transition",
             isLightSlide
               ? "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
               : "bg-white/10 text-white/80 hover:bg-white/20",
           )}
+          style={{
+            top: "calc(max(env(safe-area-inset-top), 1rem) + 3rem)",
+          }}
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
