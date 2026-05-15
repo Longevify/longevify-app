@@ -7,7 +7,6 @@ import {
   useGLTF,
   Environment,
   ContactShadows,
-  Center,
   Bounds,
 } from "@react-three/drei";
 import * as THREE from "three";
@@ -39,19 +38,24 @@ interface OrganPos {
   scale: [number, number, number];
 }
 
-// Coords calibradas empiricamente pós-Center. Modelo height 1.77m,
-// pés Y≈-0.6 (com Bounds offset), cabeça Y≈+1.0. Anatomia humana:
-//   peito (coração/pulmões) ~85% da altura = ~Y=+0.5
-//   umbigo (intestino) ~58% = ~Y=+0.1
-//   topo cabeça (cérebro) ~95% = ~Y=+1.0
+// Coords em ESPAÇO DO MODELO (Y=0 nos pés, Y=1.77 na cabeça).
+// Anatomia humana adulta (proporções % da altura):
+//   topo cabeça/cérebro: 100% = Y=1.77
+//   ombros: 82% = Y=1.45
+//   peito (coração): 77% = Y=1.35
+//   pulmões centro: 75% = Y=1.33
+//   abdomen sup (fígado): 65% = Y=1.15
+//   pâncreas: 60% = Y=1.06
+//   rins (atrás): 58% = Y=1.03
+//   umbigo (intestino): 56% = Y=0.99
 const ORGAN_POSITIONS: Record<string, OrganPos> = {
-  brain:     { position: [0,     1.05, 0],     scale: [0.075, 0.085, 0.085] },
-  lungs:     { position: [0,     0.70, 0.02],  scale: [0.14,  0.13,  0.10]  },
-  heart:     { position: [-0.04, 0.70, 0.06],  scale: [0.06,  0.07,  0.06]  },
-  liver:     { position: [0.07,  0.52, 0.06],  scale: [0.10,  0.07,  0.08]  },
-  pancreas:  { position: [-0.02, 0.44, 0.04],  scale: [0.07,  0.04,  0.06]  },
-  kidneys:   { position: [0,     0.40, -0.06], scale: [0.13,  0.05,  0.05]  },
-  intestine: { position: [0,     0.30, 0.06],  scale: [0.10,  0.09,  0.08]  },
+  brain:     { position: [0,     1.68, 0],     scale: [0.075, 0.085, 0.085] },
+  lungs:     { position: [0,     1.33, 0.02],  scale: [0.14,  0.13,  0.10]  },
+  heart:     { position: [-0.04, 1.35, 0.06],  scale: [0.06,  0.07,  0.06]  },
+  liver:     { position: [0.07,  1.15, 0.06],  scale: [0.10,  0.07,  0.08]  },
+  pancreas:  { position: [-0.02, 1.06, 0.04],  scale: [0.07,  0.04,  0.06]  },
+  kidneys:   { position: [0,     1.03, -0.06], scale: [0.13,  0.05,  0.05]  },
+  intestine: { position: [0,     0.95, 0.06],  scale: [0.10,  0.09,  0.08]  },
 };
 
 // ─── OrganHighlight ─────────────────────────────────────────────────────────
@@ -221,11 +225,12 @@ export function BodyMannequin({
 
           <Environment preset="studio" environmentIntensity={0.6} />
 
-          {/* Avatar MAIOR — margin 1.02 (apertado, com buffer mínimo
-              pra auto-rotate não cortar). Modelo + organ highlight
-              dentro do mesmo Bounds pra escalarem juntos. */}
+          {/* Bounds escala pro avatar caber no canvas. Removi o <Center>
+              do drei e centralizo manualmente com group position Y=-0.88
+              (metade da altura do modelo 1.77m, alinhando centro com 0).
+              ORGAN_POSITIONS agora em coords do MODELO (Y=0 nos pés). */}
           <Bounds fit clip={false} observe margin={1.02}>
-            <Center>
+            <group position={[0, -0.88, 0]}>
               <MannequinModel sex={sex} />
               {showOrgan && (
                 <OrganHighlight
@@ -233,7 +238,7 @@ export function BodyMannequin({
                   color={activeColor}
                 />
               )}
-            </Center>
+            </group>
           </Bounds>
 
           <ContactShadows
