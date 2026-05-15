@@ -241,12 +241,15 @@ export function BodyMannequin({
             </group>
           </Bounds>
 
+          {/* Posicionada nos PÉS do avatar (Y=-0.88, same como o group
+              offset que centraliza o modelo). Antes Y=-1 deixava sombra
+              12cm abaixo dos pés — avatar parecia flutuando. */}
           <ContactShadows
-            position={[0, -1, 0]}
-            opacity={0.32}
-            scale={3}
-            blur={2.8}
-            far={1.5}
+            position={[0, -0.88, 0]}
+            opacity={0.36}
+            scale={2.5}
+            blur={2.4}
+            far={1}
             color="#7a8480"
           />
 
