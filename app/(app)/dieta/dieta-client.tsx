@@ -2,16 +2,59 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { Plus, ChevronRight } from "lucide-react";
+import { Plus, ChevronRight, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {
   MealEntry,
   Nutrients,
   NutrientTargets,
 } from "@/lib/dieta/types";
-import { MEAL_TYPE_ICON, MEAL_TYPE_LABEL } from "@/lib/dieta/types";
+import {
+  MEAL_TYPE_ICON,
+  MEAL_TYPE_LABEL,
+  NUTRIENT_LABEL,
+  TARGET_KIND,
+} from "@/lib/dieta/types";
 import type { DietInsight } from "@/lib/dieta/calculations";
 import { AddMealModal } from "@/components/dieta/add-meal-modal";
+
+// ─── Grupos de nutrientes pra UI ───────────────────────────────────────────
+//
+// 3 seções colapsáveis na tela, cada uma agrupando nutrientes correlatos.
+// Sódio entra em "Outros" como LIMITE (cor inverte: < limite = verde).
+
+const VITAMIN_KEYS: (keyof NutrientTargets)[] = [
+  "vitaminA",
+  "vitaminC",
+  "vitaminD",
+  "vitaminE",
+  "vitaminK",
+  "vitaminB1",
+  "vitaminB2",
+  "vitaminB3",
+  "vitaminB6",
+  "vitaminB9",
+  "vitaminB12",
+];
+
+const MINERAL_KEYS: (keyof NutrientTargets)[] = [
+  "calcium",
+  "iron",
+  "magnesium",
+  "potassium",
+  "zinc",
+  "selenium",
+];
+
+const OTHER_KEYS: (keyof NutrientTargets)[] = [
+  "fiber",
+  "omega3",
+  "choline",
+  "sugar",
+  "saturatedFat",
+  "cholesterol",
+  "sodium",
+];
 
 interface DietaClientProps {
   todayMeals: MealEntry[];
@@ -167,6 +210,32 @@ export function DietaClient({
         </div>
       </section>
 
+      {/* Vitaminas, minerais e outros nutrientes */}
+      <section className="mb-5 overflow-hidden rounded-2xl border border-zinc-200 bg-white">
+        <NutrientGroup
+          title="Vitaminas"
+          hint="Lipossolúveis (A, D, E, K) + hidrossolúveis (C, B-complex)"
+          keys={VITAMIN_KEYS}
+          totals={todayTotals}
+          targets={targets}
+          defaultOpen
+        />
+        <NutrientGroup
+          title="Minerais"
+          hint="Macro e oligoelementos relevantes pra longevidade"
+          keys={MINERAL_KEYS}
+          totals={todayTotals}
+          targets={targets}
+        />
+        <NutrientGroup
+          title="Outros parâmetros"
+          hint="Fibra, ômega-3 (alvo) · sódio, açúcar, gordura saturada (limite)"
+          keys={OTHER_KEYS}
+          totals={todayTotals}
+          targets={targets}
+        />
+      </section>
+
       {/* CTA + lista de refeições */}
       <section className="mb-8">
         <button
@@ -276,6 +345,156 @@ function MacroCard({
       <div className="relative mt-1.5 h-1 w-full overflow-hidden rounded-full bg-zinc-200/60">
         <div
           className={cn("absolute inset-y-0 left-0 rounded-full", colorClass)}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─── NutrientGroup (Vitaminas / Minerais / Outros) ────────────────────────
+//
+// Cada grupo é uma seção colapsável dentro do card "Vitaminas e
+// nutrientes". Mostra cada nutriente como uma linha com:
+//   - nome + unidade
+//   - valor consumido hoje / alvo diário
+//   - barra de progresso (cor depende se é alvo ou limite)
+//   - chip de %
+//
+// Pra nutrientes-limite (sódio, açúcar, sat. fat, colesterol):
+//   - cor inverte: < limite = verde, > limite = vermelho
+//   - barra mostra "consumido / limite" igual
+
+function NutrientGroup({
+  title,
+  hint,
+  keys,
+  totals,
+  targets,
+  defaultOpen = false,
+}: {
+  title: string;
+  hint?: string;
+  keys: (keyof NutrientTargets)[];
+  totals: Nutrients;
+  targets: NutrientTargets;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <div className="border-b border-zinc-100 last:border-b-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left transition hover:bg-brand-50/40"
+        aria-expanded={open}
+      >
+        <div className="min-w-0">
+          <div className="text-[14px] font-semibold text-zinc-900">{title}</div>
+          {hint ? (
+            <div className="mt-0.5 text-[11.5px] leading-snug text-zinc-400">
+              {hint}
+            </div>
+          ) : null}
+        </div>
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 shrink-0 text-zinc-400 transition-transform",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+
+      {open ? (
+        <div className="grid grid-cols-1 gap-2.5 border-t border-zinc-100 bg-zinc-50/40 px-5 py-4 sm:grid-cols-2">
+          {keys.map((k) => (
+            <NutrientRow
+              key={k}
+              nKey={k}
+              value={(totals[k as keyof Nutrients] as number | undefined) ?? 0}
+              target={targets[k]}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function NutrientRow({
+  nKey,
+  value,
+  target,
+}: {
+  nKey: keyof NutrientTargets;
+  value: number;
+  target: number;
+}) {
+  const { label, unit, short } = NUTRIENT_LABEL[nKey];
+  const kind = TARGET_KIND[nKey];
+  const ratio = target > 0 ? value / target : 0;
+  const pct = Math.min(ratio * 100, 100);
+  const pctLabel = Math.round(ratio * 100);
+
+  // Cor da barra/chip:
+  //   target: < 60% vermelho, 60-89% âmbar, >= 90% verde
+  //   limit: <= 100% verde, 101-130% âmbar, > 130% vermelho
+  const status: "good" | "warn" | "bad" = (() => {
+    if (kind === "target") {
+      if (ratio >= 0.9) return "good";
+      if (ratio >= 0.6) return "warn";
+      return "bad";
+    }
+    if (ratio <= 1.0) return "good";
+    if (ratio <= 1.3) return "warn";
+    return "bad";
+  })();
+
+  const barClass = {
+    good: "bg-emerald-500",
+    warn: "bg-amber-500",
+    bad: "bg-rose-500",
+  }[status];
+
+  const chipClass = {
+    good: "bg-emerald-50 text-emerald-700",
+    warn: "bg-amber-50 text-amber-700",
+    bad: "bg-rose-50 text-rose-700",
+  }[status];
+
+  return (
+    <div className="rounded-xl border border-zinc-200 bg-white px-3 py-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="truncate text-[12.5px] font-medium text-zinc-800">
+            {short ? (
+              <span className="mr-1 text-zinc-400">{short}</span>
+            ) : null}
+            {label}
+          </div>
+          <div className="mt-0.5 flex items-baseline gap-1 text-[11px] tabular-nums">
+            <span className="font-semibold text-zinc-900">
+              {fmt(value, value < 10 ? 1 : 0)}
+            </span>
+            <span className="text-zinc-400">
+              / {target} {unit}
+              {kind === "limit" ? " (limite)" : ""}
+            </span>
+          </div>
+        </div>
+        <span
+          className={cn(
+            "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums",
+            chipClass,
+          )}
+        >
+          {pctLabel}%
+        </span>
+      </div>
+      <div className="relative mt-2 h-1 w-full overflow-hidden rounded-full bg-zinc-100">
+        <div
+          className={cn("absolute inset-y-0 left-0 rounded-full", barClass)}
           style={{ width: `${pct}%` }}
         />
       </div>
