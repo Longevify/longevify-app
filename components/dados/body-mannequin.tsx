@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useRef } from "react";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useFrame } from "@react-three/fiber";
 import {
   OrbitControls,
   useGLTF,
@@ -10,6 +10,7 @@ import {
   Bounds,
 } from "@react-three/drei";
 import * as THREE from "three";
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { PatientSex } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
@@ -307,6 +308,59 @@ function MannequinModel({
 // zoom que eu te pedi inicialmente". Removed CameraFocus + cameraOffset
 // fields ainda existem em ORGAN_ZONES mas não são mais usados.
 
+// ─── BackViewRig — gira pra costas quando categoria = rins ─────────────────
+//
+// Lucas (2026-05): "quando eu clicar na categoria rins, vire o boneco de
+// costas para mostrar os rins". Rins ficam na altura da lombar, na parte
+// posterior. Pra evidenciar:
+//
+//   1. autoRotate desliga (prop do OrbitControls externo) quando categoryId
+//      = "kidneys", senão fica girando indefinidamente.
+//   2. Aqui dentro, animamos azimuth do OrbitControls até π (= back view),
+//      usando shortest-arc lerp pra evitar voltar pelo lado errado.
+//   3. Quando categoria sai de "kidneys", autoRotate religa e o lerp para
+//      (target=null) — orbit retoma do ângulo atual, sem teleporte.
+//
+// `controlsRef` precisa apontar pro <OrbitControls>. Como o ref dele é
+// no objeto de three-stdlib, usamos o tipo importado pra ts feliz.
+
+const BACK_AZIMUTH = Math.PI; // 180° = costas do boneco
+
+function BackViewRig({
+  activeOrgan,
+  controlsRef,
+}: {
+  activeOrgan?: string | null;
+  controlsRef: React.RefObject<OrbitControlsImpl | null>;
+}) {
+  // null = sem alvo (libera autoRotate); número = lerp até esse azimuth
+  const targetAzimuth = useRef<number | null>(null);
+
+  useEffect(() => {
+    targetAzimuth.current = activeOrgan === "kidneys" ? BACK_AZIMUTH : null;
+  }, [activeOrgan]);
+
+  useFrame(() => {
+    const controls = controlsRef.current;
+    if (!controls || targetAzimuth.current === null) return;
+
+    const current = controls.getAzimuthalAngle();
+    // Shortest-arc diff em [-π, π] pra não girar 358° quando faltam 2°
+    const rawDiff = targetAzimuth.current - current;
+    const diff = ((rawDiff + Math.PI) % (2 * Math.PI)) - Math.PI;
+
+    if (Math.abs(diff) > 0.005) {
+      controls.setAzimuthalAngle(current + diff * 0.08);
+      controls.update();
+    } else {
+      controls.setAzimuthalAngle(targetAzimuth.current);
+      controls.update();
+    }
+  });
+
+  return null;
+}
+
 // ─── Componente principal ───────────────────────────────────────────────────
 
 interface BodyMannequinProps {
@@ -330,6 +384,11 @@ export function BodyMannequin({
   activeColor = "#0E7B45",
   organStatuses,
 }: BodyMannequinProps) {
+  const controlsRef = useRef<OrbitControlsImpl | null>(null);
+  // Rins → desliga autoRotate pra back view ficar estático; resto continua
+  // girando como antes (Lucas só pediu pra rins).
+  const isKidneys = activeOrgan === "kidneys";
+
   return (
     <div className={cn("aspect-[3/4] w-full", className)}>
       <Canvas
@@ -384,18 +443,21 @@ export function BodyMannequin({
             color="#7a8480"
           />
 
-          {/* Auto-rotate sempre ligado — sem zoom no órgão (Lucas 2026-05).
-              CameraFocus removido — câmera fica em posição padrão. */}
+          {/* Auto-rotate ligado por padrão — desliga só pra rins, onde o
+              BackViewRig fixa a câmera atrás do boneco. */}
           <OrbitControls
+            ref={controlsRef}
             enableZoom={false}
             enablePan={false}
-            autoRotate
+            autoRotate={!isKidneys}
             autoRotateSpeed={0.7}
             minPolarAngle={Math.PI / 2.3}
             maxPolarAngle={Math.PI / 1.95}
             target={[0, 0, 0]}
             makeDefault
           />
+
+          <BackViewRig activeOrgan={activeOrgan} controlsRef={controlsRef} />
         </Suspense>
       </Canvas>
     </div>
