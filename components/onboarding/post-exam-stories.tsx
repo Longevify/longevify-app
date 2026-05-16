@@ -326,49 +326,51 @@ function pickTopWinners(biomarkers: Biomarker[], limit: number): Biomarker[] {
   return scored.slice(0, limit).map((s) => s.biomarker);
 }
 
-/** Tom didático pra explicar o que o biomarcador alterado SIGNIFICA. */
+/** Tom conversa pra explicar o que o biomarcador alterado significa.
+ *  Lucas (2026-05): "não seja tão formal no onboarding, o onboarding
+ *  tem que ter um tom de conversa". */
 function explainConcern(b: Biomarker): string {
   switch (b.id) {
     case "ldl":
-      return "LDL é o colesterol que tende a depositar nas paredes das artérias. Acima de 100 mg/dL começa a aumentar risco cardiovascular a longo prazo.";
+      return "Sabe aquele colesterol que a gente fala que entope artéria? É esse aí. Acima de 100 já começa a virar problema lá na frente.";
     case "apob":
-      return "ApoB conta o número de partículas que carregam colesterol pro sangue — é o termômetro mais preciso de risco cardio.";
+      return "Pensa assim: ApoB conta cada caminhãozinho de colesterol no seu sangue. Quanto mais caminhão, mais coisa pra grudar nas artérias.";
     case "vitd":
-      return "Vitamina D regula osso, imunidade e humor. Abaixo de 50 ng/dL você não está com reserva ideal.";
+      return "Vit D é a vitamina do sol — mexe com osso, imunidade e até com seu humor. Abaixo de 50, dá pra subir tranquilo.";
     case "hba1c":
-      return "HbA1c mostra a média da glicose dos últimos 2-3 meses. Acima de 5.7% começa a sinalizar resistência insulínica.";
+      return "Esse marcador é a média do seu açúcar dos últimos 3 meses. Subindo de 5.7% já é sinal que o corpo tá começando a resistir à insulina.";
     case "crp":
-      return "PCR ultrassensível mede inflamação silenciosa no corpo. Inflamação crônica acelera envelhecimento.";
+      return "PCR é tipo um alarme silencioso de inflamação. Você nem sente, mas é ela que acelera o envelhecimento por dentro.";
     case "hdl":
-      return "HDL é o colesterol 'limpa-trilho' — quanto mais alto, mais proteção cardiovascular.";
+      return "Esse é o colesterol amigo — o que limpa a sujeira das suas artérias. Quanto mais alto, melhor pro coração.";
     case "ferritin":
-      return "Ferritina mostra suas reservas de ferro. Baixa = anemia em formação. Alta = inflamação.";
+      return "Ferritina é o tanque de reserva do seu ferro. Baixo é sinal de pré-anemia. Alto pode ser inflamação rodando.";
     case "testo":
-      return "Testosterona regula massa magra, libido, energia e densidade óssea — em homens e mulheres.";
+      return "Testosterona não é só coisa de homem — ela mexe com músculo, energia, libido e osso pra todo mundo.";
     default:
-      return `${b.name} está fora da faixa ideal. Vamos trabalhar pra normalizar.`;
+      return `${b.name} tá fora do ideal. Bora trabalhar pra ajustar.`;
   }
 }
 
-/** Tom curto + positivo pra explicar por que o biomarcador ótimo é bom. */
+/** Tom de elogio rápido, conversa. Não soa relatório clínico. */
 function explainWinner(b: Biomarker): string {
   switch (b.id) {
     case "ldl":
-      return "Seu colesterol 'ruim' tá protegido — risco cardio baixo nesse marcador.";
+      return "Beleza pura. Colesterol ruim baixinho — seu coração agradece.";
     case "apob":
-      return "Número de partículas aterogênicas baixo — coração agradece.";
+      return "Pouco caminhão de colesterol rodando no sangue. Tá no ponto.";
     case "vitd":
-      return "Reserva de Vit D ideal — imunidade, osso e humor recebem o suficiente.";
+      return "Vit D no ponto. Osso, imunidade e humor agradecem.";
     case "hdl":
-      return "HDL alto = proteção cardiovascular natural.";
+      return "Colesterol amigo lá em cima — proteção cardio na medida.";
     case "ferritin":
-      return "Reserva de ferro saudável — energia e oxigenação em dia.";
+      return "Tanque de ferro cheio. Energia e oxigenação em dia.";
     case "hba1c":
-      return "Glicose média ótima — sensibilidade à insulina preservada.";
+      return "Açúcar médio ótimo. Seu corpo tá processando insulina certinho.";
     case "testo":
-      return "Hormônio em faixa boa pra massa magra e disposição.";
+      return "Hormônio em faixa boa. Músculo e disposição na medida.";
     default:
-      return `${b.name} está na faixa ideal. Continua assim.`;
+      return `${b.name} tá na faixa boa. Continua assim.`;
   }
 }
 
@@ -399,10 +401,10 @@ const SLIDES: SlideContent[] = [
 
           <div className="relative w-full max-w-[360px] story-card-in">
             <p className="mb-1 text-[12px] uppercase tracking-[0.18em] text-white/55">
-              Bem-vindo, {patient.firstName}
+              Oi, {patient.firstName}
             </p>
             <h2 className="text-[26px] font-semibold tracking-tight leading-[1.1]">
-              Aqui está sua saúde<br />em uma página
+              Olha sua saúde<br />numa página só
             </h2>
 
             {/* Card — estilo "Seus pontos fortes" */}
@@ -459,7 +461,7 @@ const SLIDES: SlideContent[] = [
             </div>
 
             <p className="mt-5 text-[12.5px] leading-relaxed text-white/65">
-              Toque na lateral pra avançar · sem pressa, fica aberto até você fechar
+              É só ir tocando pra avançar · sem pressa, fica aí o tempo que precisar
             </p>
           </div>
         </div>
@@ -501,12 +503,12 @@ const SLIDES: SlideContent[] = [
           </div>
           <div className="relative mt-10 max-w-md story-fade-up">
             <h2 className="text-[22px] font-semibold tracking-tight">
-              Sua idade biológica é {patient.biologicalAge}
+              Sua idade biológica tá em {patient.biologicalAge}
             </h2>
             <p className="mt-2 text-[14px] leading-relaxed text-white/75">
               {younger
-                ? `Você está ${Math.abs(delta).toFixed(1)} anos mais jovem que sua idade cronológica. Seus biomarcadores indicam um corpo metabolicamente mais novo.`
-                : `Seus biomarcadores estão envelhecendo um pouco mais rápido que sua idade cronológica. Vamos reverter isso.`}
+                ? `Beleza pura — você tá ${Math.abs(delta).toFixed(1)} anos mais novo do que sua idade do RG. Os exames mostram um corpo rodando mais jovem do que ele tem de fato.`
+                : `Os exames mostram que seu corpo tá envelhecendo um pouquinho mais rápido que devia. Mas relaxa, é pra isso que a gente tá aqui — bora reverter.`}
             </p>
           </div>
         </div>
@@ -543,7 +545,7 @@ const SLIDES: SlideContent[] = [
 
         <div className="relative mt-8 max-w-md">
           <h2 className="text-[20px] font-semibold tracking-tight">
-            Toque em cada sistema pra ver a nota
+            Toca em cada sistema pra ver como tá
           </h2>
           <div className="mt-4 flex flex-wrap justify-center gap-2">
             {(patient.organScores ?? []).map((o, i) => (
@@ -577,13 +579,13 @@ const SLIDES: SlideContent[] = [
         <div className="flex h-full w-full flex-col justify-center bg-white px-6 py-20 text-zinc-900">
           <div className="mx-auto w-full max-w-md">
             <h2 className="text-center text-[24px] font-semibold tracking-tight">
-              Seus pontos fortes
+              Onde você tá mandando bem
             </h2>
             <p className="mt-1 text-center text-[13px] text-zinc-500">
               <span className="font-semibold text-emerald-700">
                 <AnimatedNumber value={winners.length} />
               </span>{" "}
-              de {total} sistemas orgânicos estão indo excepcionalmente bem
+              de {total} sistemas tão voando — segue assim
             </p>
 
             <div className="story-card-in mt-8 rounded-[28px] border border-zinc-200 bg-gradient-to-b from-white to-emerald-50/40 p-6 shadow-[0_24px_48px_-24px_rgba(31,93,63,0.25)]">
@@ -637,22 +639,23 @@ const SLIDES: SlideContent[] = [
         <div className="m-auto flex w-full max-w-md flex-col px-6 py-16">
           <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">
             <ThumbsUp className="h-3 w-3" />
-            Pontos altos
+            Vitórias
           </div>
           <h2 className="mt-3 text-[26px] font-semibold tracking-tight text-zinc-900 leading-[1.1] story-fade-up">
-            {patient.firstName}, esses resultados<br />
-            estão excelentes
+            {patient.firstName}, aqui você<br />
+            tá acertando em cheio
           </h2>
           <p className="mt-3 text-[14px] leading-relaxed text-zinc-600 story-fade-up-2">
-            Vamos começar pelo que tá indo bem — esses marcadores estão na
-            faixa ótima e merecem ser preservados.
+            Antes de falar do que dá pra melhorar, deixa eu te mostrar onde
+            você tá voando. Esses três aqui você não precisa mexer — segue
+            como tá.
           </p>
 
           <div className="mt-7 flex flex-col gap-2.5">
             {topWinners.length === 0 ? (
               <p className="rounded-2xl bg-zinc-50 px-4 py-3 text-[13px] text-zinc-500">
-                Nenhum biomarcador em faixa ótima ainda — vamos focar nos
-                pontos a melhorar pra mudar isso.
+                Por enquanto nenhum marcador tá na faixa ótima — mas calma,
+                a gente resolve isso nos próximos slides.
               </p>
             ) : (
               topWinners.map((b, i) => (
@@ -680,16 +683,16 @@ const SLIDES: SlideContent[] = [
         <div className="m-auto flex w-full max-w-md flex-col px-6 py-16">
           <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-700">
             <TrendingUp className="h-3 w-3" />
-            Pontos a melhorar
+            Pra melhorar
           </div>
           <h2 className="mt-3 text-[26px] font-semibold tracking-tight text-zinc-900 leading-[1.1] story-fade-up">
-            Agora, onde dá<br />
-            pra ganhar mais
+            Agora bora pro<br />
+            que importa
           </h2>
           <p className="mt-3 text-[14px] leading-relaxed text-zinc-600 story-fade-up-2">
-            {patient.firstName}, identificamos {topConcerns.length} marcadores
-            com espaço pra otimização. Próximos slides mostram exatamente o
-            que fazer com cada um — com o suplemento Longevify direto ao lado.
+            {patient.firstName}, olha esses {topConcerns.length} aqui — são
+            os marcadores onde você tem mais espaço pra ganhar. No próximo
+            slide a gente já te mostra como resolver tudo de uma vez.
           </p>
 
           <div className="mt-7 flex flex-col gap-2.5">
@@ -744,21 +747,21 @@ const SLIDES: SlideContent[] = [
 
         <div className="relative w-full max-w-md story-card-in">
           <p className="text-[11px] uppercase tracking-[0.18em] text-emerald-300">
-            Sua trajetória
+            Como vai rolar
           </p>
           <h2 className="mt-2 text-[26px] font-semibold tracking-tight leading-[1.1]">
-            O Longevify trabalha<br />em ciclos de 6 meses
+            Pensa em ciclos<br />de 6 meses
           </h2>
           <p className="mt-2 text-[13px] leading-relaxed text-white/65">
-            2 coletas por ano. Tempo suficiente pra protocolo agir e
-            biomarcadores responderem antes da reavaliação completa.
+            Duas coletas por ano, com tempo no meio pra você seguir o
+            protocolo e os marcadores responderem antes da gente medir de novo.
           </p>
 
           <div className="mt-6 grid grid-cols-1 gap-2.5 text-left">
             <TimelineItem
               icon={ClipboardCheck}
               date={formatDatePtBR(patient.latestExamDate)}
-              title="Coleta inicial — feita"
+              title="Sua primeira coleta — feita"
               detail="Painel completo · 50+ biomarcadores"
               done
               delay={150}
@@ -766,22 +769,22 @@ const SLIDES: SlideContent[] = [
             <TimelineItem
               icon={Apple}
               date="Próximos 6 meses"
-              title="Protocolo ativo"
-              detail="Hábitos diários + suplementação"
+              title="Vc seguindo o protocolo"
+              detail="Hábitos diários + suplementação na medida"
               delay={300}
             />
             <TimelineItem
               icon={TrendingUp}
-              date="Em 6 meses"
-              title="Segunda coleta do ano"
-              detail="Reavaliação completa — Painel inteiro novamente"
+              date="Daqui 6 meses"
+              title="Segunda coleta"
+              detail="A gente mede tudo de novo pra ver o quanto andou"
               delay={450}
             />
             <TimelineItem
               icon={Heart}
-              date="Contínuo"
-              title="Concierge Dr. Lon"
-              detail="IA médica + equipe humana 24/7 entre coletas"
+              date="O tempo todo"
+              title="Dr. Lon no celular"
+              detail="IA médica + equipe humana 24h entre as coletas"
               delay={600}
             />
           </div>
@@ -811,11 +814,11 @@ const SLIDES: SlideContent[] = [
         <div className="relative max-w-md story-card-in">
           <Sparkles className="mx-auto h-9 w-9 text-emerald-300" />
           <h2 className="mt-4 text-[30px] font-semibold tracking-tight leading-[1.05]">
-            Pronto, {patient.firstName}?
+            Bora começar, {patient.firstName}?
           </h2>
           <p className="mt-3 text-[15px] leading-relaxed text-white/75">
-            Seu protocolo já está na home. Comece pela primeira ação de hoje —
-            cinco minutos por dia mudam a curva.
+            Teu protocolo já tá na home. Começa pela primeira ação de hoje —
+            cinco minutos por dia já muda o jogo.
           </p>
         </div>
       </div>
@@ -1083,15 +1086,16 @@ function BundleSlide({
       <div className="relative w-full max-w-md story-card-in">
         <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-300 ring-1 ring-emerald-400/30">
           <Sparkles className="h-3 w-3" />
-          Pacote completo
+          Bora resolver
         </div>
         <h2 className="mt-3 text-[28px] font-semibold tracking-tight leading-[1.05]">
-          Pra resolver,<br />juntamos tudo
+          Pra cada um,<br />a gente já tem
         </h2>
         <p className="mt-2 text-[13.5px] leading-relaxed text-white/70">
-          {firstName}, com base nos {products.length} marcadores que
-          identificamos como prioridade, sua equipe Longevify sugere esses
-          suplementos. Cada um tem evidência clínica direta no marcador.
+          Olha, {firstName} — pra cada um dos {products.length} marcadores
+          que tão pedindo atenção, a gente separou um suplemento da
+          Longevify que ataca exatamente aquilo. Sem chute. Você pode pegar
+          um por um ou tudo de uma vez (sai mais barato).
         </p>
 
         {/* Lista dos produtos com razão clínica (não é propaganda — é
@@ -1166,12 +1170,12 @@ function BundleSlide({
             {added ? (
               <>
                 <Check className="h-4 w-4" />
-                Adicionado ao carrinho
+                Tá no carrinho
               </>
             ) : (
               <>
                 <Sparkles className="h-4 w-4" />
-                Assinar pacote completo
+                Assinar tudo (mais barato)
               </>
             )}
           </button>
@@ -1184,7 +1188,7 @@ function BundleSlide({
             disabled={added || products.length === 0}
             className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white/10 px-6 py-2.5 text-[13px] font-semibold text-white backdrop-blur-md transition hover:bg-white/20 ring-1 ring-white/20 disabled:opacity-50"
           >
-            Comprar tudo de uma vez
+            Só comprar uma vez
           </button>
         </div>
       </div>
