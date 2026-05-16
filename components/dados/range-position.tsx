@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import type { Biomarker } from "@/lib/mock-data";
+import { computeBiomarkerScale } from "@/lib/dados/biomarker-scale";
 
 interface RangePositionProps {
   biomarker: Biomarker;
@@ -14,27 +15,15 @@ interface RangePositionProps {
  * Layout: legenda (Ótimo · Normal · Fora) ACIMA da barra — sempre os 3
  * dots fixos pra padronizar visual entre todos os biomarcadores, mesmo
  * quando algum não tem normalRange definido.
+ *
+ * Escala UNIFICADA com BiomarkerBigChart (Lucas 2026-05).
  */
 export function RangePosition({ biomarker }: RangePositionProps) {
   const { value, optimalRange, normalRange, unit } = biomarker;
 
-  // Escala X cobrindo todos os thresholds + valor atual com padding lateral.
-  const anchors = [
-    value,
-    optimalRange?.[0],
-    optimalRange?.[1],
-    normalRange?.[0],
-    normalRange?.[1],
-  ].filter((v): v is number => typeof v === "number");
+  if (typeof value !== "number") return null;
 
-  if (anchors.length === 0) return null;
-
-  const rawMin = Math.min(...anchors);
-  const rawMax = Math.max(...anchors);
-  const span = rawMax - rawMin || rawMax * 0.5 || 1;
-  const pad = span * 0.25;
-  const scaleMin = Math.max(0, rawMin - pad);
-  const scaleMax = rawMax + pad;
+  const { min: scaleMin, max: scaleMax } = computeBiomarkerScale(biomarker);
   const scaleSpan = scaleMax - scaleMin;
 
   const pct = (v: number) =>

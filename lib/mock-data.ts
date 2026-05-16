@@ -176,10 +176,13 @@ function gen(
       ((start + end) / 2);
     const d = new Date(DEMO_DATE_ANCHOR);
     d.setMonth(d.getMonth() - (points - 1 - i) * 2);
-    out.push({
-      date: d.toISOString(),
-      value: +(base + noise).toFixed(1),
-    });
+    // Último ponto SEMPRE = `end` (Lucas 2026-05: "o número que aparece
+    // na aba de dados não é a média, mas sim o valor do último
+    // resultado"). Antes o ruído fazia o último ponto divergir do
+    // `biomarker.value` mostrado no topo da tela, confundindo o user.
+    const isLast = i === points - 1;
+    const value = isLast ? end : +(base + noise).toFixed(1);
+    out.push({ date: d.toISOString(), value });
   }
   return out;
 }

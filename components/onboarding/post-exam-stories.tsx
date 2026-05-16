@@ -161,8 +161,15 @@ function CircularGauge({
 
 // ─── Organ chip (tap pra ver score) ─────────────────────────────────────────
 //
-// Interativo: tap revela score numérico embaixo do nome. Stop propagation
+// Interativo: tap revela score numérico ao lado do nome. Stop propagation
 // pra não disparar tap-zone do story (não avança slide).
+//
+// Animação (Lucas 2026-05 — "mais fluida e mais bonita"):
+//   - Score slide-in da direita via max-width 0→48px com fade
+//   - Chip ganha micro-pulse (scale 1 → 1.08 → 1.04) ao clicar
+//   - Background intensifica (tom mais saturado quando revelado)
+//   - Badge da grade gira 360° suave
+//   - Tudo em ~340ms cubic-bezier(0.34, 1.56, 0.64, 1) (com overshoot)
 
 function OrganChip({
   organ,
@@ -176,50 +183,81 @@ function OrganChip({
   delayMs?: number;
 }) {
   const [revealed, setRevealed] = useState(false);
+  const [pulsing, setPulsing] = useState(false);
   const colors = {
     optimal: {
-      bg: "bg-emerald-50 ring-emerald-200",
+      bg: revealed
+        ? "bg-emerald-100 ring-emerald-300 shadow-emerald-200/50"
+        : "bg-emerald-50 ring-emerald-200",
       badge: "bg-emerald-100 text-emerald-700",
+      score: "text-emerald-700",
       grade: "A",
     },
     normal: {
-      bg: "bg-amber-50 ring-amber-200",
+      bg: revealed
+        ? "bg-amber-100 ring-amber-300 shadow-amber-200/50"
+        : "bg-amber-50 ring-amber-200",
       badge: "bg-amber-100 text-amber-700",
+      score: "text-amber-700",
       grade: "B",
     },
     out: {
-      bg: "bg-rose-50 ring-rose-200",
+      bg: revealed
+        ? "bg-rose-100 ring-rose-300 shadow-rose-200/50"
+        : "bg-rose-50 ring-rose-200",
       badge: "bg-rose-100 text-rose-700",
+      score: "text-rose-700",
       grade: "C",
     },
   }[status];
 
+  function handleClick(e: React.MouseEvent) {
+    e.stopPropagation();
+    setRevealed((v) => !v);
+    setPulsing(true);
+    setTimeout(() => setPulsing(false), 360);
+  }
+
   return (
     <button
       type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        setRevealed((v) => !v);
-      }}
+      onClick={handleClick}
       className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11.5px] font-medium text-zinc-700 ring-1 shadow-sm transition will-change-transform",
-        "story-pop hover:scale-105",
+        "story-pop chip-reveal group inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11.5px] font-medium text-zinc-700 ring-1 shadow-sm will-change-transform",
+        "transition-[background-color,box-shadow,transform] duration-300 ease-out",
+        "hover:scale-[1.04]",
+        pulsing && "chip-pulse",
         colors.bg,
       )}
       style={{ animationDelay: `${delayMs}ms` }}
     >
       <span
         className={cn(
-          "grid h-4 w-4 place-items-center rounded-full text-[9px] font-bold",
+          "grid h-4 w-4 place-items-center rounded-full text-[9px] font-bold transition-transform duration-300 ease-out",
           colors.badge,
+          revealed && "rotate-[360deg]",
         )}
       >
         {colors.grade}
       </span>
-      {organ}
-      {revealed && typeof score === "number" ? (
-        <span className="ml-1 text-[10px] font-semibold text-zinc-500 tabular-nums">
-          · {score}
+      <span className="leading-tight">{organ}</span>
+      {/* Score reveal — max-width transition pra slide-in suave da direita.
+          Quando fechado: max-w-0, overflow-hidden. Quando aberto: max-w
+          generoso + fade-in do conteúdo. */}
+      {typeof score === "number" ? (
+        <span
+          className={cn(
+            "inline-flex items-center overflow-hidden whitespace-nowrap transition-[max-width,opacity,margin] duration-300 ease-out",
+            revealed
+              ? "ml-0.5 max-w-[60px] opacity-100"
+              : "ml-0 max-w-0 opacity-0",
+          )}
+          aria-hidden={!revealed}
+        >
+          <span className="mr-1 text-zinc-300">·</span>
+          <span className={cn("text-[10.5px] font-semibold tabular-nums", colors.score)}>
+            {score}
+          </span>
         </span>
       ) : null}
     </button>
@@ -270,12 +308,17 @@ const SLIDES: SlideContent[] = [
                 </div>
               </div>
 
-              {/* Mannequim colorido por status */}
-              <div className="relative mx-auto mt-1 h-[260px] w-full max-w-[260px]">
-                <StoriesMannequin
-                  sex={patient.sex}
-                  organStatuses={organStatuses}
-                />
+              {/* Mannequim colorido por status — aspect-[3/4] pra não
+                  overflow do card (Lucas 2026-05: "o boneco ainda está
+                  para fora do card e descentralizado"). max-w controla
+                  largura, aspect controla altura proporcional. */}
+              <div className="relative mx-auto mt-2 flex w-full max-w-[220px] items-center justify-center">
+                <div className="w-full">
+                  <StoriesMannequin
+                    sex={patient.sex}
+                    organStatuses={organStatuses}
+                  />
+                </div>
               </div>
 
               {/* KPIs */}
@@ -443,12 +486,16 @@ const SLIDES: SlideContent[] = [
                 Longevify
               </div>
 
-              {/* Mannequim COLORIDO (não mais branco) — Lucas pediu */}
-              <div className="relative mx-auto mt-2 h-[260px] w-full max-w-[280px]">
-                <StoriesMannequin
-                  sex={patient.sex}
-                  organStatuses={organStatuses}
-                />
+              {/* Mannequim COLORIDO — aspect ratio nativo do BodyMannequin
+                  (3:4) decide a altura, não h-fixa. Sem overflow do card
+                  (Lucas 2026-05). */}
+              <div className="relative mx-auto mt-3 flex w-full max-w-[240px] items-center justify-center">
+                <div className="w-full">
+                  <StoriesMannequin
+                    sex={patient.sex}
+                    organStatuses={organStatuses}
+                  />
+                </div>
               </div>
 
               <div className="mt-3 flex flex-wrap justify-center gap-2">
@@ -705,8 +752,12 @@ const SLIDES: SlideContent[] = [
             Sua trajetória
           </p>
           <h2 className="mt-2 text-[26px] font-semibold tracking-tight leading-[1.1]">
-            O Longevify trabalha<br />em ciclos de 3 meses
+            O Longevify trabalha<br />em ciclos de 6 meses
           </h2>
+          <p className="mt-2 text-[13px] leading-relaxed text-white/65">
+            2 coletas por ano. Tempo suficiente pra protocolo agir e
+            biomarcadores responderem antes da reavaliação completa.
+          </p>
 
           <div className="mt-6 grid grid-cols-1 gap-2.5 text-left">
             <TimelineItem
@@ -719,23 +770,23 @@ const SLIDES: SlideContent[] = [
             />
             <TimelineItem
               icon={Apple}
-              date="Próximas 4 semanas"
+              date="Próximos 6 meses"
               title="Protocolo ativo"
               detail="Hábitos diários + suplementação"
               delay={300}
             />
             <TimelineItem
               icon={TrendingUp}
-              date="Em 90 dias"
-              title="Segunda coleta"
-              detail="Reavaliação dos marcadores priorizados"
+              date="Em 6 meses"
+              title="Segunda coleta do ano"
+              detail="Reavaliação completa — Painel inteiro novamente"
               delay={450}
             />
             <TimelineItem
               icon={Heart}
               date="Contínuo"
               title="Concierge Dr. Lon"
-              detail="IA médica + equipe humana 24/7"
+              detail="IA médica + equipe humana 24/7 entre coletas"
               delay={600}
             />
           </div>
@@ -1243,6 +1294,25 @@ export function PostExamStories({
           50% {
             opacity: 0.85;
             transform: scale(1.1);
+          }
+        }
+
+        /* Chip click pulse — bounce com overshoot quando o user toca,
+           pra dar feedback tátil. Volta ao tamanho normal suave.
+           Lucas 2026-05: "animação ao clicar nos cards precisa ser
+           melhor, mais fluida e mais bonita". */
+        .chip-pulse {
+          animation: chipPulse 360ms cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes chipPulse {
+          0% {
+            transform: scale(1);
+          }
+          45% {
+            transform: scale(1.12);
+          }
+          100% {
+            transform: scale(1);
           }
         }
       `}</style>
