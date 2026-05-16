@@ -260,9 +260,11 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
 
       {/* ──────────────────────────────────────────────────────────────────
           DESKTOP (lg+) — grid de 3 colunas: categorias | avatar | section.
-          Nada muda do que já existia.
+          Lucas 2026-05: "tente aglomerar mais as seções das abas" — sidebar
+          encolheu (200→160), avatar encolheu (480→400) e gap (6→4) pra
+          sobrar espaço pros nomes dos biomarcadores que estavam cortando.
           ────────────────────────────────────────────────────────────────── */}
-      <div className="hidden lg:grid lg:grid-cols-[200px_480px_1fr] lg:gap-6">
+      <div className="hidden lg:grid lg:grid-cols-[160px_400px_1fr] lg:gap-4">
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <CategoryList
             categories={visibleCategories}
@@ -273,7 +275,7 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
 
         <aside className="lg:sticky lg:top-24 lg:flex lg:flex-col lg:items-center lg:gap-3 lg:self-start">
           <div
-            className="relative w-[480px] rounded-2xl transition-shadow"
+            className="relative w-full rounded-2xl transition-shadow"
             style={{
               boxShadow:
                 categoryId === "all"
