@@ -1,26 +1,22 @@
 /**
  * Reconhecimento de comida a partir de foto.
  *
- * Workflow (Lucas 2026-05): "primeiro gemini flash e caso não consiga
- * identificar ou esteja com dúvida, coloque o GPT-5 para analisar".
+ * Cadeia de providers com fallback em cascata (Lucas 2026-05):
  *
- *   1. Gemini 2.5 Flash (primário) — rápido (~1.5s), grátis até 1500
- *      reqs/dia. Retorna JSON estruturado com itens + nutrientes +
- *      confidence por item.
- *   2. Se confidence média < 0.6 OU < 1 item identificado OU Gemini
- *      falhar → cai pra GPT-5 vision (mais robusto, ~3-4s, ~$0.01).
- *   3. Erro nos dois → throws (route.ts retorna 500).
- *
- * O modelo identifica nome + gramas + nutrientes em uma única chamada.
- * Nutrient lookup em DB externa (TACO/Open Food Facts) é V2 — por agora
- * confiamos no LLM (eles são bem precisos pra estimar valores de
- * alimentos comuns).
+ *   1. Gemini 2.5 Flash (primário, gratuito até 1500 reqs/dia, ~1.5s)
+ *   2. GPT-5 vision (fallback se confidence baixa ou erro, ~3s)
+ *   3. Moonshot Kimi K2 vision (fallback final — já configurado em prod
+ *      via MOONSHOT_API_KEY, OpenAI-compatible)
+ *   4. Throws "AllProvidersFailedError" → route.ts retorna 503 com
+ *      mensagem útil
  */
 
 import type { FoodItem, Nutrients } from "./types";
 
 const GEMINI_MODEL = "gemini-2.5-flash";
 const OPENAI_MODEL = "gpt-5";
+const MOONSHOT_MODEL = "kimi-latest";
+const MOONSHOT_BASE_URL = "https://api.moonshot.ai/v1";
 
 // Confidence média abaixo desse threshold → vai pro fallback
 const FALLBACK_CONFIDENCE_THRESHOLD = 0.6;
@@ -32,10 +28,24 @@ interface RecognizedItem {
   nutrients: Nutrients;
 }
 
+type Provider = "gemini" | "gpt-5" | "moonshot";
+
 interface RecognitionResult {
   items: RecognizedItem[];
-  provider: "gemini" | "gpt-5";
+  provider: Provider;
   fallbackReason?: string;
+}
+
+export class AllProvidersFailedError extends Error {
+  public readonly providerErrors: Array<{ provider: Provider; message: string }>;
+  constructor(providerErrors: Array<{ provider: Provider; message: string }>) {
+    const summary = providerErrors
+      .map((e) => `${e.provider}: ${e.message}`)
+      .join(" | ");
+    super(`Todos os providers de visão falharam: ${summary}`);
+    this.name = "AllProvidersFailedError";
+    this.providerErrors = providerErrors;
+  }
 }
 
 // ─── Prompt compartilhado ──────────────────────────────────────────────────
@@ -241,21 +251,28 @@ async function callGemini(
   return normalizeItems(extractJson(text));
 }
 
-// ─── OpenAI GPT-5 vision (fallback) ────────────────────────────────────────
+// ─── OpenAI-compatible vision (GPT-5 e Moonshot Kimi compartilham SDK) ──────
 
-async function callOpenAI(
-  apiKey: string,
-  image: File,
-): Promise<RecognizedItem[]> {
+async function callOpenAICompatible({
+  apiKey,
+  model,
+  baseURL,
+  image,
+}: {
+  apiKey: string;
+  model: string;
+  baseURL?: string;
+  image: File;
+}): Promise<RecognizedItem[]> {
   const { default: OpenAI } = await import("openai");
-  const client = new OpenAI({ apiKey });
+  const client = new OpenAI({ apiKey, baseURL });
 
   const base64 = await fileToBase64(image);
   const mimeType = image.type || "image/jpeg";
   const dataUrl = `data:${mimeType};base64,${base64}`;
 
   const completion = await client.chat.completions.create({
-    model: OPENAI_MODEL,
+    model,
     response_format: { type: "json_object" },
     messages: [
       {
@@ -279,89 +296,124 @@ async function callOpenAI(
   return normalizeItems(extractJson(content));
 }
 
-// ─── Orchestrator com fallback ─────────────────────────────────────────────
+async function callOpenAI(apiKey: string, image: File) {
+  return callOpenAICompatible({ apiKey, model: OPENAI_MODEL, image });
+}
+
+async function callMoonshot(apiKey: string, image: File) {
+  return callOpenAICompatible({
+    apiKey,
+    model: MOONSHOT_MODEL,
+    baseURL: MOONSHOT_BASE_URL,
+    image,
+  });
+}
+
+// ─── Orchestrator com cascade de providers ──────────────────────────────────
 
 /**
- * Reconhece os itens de uma foto de refeição.
+ * Reconhece os itens de uma foto de refeição com fallback em cascata.
  *
- * Tenta Gemini Flash primeiro; se confidence baixa ou erro, cai pro
- * GPT-5. Retorna provider usado + razão do fallback (pra debug/UX).
+ * Estratégia (Lucas 2026-05 — depois que Gemini deu 403 PERMISSION_DENIED):
+ *   1. Gemini Flash → se OK e confidence ≥ 0.6, retorna
+ *   2. GPT-5 → se OK, retorna (com flag de fallback)
+ *   3. Moonshot Kimi K2 vision → última tentativa
+ *   4. AllProvidersFailedError → route.ts retorna 503 com detalhe
+ *
+ * Cada falha (erro de rede, 403, 401, JSON malformado) cai pro próximo
+ * provider. Provider missing key também conta como skip (não bloqueia
+ * a cascade).
  */
 export async function recognizeFoodPhoto(
   image: File,
 ): Promise<RecognitionResult> {
   const geminiKey = process.env.GEMINI_API_KEY;
   const openaiKey = process.env.OPENAI_API_KEY;
+  const moonshotKey = process.env.MOONSHOT_API_KEY;
 
-  if (!geminiKey && !openaiKey) {
-    throw new Error(
-      "Nenhum provider configurado — defina GEMINI_API_KEY ou OPENAI_API_KEY.",
-    );
-  }
+  const errors: Array<{ provider: Provider; message: string }> = [];
 
-  // 1ª tentativa: Gemini
+  // ── 1ª tentativa: Gemini Flash ──
+  let geminiItems: RecognizedItem[] | null = null;
+  let geminiLowConfidence = false;
   if (geminiKey) {
     try {
-      const items = await callGemini(geminiKey, image);
-      const avg = avgConfidence(items);
-      const passed =
-        items.length > 0 && avg >= FALLBACK_CONFIDENCE_THRESHOLD;
-
-      if (passed) {
-        return { items, provider: "gemini" };
+      geminiItems = await callGemini(geminiKey, image);
+      const avg = avgConfidence(geminiItems);
+      if (geminiItems.length > 0 && avg >= FALLBACK_CONFIDENCE_THRESHOLD) {
+        return { items: geminiItems, provider: "gemini" };
       }
-
-      // Confidence baixa ou items vazios → fallback
-      if (openaiKey) {
-        const reason =
-          items.length === 0
-            ? "gemini retornou 0 itens"
-            : `confidence média ${avg.toFixed(2)} < ${FALLBACK_CONFIDENCE_THRESHOLD}`;
-        try {
-          const fallbackItems = await callOpenAI(openaiKey, image);
-          return {
-            items: fallbackItems,
-            provider: "gpt-5",
-            fallbackReason: reason,
-          };
-        } catch (err) {
-          // Fallback também falhou — devolve o resultado original do Gemini
-          return {
-            items,
-            provider: "gemini",
-            fallbackReason: `fallback gpt-5 falhou: ${
-              err instanceof Error ? err.message : "unknown"
-            }`,
-          };
-        }
-      }
-
-      // Sem fallback disponível — devolve Gemini mesmo com confidence baixa
-      return { items, provider: "gemini" };
+      geminiLowConfidence = true;
+      const reason =
+        geminiItems.length === 0
+          ? "gemini retornou 0 itens"
+          : `gemini confidence ${avg.toFixed(2)} < ${FALLBACK_CONFIDENCE_THRESHOLD}`;
+      errors.push({ provider: "gemini", message: reason });
     } catch (err) {
-      // Gemini falhou completamente → tenta GPT-5
-      if (openaiKey) {
-        const items = await callOpenAI(openaiKey, image);
+      errors.push({
+        provider: "gemini",
+        message: err instanceof Error ? err.message : "erro desconhecido",
+      });
+    }
+  } else {
+    errors.push({ provider: "gemini", message: "key ausente" });
+  }
+
+  // ── 2ª tentativa: GPT-5 ──
+  if (openaiKey) {
+    try {
+      const items = await callOpenAI(openaiKey, image);
+      if (items.length > 0) {
         return {
           items,
           provider: "gpt-5",
-          fallbackReason: `gemini falhou: ${
-            err instanceof Error ? err.message : "unknown"
-          }`,
+          fallbackReason: errors[errors.length - 1]?.message,
         };
       }
-      throw err;
+      errors.push({ provider: "gpt-5", message: "retornou 0 itens" });
+    } catch (err) {
+      errors.push({
+        provider: "gpt-5",
+        message: err instanceof Error ? err.message : "erro desconhecido",
+      });
     }
+  } else {
+    errors.push({ provider: "gpt-5", message: "key ausente" });
   }
 
-  // Sem Gemini key → vai direto pro GPT-5
-  if (openaiKey) {
-    const items = await callOpenAI(openaiKey, image);
-    return { items, provider: "gpt-5", fallbackReason: "gemini key ausente" };
+  // ── 3ª tentativa: Moonshot Kimi K2 vision ──
+  if (moonshotKey) {
+    try {
+      const items = await callMoonshot(moonshotKey, image);
+      if (items.length > 0) {
+        return {
+          items,
+          provider: "moonshot",
+          fallbackReason: errors[errors.length - 1]?.message,
+        };
+      }
+      errors.push({ provider: "moonshot", message: "retornou 0 itens" });
+    } catch (err) {
+      errors.push({
+        provider: "moonshot",
+        message: err instanceof Error ? err.message : "erro desconhecido",
+      });
+    }
+  } else {
+    errors.push({ provider: "moonshot", message: "key ausente" });
   }
 
-  // Inacessível (já validamos acima), mas TS feliz
-  throw new Error("Nenhum provider de visão disponível.");
+  // ── Última cartada: se Gemini deu items com low confidence, devolve eles
+  // melhor do que erro 500
+  if (geminiItems && geminiItems.length > 0 && geminiLowConfidence) {
+    return {
+      items: geminiItems,
+      provider: "gemini",
+      fallbackReason: "todos fallbacks falharam — usando gemini low-confidence",
+    };
+  }
+
+  throw new AllProvidersFailedError(errors);
 }
 
 /** Converte RecognizedItem[] pra FoodItem[] (modelo de domínio do app). */

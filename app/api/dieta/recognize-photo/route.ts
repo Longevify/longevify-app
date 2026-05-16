@@ -3,6 +3,7 @@ import { sumNutrients } from "@/lib/dieta/calculations";
 import {
   recognizeFoodPhoto,
   toFoodItems,
+  AllProvidersFailedError,
 } from "@/lib/dieta/food-vision-providers";
 
 /**
@@ -109,6 +110,37 @@ export async function POST(request: Request) {
       fallbackReason: result.fallbackReason,
     });
   } catch (err) {
+    if (err instanceof AllProvidersFailedError) {
+      // eslint-disable-next-line no-console
+      console.error(
+        "[recognize-photo] todos providers falharam:",
+        err.providerErrors,
+      );
+      // Detecta padrões comuns pra dar mensagem útil ao user
+      const allMessages = err.providerErrors.map((e) => e.message).join(" ");
+      let userMessage =
+        "Não conseguimos analisar essa foto agora. Tenta de novo em alguns minutos ou usa o input de texto.";
+
+      if (/PERMISSION_DENIED|403|denied access/i.test(allMessages)) {
+        userMessage =
+          "Serviço de visão IA temporariamente indisponível (problema de credenciais). Equipe foi notificada. Enquanto isso, usa o input de texto ou código de barras.";
+      } else if (/quota|429|RESOURCE_EXHAUSTED/i.test(allMessages)) {
+        userMessage =
+          "Limite de uso diário do reconhecimento de fotos atingido. Tenta amanhã ou usa o input de texto.";
+      }
+
+      return NextResponse.json(
+        {
+          error: userMessage,
+          providerErrors:
+            process.env.NODE_ENV === "production"
+              ? undefined
+              : err.providerErrors,
+        },
+        { status: 503 },
+      );
+    }
+
     const message = err instanceof Error ? err.message : "Erro desconhecido";
     // eslint-disable-next-line no-console
     console.error("[recognize-photo] erro:", message);
