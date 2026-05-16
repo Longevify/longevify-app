@@ -1,27 +1,30 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   X,
   ChevronRight,
   ChevronLeft,
   Heart,
   ClipboardCheck,
-  Activity,
   TrendingUp,
   Apple,
   Sparkles,
+  ShoppingBag,
+  Check,
+  ThumbsUp,
 } from "lucide-react";
 import { cn, formatDatePtBR } from "@/lib/utils";
-import type {
-  Patient,
-  OrganScore,
-} from "@/lib/mock-data";
+import type { Biomarker, OrganScore, Patient } from "@/lib/mock-data";
+import { BIOMARKERS } from "@/lib/mock-data";
 import {
   StoriesMannequin,
   buildOrganStatuses,
 } from "@/components/onboarding/stories-mannequin";
 import { StoriesFinaleTransition } from "@/components/onboarding/stories-finale-transition";
+import { getRecommendedProducts } from "@/lib/product-recommender";
+import type { Product } from "@/lib/products";
+import { useCart } from "@/lib/cart/store";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -37,6 +40,17 @@ interface PostExamStoriesProps {
   onClose?: () => void;
 }
 
+interface StoryCtx {
+  patient: Patient;
+  /** Top 3 biomarcadores fora da faixa (priorizados) — pros slides de
+   *  ação. */
+  topConcerns: Biomarker[];
+  /** Top 3 biomarcadores ótimos — pros slides de elogio. */
+  topWinners: Biomarker[];
+  /** Produtos recomendados a partir dos biomarcadores fora da faixa. */
+  recommendations: ReturnType<typeof getRecommendedProducts>;
+}
+
 type SlideTheme = "dark" | "light" | "tinted";
 
 interface SlideContent {
@@ -45,7 +59,7 @@ interface SlideContent {
   /** Duração em ms — slides com mais conteúdo/animação podem precisar
    *  de mais tempo. Default 5200ms. */
   duration?: number;
-  render: (patient: Patient) => React.ReactNode;
+  render: (ctx: StoryCtx) => React.ReactNode;
 }
 
 // ─── Animated number ─────────────────────────────────────────────────────────
@@ -267,6 +281,99 @@ function OrganChip({
   );
 }
 
+// ─── Helpers de seleção de biomarcadores ───────────────────────────────────
+
+/**
+ * Top biomarcadores FORA da faixa, priorizados por:
+ *   1. status "out" antes de "normal"
+ *   2. relevância clínica (LDL, ApoB, Vit D, HbA1c, CRP têm prioridade)
+ *   3. distância do range ótimo
+ *
+ * Usado nos slides "Pontos a melhorar" e nos cards de Foco com produto.
+ */
+const CLINICAL_PRIORITY = new Set([
+  "ldl",
+  "apob",
+  "vitd",
+  "hba1c",
+  "crp",
+  "hdl",
+  "testo",
+  "ferritin",
+]);
+
+function pickTopConcerns(biomarkers: Biomarker[], limit: number): Biomarker[] {
+  const concerning = biomarkers.filter(
+    (b) => b.status === "out" || b.status === "normal",
+  );
+  const scored = concerning.map((b) => {
+    let score = 0;
+    if (b.status === "out") score += 100;
+    if (b.status === "normal") score += 30;
+    if (CLINICAL_PRIORITY.has(b.id)) score += 20;
+    return { biomarker: b, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit).map((s) => s.biomarker);
+}
+
+/** Top biomarcadores ÓTIMOS, priorizados por relevância clínica. */
+function pickTopWinners(biomarkers: Biomarker[], limit: number): Biomarker[] {
+  const winners = biomarkers.filter((b) => b.status === "optimal");
+  const scored = winners.map((b) => ({
+    biomarker: b,
+    score: CLINICAL_PRIORITY.has(b.id) ? 10 : 1,
+  }));
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit).map((s) => s.biomarker);
+}
+
+/** Tom didático pra explicar o que o biomarcador alterado SIGNIFICA. */
+function explainConcern(b: Biomarker): string {
+  switch (b.id) {
+    case "ldl":
+      return "LDL é o colesterol que tende a depositar nas paredes das artérias. Acima de 100 mg/dL começa a aumentar risco cardiovascular a longo prazo.";
+    case "apob":
+      return "ApoB conta o número de partículas que carregam colesterol pro sangue — é o termômetro mais preciso de risco cardio.";
+    case "vitd":
+      return "Vitamina D regula osso, imunidade e humor. Abaixo de 50 ng/dL você não está com reserva ideal.";
+    case "hba1c":
+      return "HbA1c mostra a média da glicose dos últimos 2-3 meses. Acima de 5.7% começa a sinalizar resistência insulínica.";
+    case "crp":
+      return "PCR ultrassensível mede inflamação silenciosa no corpo. Inflamação crônica acelera envelhecimento.";
+    case "hdl":
+      return "HDL é o colesterol 'limpa-trilho' — quanto mais alto, mais proteção cardiovascular.";
+    case "ferritin":
+      return "Ferritina mostra suas reservas de ferro. Baixa = anemia em formação. Alta = inflamação.";
+    case "testo":
+      return "Testosterona regula massa magra, libido, energia e densidade óssea — em homens e mulheres.";
+    default:
+      return `${b.name} está fora da faixa ideal. Vamos trabalhar pra normalizar.`;
+  }
+}
+
+/** Tom curto + positivo pra explicar por que o biomarcador ótimo é bom. */
+function explainWinner(b: Biomarker): string {
+  switch (b.id) {
+    case "ldl":
+      return "Seu colesterol 'ruim' tá protegido — risco cardio baixo nesse marcador.";
+    case "apob":
+      return "Número de partículas aterogênicas baixo — coração agradece.";
+    case "vitd":
+      return "Reserva de Vit D ideal — imunidade, osso e humor recebem o suficiente.";
+    case "hdl":
+      return "HDL alto = proteção cardiovascular natural.";
+    case "ferritin":
+      return "Reserva de ferro saudável — energia e oxigenação em dia.";
+    case "hba1c":
+      return "Glicose média ótima — sensibilidade à insulina preservada.";
+    case "testo":
+      return "Hormônio em faixa boa pra massa magra e disposição.";
+    default:
+      return `${b.name} está na faixa ideal. Continua assim.`;
+  }
+}
+
 // ─── Slide renders ──────────────────────────────────────────────────────────
 
 const SLIDES: SlideContent[] = [
@@ -277,7 +384,7 @@ const SLIDES: SlideContent[] = [
     id: "welcome",
     theme: "tinted",
     duration: 5500,
-    render: (patient) => {
+    render: ({ patient }) => {
       const organStatuses = buildOrganStatuses(patient.organBioAges);
       return (
         <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center text-white">
@@ -368,7 +475,7 @@ const SLIDES: SlideContent[] = [
     id: "bioage",
     theme: "dark",
     duration: 5200,
-    render: (patient) => {
+    render: ({ patient }) => {
       const delta = patient.chronologicalAge - patient.biologicalAge;
       const younger = delta > 0;
       return (
@@ -415,7 +522,7 @@ const SLIDES: SlideContent[] = [
     id: "score",
     theme: "dark",
     duration: 6000,
-    render: (patient) => (
+    render: ({ patient }) => (
       <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center text-white">
         <div className="pointer-events-none absolute inset-0 grid place-items-center">
           <div
@@ -462,7 +569,7 @@ const SLIDES: SlideContent[] = [
     id: "winners",
     theme: "light",
     duration: 5800,
-    render: (patient) => {
+    render: ({ patient }) => {
       const organStatuses = buildOrganStatuses(patient.organBioAges);
       const winners = (patient.organScores ?? []).filter(
         (o: OrganScore) => o.status === "optimal",
@@ -520,214 +627,127 @@ const SLIDES: SlideContent[] = [
   },
 
   // ──────────────────────────────────────────────────────────────────────────
-  // 5-7. FOCOS — 3 slides separados pros 3 órgãos com mais espaço
-  ...((): SlideContent[] => {
-    const focusVariants = [
-      {
-        idx: 0,
-        bg: "from-rose-50 via-white to-white",
-        accent: "text-rose-500",
-        ring: "ring-rose-200",
-        title: (organ: string) => `Foco #1 — ${organ}`,
-        kicker: "Prioridade máxima",
-        desc: (organ: string) =>
-          `${organ} é o sistema com mais espaço pra ganho. Vamos construir uma base aqui com 2-3 intervenções diretas nas próximas 4 semanas.`,
-        actions: [
-          {
-            label: "Suplementação direcionada",
-            detail:
-              "Identificamos os 2-3 suplementos que mais movem a agulha pro seu marcador prioritário. Doses calibradas pro seu peso e perfil. Chega em casa com QR code pra confirmar a tomada diária no app.",
-          },
-          {
-            label: "Hábito diário (15 min)",
-            detail:
-              "Um único hábito específico, cientificamente ligado ao marcador prioritário — pode ser Zona 2, sol matinal, sauna ou meditação. 15 minutos por dia, com lembrete e check-in no app.",
-          },
-          {
-            label: "Reavaliar em 60 dias",
-            detail:
-              "Em 8 semanas você refaz só os 3-4 marcadores que estamos otimizando. Sem coleta completa nova. A gente confirma se a intervenção funcionou e ajusta o protocolo.",
-          },
-        ],
-      },
-      {
-        idx: 1,
-        bg: "from-amber-50 via-white to-white",
-        accent: "text-amber-600",
-        ring: "ring-amber-200",
-        title: (organ: string) => `Foco #2 — ${organ}`,
-        kicker: "Refinar marcadores",
-        desc: (organ: string) =>
-          `${organ} tem oportunidade clara com intervenções específicas. Já está perto da faixa ótima — pequenos ajustes movem a agulha.`,
-        actions: [
-          {
-            label: "Ajuste fino na nutrição",
-            detail:
-              "Não é dieta nova — são 2-3 ajustes pontuais que afetam diretamente o marcador secundário. Ex: trocar gordura saturada por azeite + 30g de fibra solúvel/dia pra LDL borderline.",
-          },
-          {
-            label: "Acompanhar biomarcador-chave",
-            detail:
-              "Definimos UM biomarcador como termômetro do progresso. Toda coleta nova ele aparece em destaque na home, com tendência clara de subida ou descida.",
-          },
-          {
-            label: "Resposta em ~6 semanas",
-            detail:
-              "Marcadores secundários respondem mais rápido que os primários — em 6 semanas você já vê movimento na curva, mesmo sem coleta nova. O Dr. Lon te avisa assim que detecta a mudança.",
-          },
-        ],
-      },
-      {
-        idx: 2,
-        bg: "from-sky-50 via-white to-white",
-        accent: "text-sky-500",
-        ring: "ring-sky-200",
-        title: (organ: string) => `Foco #3 — ${organ}`,
-        kicker: "Preservar o que está bom",
-        desc: (organ: string) =>
-          `${organ} está saudável. O trabalho aqui é manter — hábitos consistentes evitam regressão e protegem o sistema a longo prazo.`,
-        actions: [
-          {
-            label: "Hábitos consistentes",
-            detail:
-              "Não é hora de mudar — é hora de não mudar. Os hábitos que você já tem (sono, atividade, alimentação) seguram esse sistema saudável. Foco em consistência, não em intensidade.",
-          },
-          {
-            label: "Reavaliação semestral",
-            detail:
-              "A cada 6 meses você refaz uma coleta completa pra confirmar que não regrediu. Mais frequente que isso aqui é desnecessário — esse sistema não precisa de monitoramento agressivo.",
-          },
-          {
-            label: "Sem mudanças bruscas",
-            detail:
-              "Trocar dieta, suplementação ou treino drasticamente pode tirar um sistema saudável da faixa ótima. Mexer só se um marcador sair da curva — antes disso, deixa rodar.",
-          },
-        ],
-      },
-    ];
-
-    return focusVariants.map((v) => ({
-      id: `focus-${v.idx}`,
-      theme: "light" as const,
-      duration: 5500,
-      render: (patient: Patient) => {
-        const sorted = (patient.organScores ?? [])
-          .slice()
-          .sort((a, b) => a.score - b.score);
-        const focus = sorted[v.idx];
-        if (!focus) return null;
-
-        return (
-          <div className={cn("flex h-full w-full bg-gradient-to-br", v.bg)}>
-            <div className="m-auto flex w-full max-w-md flex-col px-6 py-16">
-              <p
-                className={cn(
-                  "text-[11px] font-semibold uppercase tracking-[0.18em]",
-                  v.accent,
-                )}
-              >
-                {v.kicker}
-              </p>
-              <h2 className="mt-2 text-[28px] font-semibold tracking-tight text-zinc-900 leading-[1.05] story-fade-up">
-                {v.title(focus.organ)}
-              </h2>
-              <p className="mt-3 text-[14px] leading-relaxed text-zinc-600 story-fade-up-2">
-                {v.desc(focus.organ)}
-              </p>
-
-              {/* Score chip */}
-              <div className="mt-4 inline-flex w-fit items-center gap-2 rounded-full bg-white px-3 py-1.5 text-[12px] font-medium text-zinc-700 ring-1 ring-zinc-200 shadow-sm">
-                <span className={cn("font-semibold tabular-nums", v.accent)}>
-                  <AnimatedNumber value={focus.score} />
-                </span>
-                <span className="text-zinc-400">/100 score atual</span>
-              </div>
-
-              {/* Ações — interativo: tap pra expandir e ver detalhes */}
-              <div className="mt-7 flex flex-col gap-2.5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
-                  Próximos passos
-                </p>
-                {v.actions.map((a, i) => (
-                  <FocusAction
-                    key={a.label}
-                    label={a.label}
-                    detail={a.detail}
-                    delayMs={400 + i * 120}
-                    ring={v.ring}
-                    accent={v.accent}
-                  />
-                ))}
-              </div>
-            </div>
+  // 5. GOOD BIOMARKERS — elogio dos exames que vieram melhores
+  //    Lucas (2026-05): "elogiando as partes boas do exame, elencando os
+  //    exames que foram melhores".
+  {
+    id: "good-biomarkers",
+    theme: "light",
+    duration: 5500,
+    render: ({ topWinners, patient }) => (
+      <div className="flex h-full w-full bg-gradient-to-br from-emerald-50/60 via-white to-white">
+        <div className="m-auto flex w-full max-w-md flex-col px-6 py-16">
+          <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">
+            <ThumbsUp className="h-3 w-3" />
+            Pontos altos
           </div>
-        );
-      },
-    }));
-  })(),
+          <h2 className="mt-3 text-[26px] font-semibold tracking-tight text-zinc-900 leading-[1.1] story-fade-up">
+            {patient.firstName}, esses resultados<br />
+            estão excelentes
+          </h2>
+          <p className="mt-3 text-[14px] leading-relaxed text-zinc-600 story-fade-up-2">
+            Vamos começar pelo que tá indo bem — esses marcadores estão na
+            faixa ótima e merecem ser preservados.
+          </p>
+
+          <div className="mt-7 flex flex-col gap-2.5">
+            {topWinners.length === 0 ? (
+              <p className="rounded-2xl bg-zinc-50 px-4 py-3 text-[13px] text-zinc-500">
+                Nenhum biomarcador em faixa ótima ainda — vamos focar nos
+                pontos a melhorar pra mudar isso.
+              </p>
+            ) : (
+              topWinners.map((b, i) => (
+                <BiomarkerWinnerCard
+                  key={b.id}
+                  biomarker={b}
+                  delayMs={400 + i * 140}
+                />
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    ),
+  },
 
   // ──────────────────────────────────────────────────────────────────────────
-  // 8-10. PROTOCOLO — 3 slides separados (revisar, montar, aplicar)
+  // 6. CONCERNS SUMMARY — preview dos 3 piores antes do drill-down
   {
-    id: "protocol-1",
+    id: "concerns-summary",
     theme: "light",
-    duration: 5200,
-    render: () => (
-      <ProtocolSlide
-        step={1}
-        icon={ClipboardCheck}
-        accent="text-rose-400"
-        bg="from-rose-50 to-white"
-        title="Revisar resultados"
-        kicker="Passo 1 de 3"
-        desc="Destacamos os biomarcadores que merecem atenção agora — e os que já estão ótimos."
-        bullets={[
-          "Painel com 50+ marcadores",
-          "Status por faixa (ótimo, normal, fora)",
-          "Tendência histórica de cada um",
-        ]}
-      />
+    duration: 5500,
+    render: ({ topConcerns, patient }) => (
+      <div className="flex h-full w-full bg-gradient-to-br from-amber-50/40 via-white to-white">
+        <div className="m-auto flex w-full max-w-md flex-col px-6 py-16">
+          <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-700">
+            <TrendingUp className="h-3 w-3" />
+            Pontos a melhorar
+          </div>
+          <h2 className="mt-3 text-[26px] font-semibold tracking-tight text-zinc-900 leading-[1.1] story-fade-up">
+            Agora, onde dá<br />
+            pra ganhar mais
+          </h2>
+          <p className="mt-3 text-[14px] leading-relaxed text-zinc-600 story-fade-up-2">
+            {patient.firstName}, identificamos {topConcerns.length} marcadores
+            com espaço pra otimização. Próximos slides mostram exatamente o
+            que fazer com cada um — com o suplemento Longevify direto ao lado.
+          </p>
+
+          <div className="mt-7 flex flex-col gap-2.5">
+            {topConcerns.map((b, i) => (
+              <BiomarkerConcernPreviewCard
+                key={b.id}
+                biomarker={b}
+                rank={i + 1}
+                delayMs={400 + i * 140}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
     ),
   },
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // 7-9. FOCO POR BIOMARCADOR — 3 slides com produto Longevify lateral
+  //      Lucas: "Sua vitamina D veio baixa -> logo ao lado ja tem uma
+  //      opção para resolver o problema, com um botão de comprar ou
+  //      assinar o suplemento de vitamina D da longevify".
+  ...([0, 1, 2] as const).map((idx) => ({
+    id: `focus-bio-${idx}` as const,
+    theme: "light" as const,
+    duration: 6000,
+    render: (ctx: StoryCtx) => {
+      const biomarker = ctx.topConcerns[idx];
+      if (!biomarker) return null;
+      const rec = ctx.recommendations.find((r) =>
+        r.product.targetsBiomarkers.includes(biomarker.id),
+      );
+      return (
+        <BiomarkerFocusSlide
+          idx={idx}
+          biomarker={biomarker}
+          product={rec?.product}
+          reason={rec?.reason}
+        />
+      );
+    },
+  })),
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // 10. BUNDLE — "Resolver tudo de uma vez"
+  //     Lucas: "um botão central com alguma mensagem similar a essa
+  //     'resolver todos os problemas', esse botão assinará ou comprará
+  //     tudo que foi recomendado".
   {
-    id: "protocol-2",
-    theme: "light",
-    duration: 5200,
-    render: () => (
-      <ProtocolSlide
-        step={2}
-        icon={Heart}
-        accent="text-amber-500"
-        bg="from-amber-50 to-white"
-        title="Montar seu protocolo"
-        kicker="Passo 2 de 3"
-        desc="Transformamos os resultados em um plano claro e priorizado. Suplementos, hábitos e exames de acompanhamento."
-        bullets={[
-          "Suplementação personalizada",
-          "Hábitos diários (5 min)",
-          "Próximos exames agendados",
-        ]}
-      />
-    ),
-  },
-  {
-    id: "protocol-3",
-    theme: "light",
-    duration: 5200,
-    render: () => (
-      <ProtocolSlide
-        step={3}
-        icon={Activity}
-        accent="text-sky-500"
-        bg="from-sky-50 to-white"
-        title="Aplicar no dia a dia"
-        kicker="Passo 3 de 3"
-        desc="Tasks diárias na home, suplementação direta e acompanhamento contínuo com o Dr. Lon."
-        bullets={[
-          "Checklist diário no celular",
-          "Concierge 24/7 com Dr. Lon",
-          "Wearable opcional (Oura, Apple Watch)",
-        ]}
+    id: "bundle",
+    theme: "tinted",
+    duration: 6500,
+    render: ({ recommendations, patient }) => (
+      <BundleSlide
+        recommendations={recommendations}
+        firstName={patient.firstName}
       />
     ),
   },
@@ -738,7 +758,7 @@ const SLIDES: SlideContent[] = [
     id: "next",
     theme: "tinted",
     duration: 5200,
-    render: (patient) => (
+    render: ({ patient }) => (
       <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center text-white">
         <div className="pointer-events-none absolute inset-0 grid place-items-center">
           <div
@@ -804,7 +824,7 @@ const SLIDES: SlideContent[] = [
     id: "ready",
     theme: "tinted",
     duration: 4500,
-    render: (patient) => (
+    render: ({ patient }) => (
       <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center text-white">
         <div className="pointer-events-none absolute inset-0 grid place-items-center">
           <div
@@ -904,82 +924,6 @@ function FocusAction({
   );
 }
 
-function ProtocolSlide({
-  step,
-  icon: Icon,
-  accent,
-  bg,
-  title,
-  kicker,
-  desc,
-  bullets,
-}: {
-  step: number;
-  icon: React.ComponentType<{ className?: string }>;
-  accent: string;
-  bg: string;
-  title: string;
-  kicker: string;
-  desc: string;
-  bullets: string[];
-}) {
-  return (
-    <div className={cn("flex h-full w-full bg-gradient-to-br", bg)}>
-      <div className="m-auto flex w-full max-w-md flex-col px-6 py-16">
-        <div className="flex items-center gap-3">
-          <div
-            className={cn(
-              "text-[64px] font-semibold leading-none tabular-nums",
-              accent,
-            )}
-          >
-            {step}
-          </div>
-          <div>
-            <p
-              className={cn(
-                "text-[11px] font-semibold uppercase tracking-[0.18em]",
-                accent,
-              )}
-            >
-              {kicker}
-            </p>
-            <h2 className="text-[24px] font-semibold tracking-tight text-zinc-900 leading-[1.1] story-fade-up">
-              {title}
-            </h2>
-          </div>
-        </div>
-
-        <p className="mt-5 text-[14px] leading-relaxed text-zinc-600 story-fade-up-2">
-          {desc}
-        </p>
-
-        <ul className="mt-6 flex flex-col gap-2.5">
-          {bullets.map((b, i) => (
-            <li
-              key={b}
-              className="story-pop flex items-center gap-3 rounded-2xl bg-white px-4 py-3 ring-1 ring-zinc-200 shadow-sm will-change-transform"
-              style={{ animationDelay: `${500 + i * 120}ms` }}
-            >
-              <span
-                className={cn(
-                  "grid h-7 w-7 shrink-0 place-items-center rounded-full bg-zinc-50",
-                  accent,
-                )}
-              >
-                <Icon className="h-3.5 w-3.5" />
-              </span>
-              <span className="text-[13.5px] font-medium text-zinc-800">
-                {b}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
-  );
-}
-
 function TimelineItem({
   icon: Icon,
   date,
@@ -1028,6 +972,402 @@ function TimelineItem({
   );
 }
 
+// ─── BiomarkerWinnerCard — card de elogio (slide 5) ────────────────────────
+
+function BiomarkerWinnerCard({
+  biomarker,
+  delayMs,
+}: {
+  biomarker: Biomarker;
+  delayMs: number;
+}) {
+  return (
+    <div
+      className="story-pop flex items-center gap-3 rounded-2xl border border-emerald-200 bg-white p-4 shadow-[0_2px_8px_-4px_rgba(16,185,129,0.15)]"
+      style={{ animationDelay: `${delayMs}ms` }}
+    >
+      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700">
+        <Check className="h-5 w-5" strokeWidth={2.5} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="truncate text-[14px] font-semibold text-zinc-900">
+            {biomarker.name}
+          </span>
+          <span className="shrink-0 text-[13px] font-semibold tabular-nums text-emerald-700">
+            {biomarker.value}
+            <span className="ml-0.5 text-[10px] font-normal text-zinc-400">
+              {biomarker.unit}
+            </span>
+          </span>
+        </div>
+        <p className="mt-1 text-[12.5px] leading-relaxed text-zinc-600">
+          {explainWinner(biomarker)}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── BiomarkerConcernPreviewCard — preview no slide 6 ──────────────────────
+
+function BiomarkerConcernPreviewCard({
+  biomarker,
+  rank,
+  delayMs,
+}: {
+  biomarker: Biomarker;
+  rank: number;
+  delayMs: number;
+}) {
+  const isOut = biomarker.status === "out";
+  return (
+    <div
+      className={cn(
+        "story-pop flex items-center gap-3 rounded-2xl border bg-white p-4 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.08)]",
+        isOut ? "border-rose-200" : "border-amber-200",
+      )}
+      style={{ animationDelay: `${delayMs}ms` }}
+    >
+      <div
+        className={cn(
+          "grid h-10 w-10 shrink-0 place-items-center rounded-full text-[16px] font-bold tabular-nums",
+          isOut
+            ? "bg-rose-100 text-rose-700"
+            : "bg-amber-100 text-amber-700",
+        )}
+      >
+        {rank}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="truncate text-[14px] font-semibold text-zinc-900">
+            {biomarker.name}
+          </span>
+          <span
+            className={cn(
+              "shrink-0 text-[13px] font-semibold tabular-nums",
+              isOut ? "text-rose-700" : "text-amber-700",
+            )}
+          >
+            {biomarker.value}
+            <span className="ml-0.5 text-[10px] font-normal text-zinc-400">
+              {biomarker.unit}
+            </span>
+          </span>
+        </div>
+        <p className="mt-0.5 text-[11.5px] text-zinc-500">
+          Faixa ideal: {biomarker.referenceLabel} {biomarker.unit}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── BiomarkerFocusSlide — slide 7/8/9 (foco + produto lateral) ────────────
+
+const FOCUS_THEMES = [
+  {
+    bg: "from-rose-50 via-white to-white",
+    accent: "text-rose-600",
+    accentBg: "bg-rose-100",
+    ring: "border-rose-200",
+    kicker: "Foco #1 — Prioridade",
+  },
+  {
+    bg: "from-amber-50 via-white to-white",
+    accent: "text-amber-700",
+    accentBg: "bg-amber-100",
+    ring: "border-amber-200",
+    kicker: "Foco #2",
+  },
+  {
+    bg: "from-sky-50 via-white to-white",
+    accent: "text-sky-700",
+    accentBg: "bg-sky-100",
+    ring: "border-sky-200",
+    kicker: "Foco #3",
+  },
+];
+
+function BiomarkerFocusSlide({
+  idx,
+  biomarker,
+  product,
+  reason,
+}: {
+  idx: number;
+  biomarker: Biomarker;
+  product?: Product;
+  reason?: string;
+}) {
+  const theme = FOCUS_THEMES[idx] ?? FOCUS_THEMES[0];
+  const cart = useCart();
+
+  const handleAddSingle = useCallback(
+    (recurring: boolean) => {
+      if (!product) return;
+      cart.addItem(product.id, { recurring });
+      cart.openCart();
+    },
+    [cart, product],
+  );
+
+  return (
+    <div className={cn("flex h-full w-full bg-gradient-to-br", theme.bg)}>
+      <div className="m-auto flex w-full max-w-md flex-col px-6 py-14">
+        <p
+          className={cn(
+            "text-[11px] font-semibold uppercase tracking-[0.18em]",
+            theme.accent,
+          )}
+        >
+          {theme.kicker}
+        </p>
+
+        <h2 className="mt-2 text-[26px] font-semibold tracking-tight text-zinc-900 leading-[1.1] story-fade-up">
+          Sua {biomarker.name.toLowerCase()} veio{" "}
+          <span className={theme.accent}>
+            {biomarker.status === "out" ? "fora da faixa" : "abaixo do ótimo"}
+          </span>
+        </h2>
+
+        {/* Card resumo do biomarcador */}
+        <div className="mt-4 flex items-baseline gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-sm story-fade-up-2">
+          <div>
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+              Seu valor
+            </div>
+            <div className={cn("text-[24px] font-semibold tabular-nums", theme.accent)}>
+              <AnimatedNumber value={biomarker.value} />
+              <span className="ml-1 text-[12px] font-normal text-zinc-400">
+                {biomarker.unit}
+              </span>
+            </div>
+          </div>
+          <div className="ml-auto text-right">
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+              Ideal
+            </div>
+            <div className="text-[14px] font-semibold tabular-nums text-zinc-700">
+              {biomarker.referenceLabel}
+            </div>
+          </div>
+        </div>
+
+        <p className="mt-4 text-[13.5px] leading-relaxed text-zinc-600 story-fade-up-2">
+          {explainConcern(biomarker)}
+        </p>
+
+        {/* CARD DO PRODUTO — Lucas: "logo ao lado já tem uma opção pra
+            resolver o problema, com um botão de comprar ou assinar". */}
+        {product ? (
+          <div
+            className={cn(
+              "story-pop mt-5 overflow-hidden rounded-2xl border bg-white shadow-md",
+              theme.ring,
+            )}
+            style={{ animationDelay: "500ms" }}
+          >
+            <div className="flex items-start gap-3 px-4 py-3.5">
+              <div className={cn("grid h-12 w-12 shrink-0 place-items-center rounded-xl", theme.accentBg)}>
+                <ShoppingBag className={cn("h-5 w-5", theme.accent)} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+                  Solução Longevify
+                </div>
+                <div className="text-[14px] font-semibold leading-tight text-zinc-900">
+                  {product.name}
+                </div>
+                {reason ? (
+                  <p className="mt-1 line-clamp-2 text-[11.5px] leading-snug text-zinc-500">
+                    {reason}
+                  </p>
+                ) : null}
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="text-[10px] uppercase text-zinc-400">desde</div>
+                <div className="text-[16px] font-semibold tabular-nums text-zinc-900">
+                  R$ {product.priceBRL}
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-px bg-zinc-100">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAddSingle(false);
+                }}
+                className="bg-white py-2.5 text-[13px] font-semibold text-zinc-800 transition hover:bg-zinc-50"
+              >
+                Comprar
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAddSingle(true);
+                }}
+                className={cn(
+                  "py-2.5 text-[13px] font-semibold text-white transition",
+                  "bg-gradient-to-br from-brand-600 to-brand-800 hover:from-brand-700 hover:to-brand-900",
+                )}
+              >
+                Assinar (10% off)
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-5 rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-[12.5px] text-zinc-500">
+            Sua equipe Longevify vai personalizar a abordagem pra esse
+            marcador — você vai receber a recomendação no protocolo.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── BundleSlide — slide 10 ("Resolver tudo") ──────────────────────────────
+
+function BundleSlide({
+  recommendations,
+  firstName,
+}: {
+  recommendations: ReturnType<typeof getRecommendedProducts>;
+  firstName: string;
+}) {
+  const cart = useCart();
+  const [added, setAdded] = useState(false);
+
+  const products = recommendations.map((r) => r.product);
+  const totalOnce = products.reduce((sum, p) => sum + p.priceBRL, 0);
+  const totalSubscribe = Math.round(totalOnce * 0.9); // 10% off bundle/sub
+
+  const handleResolveAll = useCallback(
+    (recurring: boolean) => {
+      cart.addItems(
+        products.map((p) => p.id),
+        { recurring },
+      );
+      setAdded(true);
+      setTimeout(() => {
+        cart.openCart();
+      }, 800);
+    },
+    [cart, products],
+  );
+
+  return (
+    <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center text-white">
+      <div className="pointer-events-none absolute inset-0 grid place-items-center">
+        <div
+          className="h-[600px] w-[600px] rounded-full opacity-50 blur-[60px] story-glow"
+          style={{
+            background:
+              "radial-gradient(circle, #3f9a6b 0%, transparent 70%)",
+          }}
+        />
+      </div>
+
+      <div className="relative w-full max-w-md story-card-in">
+        <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-300 ring-1 ring-emerald-400/30">
+          <Sparkles className="h-3 w-3" />
+          Pacote completo
+        </div>
+        <h2 className="mt-3 text-[28px] font-semibold tracking-tight leading-[1.05]">
+          Resolver tudo<br />de uma vez
+        </h2>
+        <p className="mt-2 text-[13.5px] leading-relaxed text-white/70">
+          {firstName}, juntamos os {products.length} suplementos recomendados
+          pros seus marcadores num pacote único.
+        </p>
+
+        {/* Lista compacta dos produtos */}
+        <div className="mt-5 flex flex-col gap-1.5 rounded-2xl border border-white/15 bg-white/[0.06] p-3 backdrop-blur-md">
+          {products.map((p) => (
+            <div
+              key={p.id}
+              className="flex items-center justify-between gap-3 text-left"
+            >
+              <span className="truncate text-[12.5px] text-white/85">
+                {p.name}
+              </span>
+              <span className="shrink-0 text-[11.5px] tabular-nums text-white/55">
+                R$ {p.priceBRL}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Totais */}
+        <div className="mt-4 grid grid-cols-2 gap-2 text-left">
+          <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wide text-white/55">
+              Comprar tudo
+            </div>
+            <div className="text-[18px] font-semibold tabular-nums text-white">
+              R$ {totalOnce}
+            </div>
+          </div>
+          <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/15 px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wide text-emerald-200">
+              Assinar (10% off)
+            </div>
+            <div className="text-[18px] font-semibold tabular-nums text-emerald-100">
+              R$ {totalSubscribe}
+              <span className="ml-1 text-[10px] font-normal">/mês</span>
+            </div>
+          </div>
+        </div>
+
+        {/* CTAs */}
+        <div className="mt-5 flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleResolveAll(true);
+            }}
+            disabled={added || products.length === 0}
+            className={cn(
+              "inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-3.5 text-[14px] font-semibold transition will-change-transform hover:scale-[1.01]",
+              added
+                ? "bg-emerald-500 text-white"
+                : "bg-white text-brand-800 hover:bg-white/90",
+            )}
+          >
+            {added ? (
+              <>
+                <Check className="h-4 w-4" />
+                Adicionado ao carrinho
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4" />
+                Assinar pacote completo
+              </>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleResolveAll(false);
+            }}
+            disabled={added || products.length === 0}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white/10 px-6 py-2.5 text-[13px] font-semibold text-white backdrop-blur-md transition hover:bg-white/20 ring-1 ring-white/20 disabled:opacity-50"
+          >
+            Comprar tudo de uma vez
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Componente principal ───────────────────────────────────────────────────
 //
 // Stories Instagram-style.
@@ -1043,7 +1383,7 @@ function TimelineItem({
 
 export function PostExamStories({
   patient,
-  storageKey = "longevify-stories-shown-v3",
+  storageKey = "longevify-stories-shown-v4",
   forceShow = false,
   onClose,
 }: PostExamStoriesProps) {
@@ -1053,6 +1393,17 @@ export function PostExamStories({
   // modo finale: stories continuam visíveis ATRÁS de uma transição
   // cinematográfica que termina chamando close() depois de 1900ms.
   const [showingFinale, setShowingFinale] = useState(false);
+
+  // Contexto compartilhado pros slides — top concerns/winners + produtos
+  // recomendados. Memo evita recalcular a cada render.
+  const ctx = useMemo<StoryCtx>(() => {
+    return {
+      patient,
+      topConcerns: pickTopConcerns(BIOMARKERS, 3),
+      topWinners: pickTopWinners(BIOMARKERS, 3),
+      recommendations: getRecommendedProducts(BIOMARKERS, 4),
+    };
+  }, [patient]);
 
   // onClose como ref pra evitar recriação de close/advance quando o
   // parent passar arrow inline (fix antigo, mantido por segurança)
@@ -1202,7 +1553,7 @@ export function PostExamStories({
         key={slideIdx}
         className="story-slide-shell relative flex flex-1 items-center justify-center"
       >
-        {Slide.render(patient)}
+        {Slide.render(ctx)}
       </div>
 
       <style jsx global>{`
