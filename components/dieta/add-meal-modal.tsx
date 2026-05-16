@@ -337,8 +337,14 @@ function PhotoInput({
         method: "POST",
         body: fd,
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error ?? `HTTP ${res.status}`);
+      }
+      // Surface "nenhum alimento identificado" como erro pro user trocar foto
+      if (data.note && (data.items?.length ?? 0) === 0) {
+        setError(data.note);
+      }
       setItems(data.items ?? []);
       setTotalNutrients(data.totalNutrients);
     } catch (err) {
