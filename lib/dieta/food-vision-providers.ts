@@ -15,7 +15,11 @@ import type { FoodItem, Nutrients } from "./types";
 
 const GEMINI_MODEL = "gemini-2.5-flash";
 const OPENAI_MODEL = "gpt-5";
-const MOONSHOT_MODEL = "kimi-latest";
+// Moonshot vision: `kimi-latest` retornava "404 Not found the model kimi-latest"
+// nos logs. O nome canônico do modelo vision é moonshot-v1-{8k,32k,128k}-vision-preview
+// — preview ainda mas disponível pra contas com vision liberado. 32k é o sweet
+// spot (~$0.5/M tokens, contexto suficiente pra imagem+resposta).
+const MOONSHOT_MODEL = "moonshot-v1-32k-vision-preview";
 const MOONSHOT_BASE_URL = "https://api.moonshot.ai/v1";
 
 // Confidence média abaixo desse threshold → vai pro fallback

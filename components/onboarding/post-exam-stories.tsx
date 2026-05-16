@@ -10,7 +10,6 @@ import {
   TrendingUp,
   Apple,
   Sparkles,
-  ShoppingBag,
   Check,
   ThumbsUp,
 } from "lucide-react";
@@ -23,7 +22,6 @@ import {
 } from "@/components/onboarding/stories-mannequin";
 import { StoriesFinaleTransition } from "@/components/onboarding/stories-finale-transition";
 import { getRecommendedProducts } from "@/lib/product-recommender";
-import type { Product } from "@/lib/products";
 import { useCart } from "@/lib/cart/store";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -710,36 +708,10 @@ const SLIDES: SlideContent[] = [
   },
 
   // ──────────────────────────────────────────────────────────────────────────
-  // 7-9. FOCO POR BIOMARCADOR — 3 slides com produto Longevify lateral
-  //      Lucas: "Sua vitamina D veio baixa -> logo ao lado ja tem uma
-  //      opção para resolver o problema, com um botão de comprar ou
-  //      assinar o suplemento de vitamina D da longevify".
-  ...([0, 1, 2] as const).map((idx) => ({
-    id: `focus-bio-${idx}` as const,
-    theme: "light" as const,
-    duration: 6000,
-    render: (ctx: StoryCtx) => {
-      const biomarker = ctx.topConcerns[idx];
-      if (!biomarker) return null;
-      const rec = ctx.recommendations.find((r) =>
-        r.product.targetsBiomarkers.includes(biomarker.id),
-      );
-      return (
-        <BiomarkerFocusSlide
-          idx={idx}
-          biomarker={biomarker}
-          product={rec?.product}
-          reason={rec?.reason}
-        />
-      );
-    },
-  })),
-
-  // ──────────────────────────────────────────────────────────────────────────
-  // 10. BUNDLE — "Resolver tudo de uma vez"
-  //     Lucas: "um botão central com alguma mensagem similar a essa
-  //     'resolver todos os problemas', esse botão assinará ou comprará
-  //     tudo que foi recomendado".
+  // 7. BUNDLE — "Resolver tudo de uma vez" (Lucas 2026-05: consolidou os
+  //    3 slides individuais por biomarcador num único slide de pacote
+  //    pra "não parecer tanto uma grande propaganda"). Os problemas já
+  //    foram apresentados nos slides 5 e 6; aqui é só a solução.
   {
     id: "bundle",
     theme: "tinted",
@@ -1066,171 +1038,7 @@ function BiomarkerConcernPreviewCard({
 
 // ─── BiomarkerFocusSlide — slide 7/8/9 (foco + produto lateral) ────────────
 
-const FOCUS_THEMES = [
-  {
-    bg: "from-rose-50 via-white to-white",
-    accent: "text-rose-600",
-    accentBg: "bg-rose-100",
-    ring: "border-rose-200",
-    kicker: "Foco #1 — Prioridade",
-  },
-  {
-    bg: "from-amber-50 via-white to-white",
-    accent: "text-amber-700",
-    accentBg: "bg-amber-100",
-    ring: "border-amber-200",
-    kicker: "Foco #2",
-  },
-  {
-    bg: "from-sky-50 via-white to-white",
-    accent: "text-sky-700",
-    accentBg: "bg-sky-100",
-    ring: "border-sky-200",
-    kicker: "Foco #3",
-  },
-];
-
-function BiomarkerFocusSlide({
-  idx,
-  biomarker,
-  product,
-  reason,
-}: {
-  idx: number;
-  biomarker: Biomarker;
-  product?: Product;
-  reason?: string;
-}) {
-  const theme = FOCUS_THEMES[idx] ?? FOCUS_THEMES[0];
-  const cart = useCart();
-
-  const handleAddSingle = useCallback(
-    (recurring: boolean) => {
-      if (!product) return;
-      cart.addItem(product.id, { recurring });
-      cart.openCart();
-    },
-    [cart, product],
-  );
-
-  return (
-    <div className={cn("flex h-full w-full bg-gradient-to-br", theme.bg)}>
-      <div className="m-auto flex w-full max-w-md flex-col px-6 py-14">
-        <p
-          className={cn(
-            "text-[11px] font-semibold uppercase tracking-[0.18em]",
-            theme.accent,
-          )}
-        >
-          {theme.kicker}
-        </p>
-
-        <h2 className="mt-2 text-[26px] font-semibold tracking-tight text-zinc-900 leading-[1.1] story-fade-up">
-          Sua {biomarker.name.toLowerCase()} veio{" "}
-          <span className={theme.accent}>
-            {biomarker.status === "out" ? "fora da faixa" : "abaixo do ótimo"}
-          </span>
-        </h2>
-
-        {/* Card resumo do biomarcador */}
-        <div className="mt-4 flex items-baseline gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-sm story-fade-up-2">
-          <div>
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
-              Seu valor
-            </div>
-            <div className={cn("text-[24px] font-semibold tabular-nums", theme.accent)}>
-              <AnimatedNumber value={biomarker.value} />
-              <span className="ml-1 text-[12px] font-normal text-zinc-400">
-                {biomarker.unit}
-              </span>
-            </div>
-          </div>
-          <div className="ml-auto text-right">
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
-              Ideal
-            </div>
-            <div className="text-[14px] font-semibold tabular-nums text-zinc-700">
-              {biomarker.referenceLabel}
-            </div>
-          </div>
-        </div>
-
-        <p className="mt-4 text-[13.5px] leading-relaxed text-zinc-600 story-fade-up-2">
-          {explainConcern(biomarker)}
-        </p>
-
-        {/* CARD DO PRODUTO — Lucas: "logo ao lado já tem uma opção pra
-            resolver o problema, com um botão de comprar ou assinar". */}
-        {product ? (
-          <div
-            className={cn(
-              "story-pop mt-5 overflow-hidden rounded-2xl border bg-white shadow-md",
-              theme.ring,
-            )}
-            style={{ animationDelay: "500ms" }}
-          >
-            <div className="flex items-start gap-3 px-4 py-3.5">
-              <div className={cn("grid h-12 w-12 shrink-0 place-items-center rounded-xl", theme.accentBg)}>
-                <ShoppingBag className={cn("h-5 w-5", theme.accent)} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
-                  Solução Longevify
-                </div>
-                <div className="text-[14px] font-semibold leading-tight text-zinc-900">
-                  {product.name}
-                </div>
-                {reason ? (
-                  <p className="mt-1 line-clamp-2 text-[11.5px] leading-snug text-zinc-500">
-                    {reason}
-                  </p>
-                ) : null}
-              </div>
-              <div className="shrink-0 text-right">
-                <div className="text-[10px] uppercase text-zinc-400">desde</div>
-                <div className="text-[16px] font-semibold tabular-nums text-zinc-900">
-                  R$ {product.priceBRL}
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-px bg-zinc-100">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleAddSingle(false);
-                }}
-                className="bg-white py-2.5 text-[13px] font-semibold text-zinc-800 transition hover:bg-zinc-50"
-              >
-                Comprar
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleAddSingle(true);
-                }}
-                className={cn(
-                  "py-2.5 text-[13px] font-semibold text-white transition",
-                  "bg-gradient-to-br from-brand-600 to-brand-800 hover:from-brand-700 hover:to-brand-900",
-                )}
-              >
-                Assinar (10% off)
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="mt-5 rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-[12.5px] text-zinc-500">
-            Sua equipe Longevify vai personalizar a abordagem pra esse
-            marcador — você vai receber a recomendação no protocolo.
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── BundleSlide — slide 10 ("Resolver tudo") ──────────────────────────────
+// ─── BundleSlide — slide 7 ("Resolver tudo") ──────────────────────────────
 
 function BundleSlide({
   recommendations,
@@ -1278,26 +1086,42 @@ function BundleSlide({
           Pacote completo
         </div>
         <h2 className="mt-3 text-[28px] font-semibold tracking-tight leading-[1.05]">
-          Resolver tudo<br />de uma vez
+          Pra resolver,<br />juntamos tudo
         </h2>
         <p className="mt-2 text-[13.5px] leading-relaxed text-white/70">
-          {firstName}, juntamos os {products.length} suplementos recomendados
-          pros seus marcadores num pacote único.
+          {firstName}, com base nos {products.length} marcadores que
+          identificamos como prioridade, sua equipe Longevify sugere esses
+          suplementos. Cada um tem evidência clínica direta no marcador.
         </p>
 
-        {/* Lista compacta dos produtos */}
-        <div className="mt-5 flex flex-col gap-1.5 rounded-2xl border border-white/15 bg-white/[0.06] p-3 backdrop-blur-md">
-          {products.map((p) => (
+        {/* Lista dos produtos com razão clínica (não é propaganda — é
+            por que CADA um foi escolhido pra você). */}
+        <div className="mt-5 flex flex-col gap-2 rounded-2xl border border-white/15 bg-white/[0.06] p-3.5 text-left backdrop-blur-md">
+          {recommendations.map((r, i) => (
             <div
-              key={p.id}
-              className="flex items-center justify-between gap-3 text-left"
+              key={r.product.id}
+              className={cn(
+                "story-pop flex items-start gap-3 rounded-xl bg-white/[0.04] px-3 py-2.5",
+                i > 0 ? "border-t border-white/5 mt-0" : "",
+              )}
+              style={{ animationDelay: `${300 + i * 100}ms` }}
             >
-              <span className="truncate text-[12.5px] text-white/85">
-                {p.name}
-              </span>
-              <span className="shrink-0 text-[11.5px] tabular-nums text-white/55">
-                R$ {p.priceBRL}
-              </span>
+              <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-500/20 text-[11px] font-bold tabular-nums text-emerald-200">
+                {i + 1}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="truncate text-[13px] font-semibold text-white">
+                    {r.product.name}
+                  </span>
+                  <span className="shrink-0 text-[11px] tabular-nums text-white/65">
+                    R$ {r.product.priceBRL}
+                  </span>
+                </div>
+                <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-white/55">
+                  {r.reason}
+                </p>
+              </div>
             </div>
           ))}
         </div>
@@ -1378,12 +1202,16 @@ function BundleSlide({
 // Sem timer, sem auto-advance, sem hold-to-pause — fica aberto até
 // o user fechar.
 //
-// 12 slides, mannequim colorido por status nos slides 1 e 4. Ações
-// dos focos (slides 5-7) são accordeões expansíveis com detalhes.
+// 9 slides (Lucas 2026-05: consolidou os 3 slides de foco-por-biomarcador
+// num único slide-pacote pra não parecer propaganda):
+//   1. Overall          5. Exames melhores
+//   2. Idade biológica  6. Pontos a melhorar
+//   3. Score            7. Resolver tudo (pacote único)
+//   4. Pontos fortes    8. Sua trajetória  9. CTA final
 
 export function PostExamStories({
   patient,
-  storageKey = "longevify-stories-shown-v4",
+  storageKey = "longevify-stories-shown-v5",
   forceShow = false,
   onClose,
 }: PostExamStoriesProps) {
