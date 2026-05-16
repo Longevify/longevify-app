@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface ChatMessage {
@@ -16,9 +16,8 @@ interface Props {
 
 /**
  * Bubble do chat Concierge. Mensagens do user à direita (verde escuro);
- * Dr. Lon à esquerda com avatar (mesma foto Pixar usada no flutuante e
- * header — Lucas 2026-05: "tem lugares que o Dr Lon ta de um jeito e
- * tem outros lugares que o Dr Lon ta de outro jeito" → padronizado).
+ * Dr. Lon à esquerda com ícone Sparkles (Lucas 2026-05: tirou a foto Pixar
+ * do Dr. Lon e pediu pra voltar pro estado anterior).
  */
 export function MessageBubble({ message, streaming }: Props) {
   const isUser = message.role === "user";
@@ -36,16 +35,13 @@ export function MessageBubble({ message, streaming }: Props) {
   return (
     <div className="flex items-start gap-3">
       <div
-        className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full ring-1 ring-brand-100 shadow-[0_1px_2px_rgba(13,40,24,.12)]"
+        className={cn(
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+          "bg-brand-500 text-white shadow-[0_1px_2px_rgba(13,40,24,.12)]",
+        )}
         aria-hidden
       >
-        <Image
-          src="/dr-lon-avatar.webp"
-          alt="Dr. Lon"
-          width={32}
-          height={32}
-          className="h-8 w-8 object-cover"
-        />
+        <Sparkles className="h-4 w-4" />
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="text-[11px] font-medium text-muted">Dr. Lon</span>

@@ -16,15 +16,16 @@ interface ChatBody {
   messages: ChatMessage[];
 }
 
-// Provider preference order:
-// 1. MOONSHOT_API_KEY → Kimi K2.5 (OpenAI-compatible). Tem cache automático
-//    de prefixo ativo em todas as chamadas (sem opt-in necessário).
-// 2. ANTHROPIC_API_KEY → Claude Haiku 4.5 com prompt caching explícito
-//    (cache_control: ephemeral) no system prompt. Antes era Sonnet 4.6 —
-//    Haiku é ~3x mais rápido (TTFT ~300ms vs ~800ms) e ~5x mais barato,
-//    com qualidade boa pra interpretação clínica simples-média. Sonnet
-//    fica reservado pra casos onde precisa raciocínio profundo (não é
-//    o caso aqui — Kimi K2.5 é o primário e já tem reasoning).
+// Provider preference order (Lucas 2026-05: "Dr. Lon está demorando muito
+// para responder"). Reordenado pra priorizar latência:
+//
+// 1. ANTHROPIC_API_KEY → Claude Haiku 4.5 com prompt caching explícito
+//    (cache_control: ephemeral). TTFT ~300ms, sem reasoning interno.
+//    PRIMÁRIO agora — antes era 2º depois de Kimi.
+// 2. MOONSHOT_API_KEY → Kimi K2.5. É reasoning model — stream começa
+//    com `reasoning_content` (chain-of-thought interno) ANTES do content
+//    visível. TTFT efetivo (até o user ver texto) é 2-4s — muito lento
+//    pra chat. Mantido como 2º só se Haiku falhar/sem key.
 // 3. OPENAI_API_KEY → gpt-4o-mini (cache automático também)
 // 4. Sem nada configurado → fallback rule-based
 const ANTHROPIC_MODEL = "claude-haiku-4-5";
@@ -73,25 +74,26 @@ export async function POST(request: NextRequest) {
     hasExamData,
   });
 
-  const moonshotKey = process.env.MOONSHOT_API_KEY;
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  const moonshotKey = process.env.MOONSHOT_API_KEY;
   const openaiKey = process.env.OPENAI_API_KEY;
 
-  // Moonshot / Kimi K2 — OpenAI-compatible, preferência 1
-  if (moonshotKey) {
-    return streamOpenAICompatible({
-      apiKey: moonshotKey,
-      baseURL: MOONSHOT_BASE_URL,
-      model: MOONSHOT_MODEL,
+  // Anthropic Haiku 4.5 — preferência 1 (sem reasoning, TTFT ~300ms)
+  if (anthropicKey) {
+    return streamAnthropic({
+      apiKey: anthropicKey,
       systemPrompt,
       messages,
       lastUser,
     });
   }
 
-  if (anthropicKey) {
-    return streamAnthropic({
-      apiKey: anthropicKey,
+  // Moonshot Kimi K2.5 — preferência 2 (reasoning model, mais lento)
+  if (moonshotKey) {
+    return streamOpenAICompatible({
+      apiKey: moonshotKey,
+      baseURL: MOONSHOT_BASE_URL,
+      model: MOONSHOT_MODEL,
       systemPrompt,
       messages,
       lastUser,

@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { X, Send, ExternalLink } from "lucide-react";
+import { X, Send, ExternalLink, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
@@ -109,14 +108,8 @@ export function DrLonFloating() {
         className="fixed bottom-6 right-6 z-40 inline-flex items-center gap-2 rounded-full bg-gradient-to-br from-brand-700 to-brand-800 px-4 py-3 text-[13px] font-semibold text-white shadow-xl shadow-brand-900/30 transition hover:scale-105 hover:shadow-2xl"
         aria-label="Abrir chat com Dr. Lon"
       >
-        <span className="relative grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full ring-2 ring-white/30">
-          <Image
-            src="/dr-lon-avatar.webp"
-            alt="Dr. Lon"
-            width={28}
-            height={28}
-            className="h-7 w-7 object-cover"
-          />
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/15 ring-2 ring-white/30">
+          <Sparkles className="h-3.5 w-3.5" />
         </span>
         <span>Dr. Lon</span>
       </button>
@@ -135,14 +128,8 @@ export function DrLonFloating() {
         {/* Header */}
         <header className="flex items-center justify-between border-b border-zinc-100 bg-gradient-to-br from-brand-700 to-brand-800 px-4 py-3 text-white">
           <div className="flex items-center gap-2.5">
-            <span className="relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full ring-2 ring-white/30">
-              <Image
-                src="/dr-lon-avatar.webp"
-                alt="Dr. Lon"
-                width={40}
-                height={40}
-                className="h-10 w-10 object-cover"
-              />
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/15 ring-2 ring-white/30">
+              <Sparkles className="h-5 w-5" />
             </span>
             <div>
               <div className="text-[13px] font-semibold leading-tight">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import Image from "next/image";
+import { Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { ChatWindow } from "@/components/concierge/chat-window";
 import type { ChatMessage } from "@/components/concierge/message-bubble";
@@ -132,16 +132,10 @@ export function ConciergeView({ addressName }: ConciergeViewProps) {
   return (
     <div className="mx-auto flex h-[calc(100dvh-64px)] w-full max-w-[900px] flex-col px-6 py-8">
       <header className="flex items-center gap-4 pb-6">
-        {/* Avatar Dr. Lon — sua identidade visual do Concierge */}
-        <span className="relative grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full ring-2 ring-brand-100 shadow-sm">
-          <Image
-            src="/dr-lon-avatar.webp"
-            alt="Dr. Lon"
-            width={56}
-            height={56}
-            className="h-14 w-14 object-cover"
-            priority
-          />
+        {/* Ícone Sparkles do Dr. Lon — Lucas 2026-05 pediu pra tirar
+            a foto Pixar e voltar pro ícone anterior. */}
+        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-sm">
+          <Sparkles className="h-6 w-6" />
         </span>
         <div>
           <span className="text-[13px] text-muted">
