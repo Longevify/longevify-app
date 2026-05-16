@@ -308,7 +308,7 @@ const SLIDES: SlideContent[] = [
             </div>
 
             <p className="mt-5 text-[12.5px] leading-relaxed text-white/65">
-              Toque pra avançar · segure pra pausar
+              Toque na lateral pra avançar · sem pressa, fica aberto até você fechar
             </p>
           </div>
         </div>
@@ -483,9 +483,21 @@ const SLIDES: SlideContent[] = [
         desc: (organ: string) =>
           `${organ} é o sistema com mais espaço pra ganho. Vamos construir uma base aqui com 2-3 intervenções diretas nas próximas 4 semanas.`,
         actions: [
-          "Suplementação direcionada",
-          "Hábito diário (15 min)",
-          "Reavaliar em 60 dias",
+          {
+            label: "Suplementação direcionada",
+            detail:
+              "Identificamos os 2-3 suplementos que mais movem a agulha pro seu marcador prioritário. Doses calibradas pro seu peso e perfil. Chega em casa com QR code pra confirmar a tomada diária no app.",
+          },
+          {
+            label: "Hábito diário (15 min)",
+            detail:
+              "Um único hábito específico, cientificamente ligado ao marcador prioritário — pode ser Zona 2, sol matinal, sauna ou meditação. 15 minutos por dia, com lembrete e check-in no app.",
+          },
+          {
+            label: "Reavaliar em 60 dias",
+            detail:
+              "Em 8 semanas você refaz só os 3-4 marcadores que estamos otimizando. Sem coleta completa nova. A gente confirma se a intervenção funcionou e ajusta o protocolo.",
+          },
         ],
       },
       {
@@ -498,9 +510,21 @@ const SLIDES: SlideContent[] = [
         desc: (organ: string) =>
           `${organ} tem oportunidade clara com intervenções específicas. Já está perto da faixa ótima — pequenos ajustes movem a agulha.`,
         actions: [
-          "Ajuste fino na nutrição",
-          "Acompanhar biomarcador-chave",
-          "Resposta em ~6 semanas",
+          {
+            label: "Ajuste fino na nutrição",
+            detail:
+              "Não é dieta nova — são 2-3 ajustes pontuais que afetam diretamente o marcador secundário. Ex: trocar gordura saturada por azeite + 30g de fibra solúvel/dia pra LDL borderline.",
+          },
+          {
+            label: "Acompanhar biomarcador-chave",
+            detail:
+              "Definimos UM biomarcador como termômetro do progresso. Toda coleta nova ele aparece em destaque na home, com tendência clara de subida ou descida.",
+          },
+          {
+            label: "Resposta em ~6 semanas",
+            detail:
+              "Marcadores secundários respondem mais rápido que os primários — em 6 semanas você já vê movimento na curva, mesmo sem coleta nova. O Dr. Lon te avisa assim que detecta a mudança.",
+          },
         ],
       },
       {
@@ -513,9 +537,21 @@ const SLIDES: SlideContent[] = [
         desc: (organ: string) =>
           `${organ} está saudável. O trabalho aqui é manter — hábitos consistentes evitam regressão e protegem o sistema a longo prazo.`,
         actions: [
-          "Hábitos consistentes",
-          "Reavaliação semestral",
-          "Sem mudanças bruscas",
+          {
+            label: "Hábitos consistentes",
+            detail:
+              "Não é hora de mudar — é hora de não mudar. Os hábitos que você já tem (sono, atividade, alimentação) seguram esse sistema saudável. Foco em consistência, não em intensidade.",
+          },
+          {
+            label: "Reavaliação semestral",
+            detail:
+              "A cada 6 meses você refaz uma coleta completa pra confirmar que não regrediu. Mais frequente que isso aqui é desnecessário — esse sistema não precisa de monitoramento agressivo.",
+          },
+          {
+            label: "Sem mudanças bruscas",
+            detail:
+              "Trocar dieta, suplementação ou treino drasticamente pode tirar um sistema saudável da faixa ótima. Mexer só se um marcador sair da curva — antes disso, deixa rodar.",
+          },
         ],
       },
     ];
@@ -557,15 +593,16 @@ const SLIDES: SlideContent[] = [
                 <span className="text-zinc-400">/100 score atual</span>
               </div>
 
-              {/* Ações — interativo: tap pra "marcar entendido" */}
+              {/* Ações — interativo: tap pra expandir e ver detalhes */}
               <div className="mt-7 flex flex-col gap-2.5">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
                   Próximos passos
                 </p>
                 {v.actions.map((a, i) => (
                   <FocusAction
-                    key={a}
-                    label={a}
+                    key={a.label}
+                    label={a.label}
+                    detail={a.detail}
                     delayMs={400 + i * 120}
                     ring={v.ring}
                     accent={v.accent}
@@ -742,45 +779,74 @@ const SLIDES: SlideContent[] = [
 
 // ─── Sub-componentes interativos ────────────────────────────────────────────
 
+/**
+ * Card de ação expansível dos focos. Lucas 2026-05: "quero que os botões
+ * 'próximos passos' sejam clicáveis e funcionais, aparecendo mais detalhes
+ * depois". Click expande pra mostrar parágrafo de detalhe; click novo fecha.
+ *
+ * stopPropagation no click pra não disparar tap-zone do story (não avança
+ * slide). Ícone à direita rotaciona 180° quando expanded.
+ */
 function FocusAction({
   label,
+  detail,
   delayMs,
   ring,
   accent,
 }: {
   label: string;
+  detail: string;
   delayMs: number;
   ring: string;
   accent: string;
 }) {
-  const [done, setDone] = useState(false);
+  const [open, setOpen] = useState(false);
   return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        setDone((v) => !v);
-      }}
+    <div
       className={cn(
-        "story-pop flex items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 text-left ring-1 transition will-change-transform",
+        "story-pop overflow-hidden rounded-2xl bg-white ring-1 transition will-change-transform",
         "shadow-[0_2px_8px_-4px_rgba(0,0,0,0.08)]",
         ring,
-        done && "scale-[0.99]",
       )}
       style={{ animationDelay: `${delayMs}ms` }}
     >
-      <span className="text-[13.5px] font-medium text-zinc-800">{label}</span>
-      <span
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+        aria-expanded={open}
+      >
+        <span className="text-[13.5px] font-medium text-zinc-800">
+          {label}
+        </span>
+        <span
+          className={cn(
+            "inline-grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold transition-transform duration-300",
+            "bg-zinc-100",
+            accent,
+            open && "rotate-90",
+          )}
+        >
+          →
+        </span>
+      </button>
+      {/* Acordeão expandido — animação height via grid-rows trick */}
+      <div
         className={cn(
-          "inline-grid h-6 w-6 place-items-center rounded-full text-[11px] font-bold transition",
-          done
-            ? "bg-emerald-500 text-white"
-            : cn("bg-zinc-100", accent),
+          "grid transition-[grid-template-rows] duration-300 ease-out",
+          open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
         )}
       >
-        {done ? "✓" : "→"}
-      </span>
-    </button>
+        <div className="min-h-0 overflow-hidden">
+          <p className="border-t border-zinc-100 px-4 py-3 text-[12.5px] leading-relaxed text-zinc-600">
+            {detail}
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -910,44 +976,29 @@ function TimelineItem({
 
 // ─── Componente principal ───────────────────────────────────────────────────
 //
-// Stories Instagram-style. Mudanças nesta iteração (Lucas 2026-05):
-//   - Timer robusto que NÃO depende de useCallback stability — usa refs
-//     pra evitar reset por re-render quando `onClose` é arrow inline.
-//   - Hold-to-pause: pressione e segure pra pausar a barra de progresso.
-//   - Tap-zones SÓ nas bordas (10% cada lado) — middle area fica livre
-//     pros elementos interativos.
-//   - 12 slides ao invés de 6.
-//   - Mannequim colorido por status (verde/amarelo/vermelho) nos slides
-//     que mostram o boneco — eram brancos antes.
-//   - Animações multicamada (fade-up + scale + glow pulse).
+// Stories Instagram-style.
+//
+// Avanço MANUAL (Lucas 2026-05: "Quero que só dê para passar o story
+// clicando, ou seja, tempo infinito se não fizer nada"). Slides só
+// avançam por: tap nas bordas, botão Continuar, setas do teclado.
+// Sem timer, sem auto-advance, sem hold-to-pause — fica aberto até
+// o user fechar.
+//
+// 12 slides, mannequim colorido por status nos slides 1 e 4. Ações
+// dos focos (slides 5-7) são accordeões expansíveis com detalhes.
 
 export function PostExamStories({
   patient,
-  storageKey = "longevify-stories-shown-v2",
+  storageKey = "longevify-stories-shown-v3",
   forceShow = false,
   onClose,
 }: PostExamStoriesProps) {
   const [open, setOpen] = useState(false);
   const [slideIdx, setSlideIdx] = useState(0);
-  const [progress, setProgress] = useState(0);
-  const [paused, setPaused] = useState(false);
 
-  // Refs pra timer não depender de re-renders (root cause do bug antigo
-  // onde `onClose` arrow inline causava reset de useEffect a cada frame)
-  const slideIdxRef = useRef(0);
-  const openRef = useRef(false);
-  const pausedRef = useRef(false);
+  // onClose como ref pra evitar recriação de close/advance quando o
+  // parent passar arrow inline (fix antigo, mantido por segurança)
   const onCloseRef = useRef(onClose);
-
-  useEffect(() => {
-    slideIdxRef.current = slideIdx;
-  }, [slideIdx]);
-  useEffect(() => {
-    openRef.current = open;
-  }, [open]);
-  useEffect(() => {
-    pausedRef.current = paused;
-  }, [paused]);
   useEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
@@ -957,7 +1008,6 @@ export function PostExamStories({
     if (forceShow) {
       setOpen(true);
       setSlideIdx(0);
-      setProgress(0);
       return;
     }
     try {
@@ -986,70 +1036,16 @@ export function PostExamStories({
       }
       return prev + 1;
     });
-    setProgress(0);
   }, [close]);
 
   const back = useCallback(() => {
     setSlideIdx((prev) => Math.max(0, prev - 1));
-    setProgress(0);
   }, []);
 
-  // Timer rAF — UM ÚNICO useEffect que sobrevive o slide inteiro.
-  // Reset acontece via `start` recalc quando slide muda. Pause via ref.
-  useEffect(() => {
-    if (!open) return;
-    let rafId: number;
-    let start = performance.now();
-    let lastSlide = slideIdxRef.current;
-    let pauseStart: number | null = null;
-
-    const tick = (now: number) => {
-      if (!openRef.current) return;
-
-      // Slide mudou? Reset timer
-      if (slideIdxRef.current !== lastSlide) {
-        lastSlide = slideIdxRef.current;
-        start = now;
-        pauseStart = null;
-      }
-
-      const currentSlide = SLIDES[slideIdxRef.current];
-      const duration = currentSlide?.duration ?? 5200;
-
-      if (pausedRef.current) {
-        // Marca início da pausa pra deslocar `start` no resume
-        if (pauseStart === null) pauseStart = now;
-        rafId = requestAnimationFrame(tick);
-        return;
-      }
-
-      // Saindo de pausa? Desloca start pra "ignorar" o tempo pausado
-      if (pauseStart !== null) {
-        start += now - pauseStart;
-        pauseStart = null;
-      }
-
-      const elapsed = now - start;
-      const pct = Math.min(100, (elapsed / duration) * 100);
-      setProgress(pct);
-
-      if (pct >= 100) {
-        setSlideIdx((prev) => {
-          if (prev >= SLIDES.length - 1) {
-            close();
-            return prev;
-          }
-          return prev + 1;
-        });
-        setProgress(0);
-        start = now;
-        lastSlide = lastSlide + 1;
-      }
-      rafId = requestAnimationFrame(tick);
-    };
-    rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
-  }, [open, close]);
+  // Auto-advance REMOVIDO (Lucas 2026-05: "Quero que só dê para passar
+  // o story clicando, ou seja, tempo infinito se não fizer nada").
+  // Slides só avançam por tap-zone, keyboard, ou botão Continuar.
+  // Progress bar agora reflete posição estática (preenchido = visitado).
 
   // Keyboard
   useEffect(() => {
@@ -1062,28 +1058,6 @@ export function PostExamStories({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [open, close, advance, back]);
-
-  // Hold-to-pause: timeout pra distinguir tap rápido de hold
-  const holdTimer = useRef<number | null>(null);
-  const holdStarted = useRef(false);
-
-  const handlePointerDown = useCallback(() => {
-    holdStarted.current = false;
-    holdTimer.current = window.setTimeout(() => {
-      holdStarted.current = true;
-      setPaused(true);
-    }, 200);
-  }, []);
-
-  const handlePointerUp = useCallback(() => {
-    if (holdTimer.current !== null) {
-      clearTimeout(holdTimer.current);
-      holdTimer.current = null;
-    }
-    if (holdStarted.current) {
-      setPaused(false);
-    }
-  }, []);
 
   if (!open) return null;
 
@@ -1100,12 +1074,10 @@ export function PostExamStories({
             ? "bg-gradient-to-br from-[#0d2818] via-[#143D28] to-[#0F3020]"
             : "bg-gradient-to-br from-[#0d2818] via-[#103a26] to-[#0F3020]",
       )}
-      onPointerDown={handlePointerDown}
-      onPointerUp={handlePointerUp}
-      onPointerLeave={handlePointerUp}
-      onPointerCancel={handlePointerUp}
     >
-      {/* Header: progress bars + close */}
+      {/* Header: progress bars + close. Bars são estáticas — preenchidas
+          se já passou pelo slide (incluindo o atual), vazias pra futuros.
+          Lucas 2026-05: sem auto-advance, sem timer animado. */}
       <header
         className="relative z-30 flex items-center gap-2 px-4 pb-2"
         style={{ paddingTop: "max(env(safe-area-inset-top), 1rem)" }}
@@ -1121,13 +1093,10 @@ export function PostExamStories({
             >
               <div
                 className={cn(
-                  "h-full rounded-full transition-[width]",
+                  "h-full rounded-full transition-[width] duration-300",
                   theme === "light" ? "bg-zinc-900" : "bg-white",
                 )}
-                style={{
-                  width: `${i < slideIdx ? 100 : i === slideIdx ? progress : 0}%`,
-                  transitionDuration: i === slideIdx ? "100ms" : "0ms",
-                }}
+                style={{ width: i <= slideIdx ? "100%" : "0%" }}
               />
             </div>
           ))}
@@ -1169,20 +1138,6 @@ export function PostExamStories({
       >
         {Slide.render(patient)}
       </div>
-
-      {/* Pause indicator */}
-      {paused ? (
-        <div
-          className={cn(
-            "pointer-events-none absolute left-1/2 top-20 z-30 -translate-x-1/2 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wide",
-            theme === "light"
-              ? "bg-zinc-900/85 text-white"
-              : "bg-white/15 text-white backdrop-blur",
-          )}
-        >
-          pausado
-        </div>
-      ) : null}
 
       <style jsx global>{`
         /* Entrance principal do slide — fade + slight slide + scale */
