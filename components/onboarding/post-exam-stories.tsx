@@ -21,6 +21,7 @@ import {
   StoriesMannequin,
   buildOrganStatuses,
 } from "@/components/onboarding/stories-mannequin";
+import { StoriesFinaleTransition } from "@/components/onboarding/stories-finale-transition";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -161,15 +162,17 @@ function CircularGauge({
 
 // ─── Organ chip (tap pra ver score) ─────────────────────────────────────────
 //
-// Interativo: tap revela score numérico ao lado do nome. Stop propagation
-// pra não disparar tap-zone do story (não avança slide).
+// Animação elegante (Lucas 2026-05 — refinou a versão anterior que tinha
+// rotação 360° + bounce excessivo).
 //
-// Animação (Lucas 2026-05 — "mais fluida e mais bonita"):
-//   - Score slide-in da direita via max-width 0→48px com fade
-//   - Chip ganha micro-pulse (scale 1 → 1.08 → 1.04) ao clicar
-//   - Background intensifica (tom mais saturado quando revelado)
-//   - Badge da grade gira 360° suave
-//   - Tudo em ~340ms cubic-bezier(0.34, 1.56, 0.64, 1) (com overshoot)
+// Comportamento ao clicar:
+//   - Chip eleva sutilmente (translate-y-[-1px]) + shadow cresce
+//   - Background intensifica (cor +1 shade) com transition smooth
+//   - Score wrapper expande (max-w 0 → auto) com cubic-bezier iOS spring
+//   - Número CONTA de 0 até valor real em 480ms (AnimatedNumber)
+//   - Tudo em sync, 380ms total, ease (0.16, 1, 0.3, 1)
+//
+// Sem rotação, sem bounce. Só smooth elegante.
 
 function OrganChip({
   organ,
@@ -183,80 +186,80 @@ function OrganChip({
   delayMs?: number;
 }) {
   const [revealed, setRevealed] = useState(false);
-  const [pulsing, setPulsing] = useState(false);
   const colors = {
     optimal: {
-      bg: revealed
-        ? "bg-emerald-100 ring-emerald-300 shadow-emerald-200/50"
-        : "bg-emerald-50 ring-emerald-200",
+      bgClosed: "bg-emerald-50 ring-emerald-200",
+      bgOpen: "bg-emerald-100 ring-emerald-400 shadow-emerald-300/40",
       badge: "bg-emerald-100 text-emerald-700",
       score: "text-emerald-700",
       grade: "A",
     },
     normal: {
-      bg: revealed
-        ? "bg-amber-100 ring-amber-300 shadow-amber-200/50"
-        : "bg-amber-50 ring-amber-200",
+      bgClosed: "bg-amber-50 ring-amber-200",
+      bgOpen: "bg-amber-100 ring-amber-400 shadow-amber-300/40",
       badge: "bg-amber-100 text-amber-700",
       score: "text-amber-700",
       grade: "B",
     },
     out: {
-      bg: revealed
-        ? "bg-rose-100 ring-rose-300 shadow-rose-200/50"
-        : "bg-rose-50 ring-rose-200",
+      bgClosed: "bg-rose-50 ring-rose-200",
+      bgOpen: "bg-rose-100 ring-rose-400 shadow-rose-300/40",
       badge: "bg-rose-100 text-rose-700",
       score: "text-rose-700",
       grade: "C",
     },
   }[status];
 
-  function handleClick(e: React.MouseEvent) {
-    e.stopPropagation();
-    setRevealed((v) => !v);
-    setPulsing(true);
-    setTimeout(() => setPulsing(false), 360);
-  }
-
   return (
     <button
       type="button"
-      onClick={handleClick}
+      onClick={(e) => {
+        e.stopPropagation();
+        setRevealed((v) => !v);
+      }}
       className={cn(
-        "story-pop chip-reveal group inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11.5px] font-medium text-zinc-700 ring-1 shadow-sm will-change-transform",
-        "transition-[background-color,box-shadow,transform] duration-300 ease-out",
-        "hover:scale-[1.04]",
-        pulsing && "chip-pulse",
-        colors.bg,
+        "story-pop group relative inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[11.5px] font-medium text-zinc-700 ring-1 will-change-transform",
+        // Transition smooth iOS-spring sem bounce
+        "transition-[background-color,box-shadow,transform,border-color] duration-[380ms] ease-[cubic-bezier(0.16,1,0.3,1)]",
+        revealed
+          ? cn("-translate-y-[1px] shadow-md", colors.bgOpen)
+          : cn("translate-y-0 shadow-sm hover:-translate-y-[1px] hover:shadow-md", colors.bgClosed),
       )}
       style={{ animationDelay: `${delayMs}ms` }}
     >
       <span
         className={cn(
-          "grid h-4 w-4 place-items-center rounded-full text-[9px] font-bold transition-transform duration-300 ease-out",
+          "grid h-4 w-4 place-items-center rounded-full text-[9px] font-bold transition-colors duration-[380ms]",
           colors.badge,
-          revealed && "rotate-[360deg]",
         )}
       >
         {colors.grade}
       </span>
       <span className="leading-tight">{organ}</span>
-      {/* Score reveal — max-width transition pra slide-in suave da direita.
-          Quando fechado: max-w-0, overflow-hidden. Quando aberto: max-w
-          generoso + fade-in do conteúdo. */}
+      {/* Score reveal — width expand via grid-cols trick (suporta width
+          variável melhor que max-width). Number conta de 0→score quando
+          revealed via AnimatedNumber, e fica oculto via grid-cols-[0fr]
+          quando fechado. */}
       {typeof score === "number" ? (
         <span
           className={cn(
-            "inline-flex items-center overflow-hidden whitespace-nowrap transition-[max-width,opacity,margin] duration-300 ease-out",
+            "grid items-center transition-[grid-template-columns,opacity,margin-left] duration-[380ms] ease-[cubic-bezier(0.16,1,0.3,1)]",
             revealed
-              ? "ml-0.5 max-w-[60px] opacity-100"
-              : "ml-0 max-w-0 opacity-0",
+              ? "ml-1 grid-cols-[1fr] opacity-100"
+              : "ml-0 grid-cols-[0fr] opacity-0",
           )}
           aria-hidden={!revealed}
         >
-          <span className="mr-1 text-zinc-300">·</span>
-          <span className={cn("text-[10.5px] font-semibold tabular-nums", colors.score)}>
-            {score}
+          <span className="overflow-hidden whitespace-nowrap">
+            <span className="mr-0.5 text-zinc-300">·</span>
+            <span
+              className={cn(
+                "text-[10.5px] font-semibold tabular-nums",
+                colors.score,
+              )}
+            >
+              {revealed ? <AnimatedNumber value={score} duration={480} /> : 0}
+            </span>
           </span>
         </span>
       ) : null}
@@ -1046,6 +1049,10 @@ export function PostExamStories({
 }: PostExamStoriesProps) {
   const [open, setOpen] = useState(false);
   const [slideIdx, setSlideIdx] = useState(0);
+  // Quando o user finaliza no último slide ("Começar"), entra em
+  // modo finale: stories continuam visíveis ATRÁS de uma transição
+  // cinematográfica que termina chamando close() depois de 1900ms.
+  const [showingFinale, setShowingFinale] = useState(false);
 
   // onClose como ref pra evitar recriação de close/advance quando o
   // parent passar arrow inline (fix antigo, mantido por segurança)
@@ -1059,6 +1066,7 @@ export function PostExamStories({
     if (forceShow) {
       setOpen(true);
       setSlideIdx(0);
+      setShowingFinale(false);
       return;
     }
     try {
@@ -1071,6 +1079,7 @@ export function PostExamStories({
 
   const close = useCallback(() => {
     setOpen(false);
+    setShowingFinale(false);
     try {
       localStorage.setItem(storageKey, new Date().toISOString());
     } catch {
@@ -1078,6 +1087,12 @@ export function PostExamStories({
     }
     onCloseRef.current?.();
   }, [storageKey]);
+
+  // Dispara a transição cinematográfica final. Não fecha imediatamente —
+  // espera o overlay terminar (~1900ms) pra dar close() de verdade.
+  const startFinale = useCallback(() => {
+    setShowingFinale(true);
+  }, []);
 
   const advance = useCallback(() => {
     setSlideIdx((prev) => {
@@ -1297,24 +1312,6 @@ export function PostExamStories({
           }
         }
 
-        /* Chip click pulse — bounce com overshoot quando o user toca,
-           pra dar feedback tátil. Volta ao tamanho normal suave.
-           Lucas 2026-05: "animação ao clicar nos cards precisa ser
-           melhor, mais fluida e mais bonita". */
-        .chip-pulse {
-          animation: chipPulse 360ms cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-        @keyframes chipPulse {
-          0% {
-            transform: scale(1);
-          }
-          45% {
-            transform: scale(1.12);
-          }
-          100% {
-            transform: scale(1);
-          }
-        }
       `}</style>
 
       {/* Tap zones nas BORDAS (10% cada). Middle fica livre pros elementos
@@ -1338,13 +1335,14 @@ export function PostExamStories({
         className="absolute inset-y-0 right-0 z-10 w-[12%]"
       />
 
-      {/* Footer CTA */}
+      {/* Footer CTA — último slide dispara a transição cinematográfica
+          em vez de fechar direto. */}
       <div className="absolute bottom-6 left-0 right-0 z-30 flex justify-center px-6">
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            if (slideIdx === SLIDES.length - 1) close();
+            if (slideIdx === SLIDES.length - 1) startFinale();
             else advance();
           }}
           className={cn(
@@ -1381,6 +1379,15 @@ export function PostExamStories({
           <ChevronLeft className="h-4 w-4" />
         </button>
       )}
+
+      {/* Transição cinematográfica final — overlay z-[80] acima das
+          stories. Quando termina, dispara close() de verdade. */}
+      {showingFinale ? (
+        <StoriesFinaleTransition
+          firstName={patient.firstName}
+          onComplete={close}
+        />
+      ) : null}
     </div>
   );
 }
