@@ -9,6 +9,8 @@ import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { CartTrigger } from "@/components/cart/cart-trigger";
 import { ProfileMenu } from "@/components/app/profile-menu";
+import { InviteModal } from "@/components/app/invite-modal";
+import { useCurrentUser } from "@/lib/auth/user-context";
 
 const NAV = [
   { href: "/home", label: "Home" },
@@ -22,6 +24,8 @@ const NAV = [
 export function TopNav() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const user = useCurrentUser();
 
   // Fecha hamburger ao navegar
   useEffect(() => {
@@ -105,7 +109,12 @@ export function TopNav() {
             }
           />
           {/* "Convidar" só mostra em desktop — em mobile o user acessa via menu */}
-          <Button variant="primary" size="md" className="hidden sm:inline-flex">
+          <Button
+            variant="primary"
+            size="md"
+            className="hidden sm:inline-flex"
+            onClick={() => setInviteOpen(true)}
+          >
             Convidar
           </Button>
           <ProfileMenu />
@@ -138,13 +147,27 @@ export function TopNav() {
               );
             })}
             <div className="mt-2 border-t border-border/70 pt-3">
-              <Button variant="primary" size="md" className="w-full">
+              <Button
+                variant="primary"
+                size="md"
+                className="w-full"
+                onClick={() => {
+                  setInviteOpen(true);
+                  setMobileOpen(false);
+                }}
+              >
                 Convidar
               </Button>
             </div>
           </div>
         </nav>
       ) : null}
+
+      <InviteModal
+        open={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        inviterName={user.firstName ?? null}
+      />
     </header>
   );
 }
