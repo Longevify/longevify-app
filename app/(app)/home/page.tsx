@@ -189,11 +189,11 @@ export default async function HomePage() {
 
           <Card className="mt-3 flex flex-col gap-2 px-5 py-4 text-[13px] text-muted">
             <div className="text-[12px] font-medium uppercase tracking-wide text-muted/80">
-              Próximos 3 meses
+              Próximos 6 meses
             </div>
-            <div>• Segunda coleta agendada para o 2º semestre</div>
+            <div>• Segunda coleta do ano em ~6 meses (2 coletas/ano)</div>
             <div>• Check-in com a equipe Longevify em 30 dias</div>
-            <div>• Atualização do protocolo após novos resultados</div>
+            <div>• Atualização do protocolo após nova coleta</div>
           </Card>
         </div>
       </section>

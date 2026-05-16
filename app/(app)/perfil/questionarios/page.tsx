@@ -42,7 +42,7 @@ export default function QuestionariosListPage() {
         <p className="mt-2 max-w-2xl text-[14px] text-muted">
           Escalas validadas internacionalmente que ajudam o time Longevify a
           enxergar saúde mental, sono e estresse — dados que biomarcadores não
-          mostram. Recomendamos refazer trimestralmente.
+          mostram. Recomendamos refazer a cada 6 meses, junto com as coletas.
         </p>
       </header>
 

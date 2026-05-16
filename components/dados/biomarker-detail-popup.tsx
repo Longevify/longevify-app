@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import type { Biomarker, BiomarkerStatus } from "@/lib/mock-data";
 import { getBiomarkerKnowledge } from "@/lib/biomarker-knowledge";
 import { findSupplementForBiomarker } from "@/lib/biomarker-supplement-map";
+import { computeBiomarkerScale } from "@/lib/dados/biomarker-scale";
 
 // ─── Cores ───────────────────────────────────────────────────────────────────
 
@@ -183,21 +184,13 @@ export function BiomarkerDetailPopup({
   );
   const lineColor = STATUS_HEX[lastZone];
 
-  const values = biomarker.history.map((p) => p.value);
   const optMin = biomarker.optimalRange?.[0];
   const optMax = biomarker.optimalRange?.[1];
   const normMin = biomarker.normalRange?.[0];
   const normMax = biomarker.normalRange?.[1];
 
-  const yCandidates = [...values, optMin, optMax, normMin, normMax].filter(
-    (v): v is number => typeof v === "number",
-  );
-  const rawMin = Math.min(...yCandidates);
-  const rawMax = Math.max(...yCandidates);
-  const span = rawMax - rawMin;
-  const pad = Math.max(span * 0.2, rawMax * 0.06, 1);
-  const yMin = Math.max(0, rawMin - pad);
-  const yMax = rawMax + pad;
+  // Escala UNIFICADA com BiomarkerBigChart e RangePosition
+  const { min: yMin, max: yMax } = computeBiomarkerScale(biomarker);
 
   const hasOptimal = typeof optMin === "number" && typeof optMax === "number";
   const hasNormal = typeof normMin === "number" && typeof normMax === "number";

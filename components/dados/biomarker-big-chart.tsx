@@ -12,6 +12,7 @@ import {
 import type { Biomarker, BiomarkerStatus } from "@/lib/mock-data";
 import { formatDatePtBR } from "@/lib/utils";
 import { useMeasuredSize } from "@/lib/use-measured-size";
+import { computeBiomarkerScale } from "@/lib/dados/biomarker-scale";
 
 // ─── Cores ───────────────────────────────────────────────────────────────────
 //
@@ -102,22 +103,14 @@ export function BiomarkerBigChart({
     );
   }
 
-  const values = data.map((d) => d.value);
   const optMin = biomarker.optimalRange?.[0];
   const optMax = biomarker.optimalRange?.[1];
   const normMin = biomarker.normalRange?.[0];
   const normMax = biomarker.normalRange?.[1];
 
-  const yCandidates = [...values, optMin, optMax, normMin, normMax].filter(
-    (v): v is number => typeof v === "number",
-  );
-
-  const rawMin = Math.min(...yCandidates);
-  const rawMax = Math.max(...yCandidates);
-  const span = rawMax - rawMin;
-  const pad = Math.max(span * 0.2, rawMax * 0.06, 1);
-  const yMin = Math.max(0, rawMin - pad);
-  const yMax = rawMax + pad;
+  // Escala UNIFICADA com RangePosition — mesma min/max nas duas seções
+  // ("Histórico — Evolução" e "Contexto da faixa — Sua posição").
+  const { min: yMin, max: yMax } = computeBiomarkerScale(biomarker);
 
   const lastPoint = data[data.length - 1];
   const { ref, width } = useMeasuredSize<HTMLDivElement>();
