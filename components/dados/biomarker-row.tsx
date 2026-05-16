@@ -135,8 +135,11 @@ export function BiomarkerRow({
       <Link
         href={`/dados/${biomarker.id}`}
         className={cn(
-          "grid w-full items-center gap-3 px-5 py-4 text-left transition-colors",
-          "grid-cols-[minmax(0,1fr)_auto_auto_auto_140px] sm:grid-cols-[minmax(0,1fr)_auto_auto_120px_180px]",
+          "grid w-full items-center gap-2.5 px-4 py-3.5 text-left transition-colors sm:gap-3 sm:px-5 sm:py-4",
+          // Lucas 2026-05: nomes "LD..." cortavam — nome agora tem
+          // min-width pra não colapsar quando colunas da direita são
+          // grandes. Range + valor também encolheram.
+          "grid-cols-[minmax(110px,1fr)_auto_auto_auto_110px] sm:grid-cols-[minmax(160px,1fr)_auto_auto_88px_140px]",
           "border-b border-zinc-100 last:border-none",
           "hover:bg-zinc-50/70",
           className,
@@ -189,7 +192,7 @@ export function BiomarkerRow({
         </div>
 
         {/* Range bar */}
-        <div className="w-[140px] sm:w-[180px]">
+        <div className="w-[110px] sm:w-[140px]">
           <MiniRangeBar biomarker={biomarker} />
         </div>
       </Link>
