@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import Image from "next/image";
 import {
   X,
   ChevronRight,
@@ -38,6 +39,13 @@ interface PostExamStoriesProps {
   onClose?: () => void;
 }
 
+interface BiomarkerInsightData {
+  mainMessage: string;
+  whyHappened: string;
+  whatToDo: string[];
+  timeline: string;
+}
+
 interface StoryCtx {
   patient: Patient;
   /** Top 3 biomarcadores fora da faixa (priorizados) — pros slides de
@@ -47,6 +55,12 @@ interface StoryCtx {
   topWinners: Biomarker[];
   /** Produtos recomendados a partir dos biomarcadores fora da faixa. */
   recommendations: ReturnType<typeof getRecommendedProducts>;
+  /** AI-generated personalized insights por biomarcador. Pode estar
+   *  vazio enquanto carrega; cada slide usa fallback estático nesse
+   *  meio-tempo. */
+  insights: Record<string, BiomarkerInsightData>;
+  /** Loading flag — slides mostram skeleton enquanto true. */
+  insightsLoading: boolean;
 }
 
 type SlideTheme = "dark" | "light" | "tinted";
@@ -711,7 +725,57 @@ const SLIDES: SlideContent[] = [
   },
 
   // ──────────────────────────────────────────────────────────────────────────
-  // 7. BUNDLE — "Resolver tudo de uma vez" (Lucas 2026-05: consolidou os
+  // 7-12. ANÁLISE PROFUNDA POR BIOMARCADOR (AI-personalized, Lucas
+  //       2026-05-17: "quero mais stories detalhando e analisando os
+  //       resultados do exame de sangue (...) seja pragmático na
+  //       análise e sempre relacione: O que fazer? Porque será que
+  //       você teve esse resultado?")
+  //
+  //       Renderiza UM slide por biomarcador relevante — primeiro os
+  //       3 piores (top concerns), depois os 3 melhores (top winners).
+  //       Cada slide tem mensagem principal curta + botão "Saber mais"
+  //       que expande com análise completa do Dr. Lon (AI).
+  ...([0, 1, 2] as const).map((idx) => ({
+    id: `concern-deep-${idx}` as const,
+    theme: "light" as const,
+    duration: 6500,
+    render: (ctx: StoryCtx) => {
+      const biomarker = ctx.topConcerns[idx];
+      if (!biomarker) return null;
+      return (
+        <BiomarkerDeepDiveSlide
+          biomarker={biomarker}
+          insight={ctx.insights[biomarker.id]}
+          loading={ctx.insightsLoading}
+          variant="concern"
+          position={idx + 1}
+          total={ctx.topConcerns.length}
+        />
+      );
+    },
+  })),
+  ...([0, 1, 2] as const).map((idx) => ({
+    id: `winner-deep-${idx}` as const,
+    theme: "light" as const,
+    duration: 5500,
+    render: (ctx: StoryCtx) => {
+      const biomarker = ctx.topWinners[idx];
+      if (!biomarker) return null;
+      return (
+        <BiomarkerDeepDiveSlide
+          biomarker={biomarker}
+          insight={ctx.insights[biomarker.id]}
+          loading={ctx.insightsLoading}
+          variant="winner"
+          position={idx + 1}
+          total={ctx.topWinners.length}
+        />
+      );
+    },
+  })),
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // 13. BUNDLE — "Resolver tudo de uma vez" (Lucas 2026-05: consolidou os
   //    3 slides individuais por biomarcador num único slide de pacote
   //    pra "não parecer tanto uma grande propaganda"). Os problemas já
   //    foram apresentados nos slides 5 e 6; aqui é só a solução.
@@ -1039,7 +1103,249 @@ function BiomarkerConcernPreviewCard({
   );
 }
 
-// ─── BiomarkerFocusSlide — slide 7/8/9 (foco + produto lateral) ────────────
+// ─── BiomarkerDeepDiveSlide — análise profunda AI-personalizada ────────────
+//
+// Lucas (2026-05-17): "Não precisa escrever tanto, deixe a opção de ler
+// mais como opcional, passe a mensagem principal de cada biomarcador e
+// se ele quiser, tem um botão para expandir o texto e ler mais."
+//
+// Comportamento:
+//   - Mostra valor + faixa ideal num card de status (verde/amarelo/vermelho)
+//   - Mensagem principal (1 frase) sempre visível
+//   - Botão "Saber mais" → expande mostrando:
+//       • "Por que isso aconteceu?" (whyHappened — relacionado com perfil)
+//       • "O que fazer?" (whatToDo — 2-3 bullets)
+//       • "Quanto tempo?" (timeline)
+//
+// Conteúdo vem da AI (GPT-5) via /api/dados/personalized-insights.
+// Loading: skeleton enquanto carrega. Fallback estático se AI falhar.
+
+function BiomarkerDeepDiveSlide({
+  biomarker,
+  insight,
+  loading,
+  variant,
+  position,
+  total,
+}: {
+  biomarker: Biomarker;
+  insight?: BiomarkerInsightData;
+  loading: boolean;
+  variant: "concern" | "winner";
+  position: number;
+  total: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const isOptimal = variant === "winner";
+
+  // Cores por variant
+  const theme = isOptimal
+    ? {
+        kicker: "bg-emerald-100 text-emerald-700 ring-emerald-200",
+        kickerLabel: `Ponto forte ${position}/${total}`,
+        valueColor: "text-emerald-700",
+        rangeBarFill: "bg-emerald-500",
+        cardBg: "bg-gradient-to-br from-emerald-50 via-white to-white",
+        statusText: "Tá na faixa ótima",
+      }
+    : biomarker.status === "out"
+      ? {
+          kicker: "bg-rose-100 text-rose-700 ring-rose-200",
+          kickerLabel: `A melhorar ${position}/${total}`,
+          valueColor: "text-rose-700",
+          rangeBarFill: "bg-rose-500",
+          cardBg: "bg-gradient-to-br from-rose-50 via-white to-white",
+          statusText: "Fora da faixa",
+        }
+      : {
+          kicker: "bg-amber-100 text-amber-700 ring-amber-200",
+          kickerLabel: `A melhorar ${position}/${total}`,
+          valueColor: "text-amber-700",
+          rangeBarFill: "bg-amber-500",
+          cardBg: "bg-gradient-to-br from-amber-50 via-white to-white",
+          statusText: "Atenção (perto da faixa)",
+        };
+
+  // Calcula posição do dot na range bar (0-100%)
+  const optMin = biomarker.optimalRange?.[0];
+  const optMax = biomarker.optimalRange?.[1];
+  const normMin = biomarker.normalRange?.[0];
+  const normMax = biomarker.normalRange?.[1];
+  const allBounds = [
+    optMin,
+    optMax,
+    normMin,
+    normMax,
+    biomarker.value,
+  ].filter((v): v is number => typeof v === "number");
+  const rawMin = Math.min(...allBounds);
+  const rawMax = Math.max(...allBounds);
+  const span = rawMax - rawMin;
+  const padding = Math.max(span * 0.1, rawMax * 0.05, 1);
+  const scaleMin = Math.max(0, rawMin - padding);
+  const scaleMax = rawMax + padding;
+  const range = scaleMax - scaleMin;
+  const dotPct = ((biomarker.value - scaleMin) / range) * 100;
+
+  return (
+    <div className={cn("flex h-full w-full", theme.cardBg)}>
+      <div className="relative flex-1 overflow-y-auto overscroll-contain px-5 pt-[88px] pb-[120px]">
+        <div className="mx-auto w-full max-w-md text-left">
+          <div
+            className={cn(
+              "inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ring-1",
+              theme.kicker,
+            )}
+          >
+            {theme.kickerLabel}
+          </div>
+
+          <h2 className="mt-3 text-[26px] font-semibold tracking-tight text-zinc-900 leading-[1.1] story-fade-up">
+            {biomarker.name}
+          </h2>
+
+          {/* Card valor + range bar */}
+          <div className="story-fade-up-2 mt-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+            <div className="flex items-baseline justify-between gap-3">
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+                  Seu valor
+                </div>
+                <div className={cn("text-[32px] font-semibold leading-none tabular-nums", theme.valueColor)}>
+                  <AnimatedNumber value={biomarker.value} decimals={biomarker.value < 10 ? 1 : 0} />
+                  <span className="ml-1 text-[14px] font-normal text-zinc-400">
+                    {biomarker.unit}
+                  </span>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+                  Ideal
+                </div>
+                <div className="text-[14px] font-semibold tabular-nums text-zinc-700">
+                  {biomarker.referenceLabel}
+                </div>
+              </div>
+            </div>
+
+            {/* Range bar visual */}
+            <div className="relative mt-3 h-2 w-full overflow-hidden rounded-full bg-zinc-100">
+              {typeof optMin === "number" && typeof optMax === "number" && (
+                <div
+                  className="absolute inset-y-0 rounded-full bg-emerald-200"
+                  style={{
+                    left: `${((optMin - scaleMin) / range) * 100}%`,
+                    width: `${((optMax - optMin) / range) * 100}%`,
+                  }}
+                />
+              )}
+              <div
+                className={cn(
+                  "absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white shadow",
+                  theme.rangeBarFill,
+                )}
+                style={{ left: `${dotPct}%`, top: "50%" }}
+              />
+            </div>
+            <div className="mt-2 text-[11.5px] font-medium text-zinc-500">
+              {theme.statusText}
+            </div>
+          </div>
+
+          {/* Mensagem principal (curta) */}
+          <div className="story-fade-up-3 mt-4">
+            {loading && !insight ? (
+              <div className="flex items-center gap-2 rounded-2xl bg-white px-4 py-3 ring-1 ring-zinc-200">
+                <div className="h-3 w-3 animate-pulse rounded-full bg-zinc-300" />
+                <span className="text-[12.5px] text-zinc-500">
+                  Dr. Lon analisando...
+                </span>
+              </div>
+            ) : (
+              <p className="text-[15.5px] font-medium leading-snug text-zinc-800">
+                {insight?.mainMessage ?? "Análise não disponível agora."}
+              </p>
+            )}
+          </div>
+
+          {/* Botão saber mais + conteúdo expandido */}
+          {insight ? (
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpanded((v) => !v);
+                }}
+                className={cn(
+                  "mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold transition",
+                  expanded
+                    ? "bg-zinc-900 text-white"
+                    : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200",
+                )}
+                aria-expanded={expanded}
+              >
+                {expanded ? "Fechar" : "Saber mais"}
+                <ChevronRight
+                  className={cn(
+                    "h-3 w-3 transition-transform",
+                    expanded ? "rotate-90" : "rotate-0",
+                  )}
+                />
+              </button>
+
+              <div
+                className={cn(
+                  "grid transition-[grid-template-rows] duration-300 ease-out",
+                  expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+                )}
+              >
+                <div className="min-h-0 overflow-hidden">
+                  <div className="mt-3 flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white/60 p-4 backdrop-blur-sm">
+                    <section>
+                      <h3 className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+                        Por que isso aconteceu?
+                      </h3>
+                      <p className="mt-1 text-[13px] leading-relaxed text-zinc-700">
+                        {insight.whyHappened}
+                      </p>
+                    </section>
+
+                    <section>
+                      <h3 className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+                        O que fazer?
+                      </h3>
+                      <ul className="mt-1 flex flex-col gap-1.5">
+                        {insight.whatToDo.map((action, i) => (
+                          <li
+                            key={i}
+                            className="flex items-start gap-2 text-[13px] leading-relaxed text-zinc-700"
+                          >
+                            <span className={cn("mt-1.5 h-1 w-1 shrink-0 rounded-full", theme.rangeBarFill)} />
+                            <span>{action}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+
+                    <section>
+                      <h3 className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+                        Quanto tempo pra mudar?
+                      </h3>
+                      <p className="mt-1 text-[13px] leading-relaxed text-zinc-700">
+                        {insight.timeline}
+                      </p>
+                    </section>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── BundleSlide — slide 7 ("Resolver tudo") ──────────────────────────────
 //
@@ -1185,20 +1491,19 @@ function BundleSlide({
             <span className="h-px flex-1 bg-white/10" />
           </div>
 
-          {/* Lista de produtos individuais com cards melhorados.
-              Lucas (2026-05-17): "melhore o design do card de compra do
-              suplemento". Cada card agora tem:
-              - Ícone de cápsula colorido por status (visual hierarchy)
-              - Badge "Pra: <razão curta>" mostrando o problema atacado
-              - Preço cheio + faixa de subscrição com badge "10% off"
-              - Botões maiores, com hover state mais óbvio
-              - Animação de adicionado (ring verde pulse) */}
-          <div className="mt-4 flex flex-col gap-3 text-left">
+          {/* Lista de produtos com cards BRANCOS pra quebrar o verde
+              monotônico do slide (Lucas 2026-05-17: "coloque um pouco
+              de branco nos cards para variar desse verde").
+              Mudanças vs versão anterior:
+              - bg-white em vez de bg-white/[0.07] → contraste forte
+              - Foto do produto (r.product.image) com fallback de ícone
+              - Padding mais apertado → cards menores
+              - Texto zinc-900 (escuro) em fundo branco
+              - Botões mantêm o verde pra reforçar a marca */}
+          <div className="mt-4 flex flex-col gap-2.5 text-left">
             {recommendations.map((r, i) => {
               const isAdded = addedIds.has(r.product.id) || bulkAdded;
               const subPrice = Math.round(r.product.priceBRL * 0.9);
-              // Pega o primeiro biomarcador como "Pra: X" — mais
-              // específico que a razão completa.
               const primaryConcern = r.matchedBiomarkers[0];
               const targetLabel = primaryConcern
                 ? `Pra ${primaryConcern.name}`
@@ -1207,51 +1512,57 @@ function BundleSlide({
                 <div
                   key={r.product.id}
                   className={cn(
-                    "story-pop overflow-hidden rounded-2xl border bg-white/[0.07] backdrop-blur-md transition-all",
+                    "story-pop overflow-hidden rounded-2xl bg-white transition-all",
+                    "shadow-[0_8px_24px_-12px_rgba(0,0,0,0.4)]",
                     isAdded
-                      ? "border-emerald-400/50 ring-1 ring-emerald-400/30"
-                      : "border-white/15 hover:border-white/25 hover:bg-white/[0.10]",
+                      ? "ring-2 ring-emerald-400"
+                      : "ring-1 ring-white/20 hover:ring-white/40",
                   )}
                   style={{ animationDelay: `${500 + i * 100}ms` }}
                 >
-                  {/* Cabeçalho do card — ícone + info + preço */}
-                  <div className="flex items-start gap-3 px-4 pt-3.5 pb-3">
-                    {/* Ícone de cápsula colorido */}
-                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-emerald-400/30 to-emerald-600/20 ring-1 ring-emerald-400/30">
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        className="h-5 w-5 text-emerald-300"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                      >
-                        {/* Capsula simples — Pill icon manual pra não importar
-                            mais lucide icons (já tem muitos imports). */}
-                        <path d="M10.5 20.5l10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7z" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M8.5 8.5l7 7" strokeLinecap="round" />
-                      </svg>
+                  {/* Cabeçalho — foto + info do produto */}
+                  <div className="flex items-start gap-2.5 px-3 pt-3 pb-2">
+                    {/* Foto do produto. Fallback pro ícone cápsula
+                        quando o produto não tem imagem cadastrada. */}
+                    <div className="relative grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl bg-emerald-50 ring-1 ring-emerald-100">
+                      {r.product.image ? (
+                        <Image
+                          src={r.product.image}
+                          alt={r.product.name}
+                          width={48}
+                          height={48}
+                          className="h-12 w-12 object-contain"
+                        />
+                      ) : (
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          className="h-6 w-6 text-emerald-600"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                        >
+                          <path d="M10.5 20.5l10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7z" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M8.5 8.5l7 7" strokeLinecap="round" />
+                        </svg>
+                      )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className="text-[14px] font-semibold leading-tight text-white">
-                          {r.product.name}
-                        </h3>
-                      </div>
-                      {/* Badge "Pra: X" */}
-                      <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-200 ring-1 ring-emerald-400/20">
+                      <h3 className="text-[13.5px] font-semibold leading-tight text-zinc-900">
+                        {r.product.name}
+                      </h3>
+                      <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 ring-1 ring-emerald-100">
                         {targetLabel}
                       </div>
                     </div>
                   </div>
 
-                  {/* Razão clínica — agora sem line-clamp tão agressivo */}
-                  <p className="px-4 pb-3 text-[11.5px] leading-relaxed text-white/65">
+                  {/* Razão clínica — texto zinc num bg branco quase */}
+                  <p className="px-3 pb-2.5 text-[11.5px] leading-relaxed text-zinc-600">
                     {r.reason}
                   </p>
 
-                  {/* Botões — Comprar (à esquerda, preço destaque) +
-                      Assinar (à direita, com badge "10% off"). */}
-                  <div className="grid grid-cols-2 gap-0 border-t border-white/10">
+                  {/* Botões — Comprar (cinza claro) + Assinar (verde) */}
+                  <div className="grid grid-cols-2 gap-0 border-t border-zinc-100">
                     <button
                       type="button"
                       onClick={(e) => {
@@ -1260,20 +1571,20 @@ function BundleSlide({
                       }}
                       disabled={isAdded}
                       className={cn(
-                        "group flex flex-col items-center gap-0.5 py-2.5 transition-colors",
+                        "group flex flex-col items-center gap-0.5 py-2 transition-colors",
                         isAdded
-                          ? "bg-white/5 text-white/40"
-                          : "bg-white/[0.04] text-white hover:bg-white/[0.10]",
+                          ? "bg-zinc-50 text-zinc-400"
+                          : "bg-white text-zinc-800 hover:bg-zinc-50",
                       )}
                     >
                       {isAdded ? (
-                        <span className="text-[13px] font-semibold">✓ Adicionado</span>
+                        <span className="text-[12px] font-semibold">✓ Adicionado</span>
                       ) : (
                         <>
-                          <span className="text-[10.5px] uppercase tracking-wide text-white/55 group-hover:text-white/75">
+                          <span className="text-[9.5px] uppercase tracking-wide text-zinc-400 group-hover:text-zinc-500">
                             Comprar
                           </span>
-                          <span className="text-[14px] font-semibold tabular-nums">
+                          <span className="text-[13px] font-semibold tabular-nums">
                             R$ {r.product.priceBRL}
                           </span>
                         </>
@@ -1287,24 +1598,23 @@ function BundleSlide({
                       }}
                       disabled={isAdded}
                       className={cn(
-                        "group relative flex flex-col items-center gap-0.5 border-l border-white/10 py-2.5 transition-colors",
+                        "group relative flex flex-col items-center gap-0.5 border-l border-zinc-100 py-2 transition-colors",
                         isAdded
-                          ? "bg-emerald-500/10 text-emerald-300/40"
-                          : "bg-gradient-to-br from-emerald-500/30 to-emerald-600/20 text-emerald-100 hover:from-emerald-500/40 hover:to-emerald-600/30",
+                          ? "bg-emerald-50 text-emerald-400"
+                          : "bg-gradient-to-br from-brand-600 to-brand-800 text-white hover:from-brand-700 hover:to-brand-900",
                       )}
                     >
-                      {/* Badge "-10%" no canto */}
                       {!isAdded && (
                         <span className="absolute right-1.5 top-1 rounded-full bg-emerald-300 px-1.5 py-px text-[9px] font-bold text-emerald-900">
                           −10%
                         </span>
                       )}
-                      <span className="text-[10.5px] uppercase tracking-wide text-emerald-200/80 group-hover:text-emerald-100">
+                      <span className="text-[9.5px] uppercase tracking-wide opacity-75 group-hover:opacity-100">
                         Assinar
                       </span>
-                      <span className="text-[14px] font-semibold tabular-nums">
+                      <span className="text-[13px] font-semibold tabular-nums">
                         R$ {subPrice}
-                        <span className="ml-0.5 text-[10px] font-normal text-emerald-200/65">
+                        <span className="ml-0.5 text-[9.5px] font-normal opacity-65">
                           /mês
                         </span>
                       </span>
@@ -1339,16 +1649,17 @@ function BundleSlide({
 // Sem timer, sem auto-advance, sem hold-to-pause — fica aberto até
 // o user fechar.
 //
-// 9 slides (Lucas 2026-05: consolidou os 3 slides de foco-por-biomarcador
-// num único slide-pacote pra não parecer propaganda):
-//   1. Overall          5. Exames melhores
-//   2. Idade biológica  6. Pontos a melhorar
-//   3. Score            7. Resolver tudo (pacote único)
-//   4. Pontos fortes    8. Sua trajetória  9. CTA final
+// 15 slides (Lucas 2026-05-17: adicionou 6 análises por biomarcador AI):
+//   1. Overall                7-9. Análise profunda dos 3 piores (AI)
+//   2. Idade biológica        10-12. Análise profunda dos 3 melhores (AI)
+//   3. Score                  13. Resolver tudo (pacote)
+//   4. Pontos fortes          14. Sua trajetória
+//   5. Exames melhores        15. CTA final
+//   6. Pontos a melhorar
 
 export function PostExamStories({
   patient,
-  storageKey = "longevify-stories-shown-v5",
+  storageKey = "longevify-stories-shown-v6",
   forceShow = false,
   onClose,
 }: PostExamStoriesProps) {
@@ -1359,9 +1670,16 @@ export function PostExamStories({
   // cinematográfica que termina chamando close() depois de 1900ms.
   const [showingFinale, setShowingFinale] = useState(false);
 
-  // Contexto compartilhado pros slides — top concerns/winners + produtos
-  // recomendados. Memo evita recalcular a cada render.
-  const ctx = useMemo<StoryCtx>(() => {
+  // AI-personalized insights por biomarcador. Carrega lazy quando
+  // stories abre (setOpen(true)).
+  const [insights, setInsights] = useState<
+    Record<string, BiomarkerInsightData>
+  >({});
+  const [insightsLoading, setInsightsLoading] = useState(false);
+
+  // Contexto compartilhado pros slides. Memo evita recalcular base; só
+  // insights/insightsLoading mudam separadamente quando a IA responde.
+  const baseCtx = useMemo(() => {
     return {
       patient,
       topConcerns: pickTopConcerns(BIOMARKERS, 3),
@@ -1369,6 +1687,58 @@ export function PostExamStories({
       recommendations: getRecommendedProducts(BIOMARKERS, 4),
     };
   }, [patient]);
+
+  const ctx: StoryCtx = {
+    ...baseCtx,
+    insights,
+    insightsLoading,
+  };
+
+  // Fetch dos insights AI quando stories abre. Pega top 3 concerns +
+  // top 3 winners (= máximo 6 biomarcadores) num único batch GPT-5.
+  useEffect(() => {
+    if (!open) return;
+    const ids = [
+      ...baseCtx.topConcerns.map((b) => b.id),
+      ...baseCtx.topWinners.map((b) => b.id),
+    ];
+    if (ids.length === 0) return;
+    // Já temos insights pra todos? Skip.
+    if (ids.every((id) => insights[id])) return;
+
+    const controller = new AbortController();
+    setInsightsLoading(true);
+    fetch("/api/dados/personalized-insights", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        biomarkerIds: ids,
+        patient: {
+          firstName: patient.firstName,
+          chronologicalAge: patient.chronologicalAge,
+          biologicalAge: patient.biologicalAge,
+          longevifyScore: patient.longevifyScore,
+          sex: patient.sex,
+        },
+      }),
+      signal: controller.signal,
+    })
+      .then((r) => r.json())
+      .then((data: { insights?: Record<string, BiomarkerInsightData> }) => {
+        if (data.insights) {
+          setInsights((prev) => ({ ...prev, ...data.insights }));
+        }
+      })
+      .catch(() => {
+        // Silent fail — slides usam fallback estático local
+      })
+      .finally(() => {
+        setInsightsLoading(false);
+      });
+
+    return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- insights intentionally omitted to avoid refetch loop
+  }, [open, baseCtx, patient]);
 
   // onClose como ref pra evitar recriação de close/advance quando o
   // parent passar arrow inline (fix antigo, mantido por segurança)
