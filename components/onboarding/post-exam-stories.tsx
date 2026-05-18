@@ -10,7 +10,6 @@ import {
   TrendingUp,
   Apple,
   Sparkles,
-  ShoppingBag,
   Check,
   ThumbsUp,
 } from "lucide-react";
@@ -23,7 +22,6 @@ import {
 } from "@/components/onboarding/stories-mannequin";
 import { StoriesFinaleTransition } from "@/components/onboarding/stories-finale-transition";
 import { getRecommendedProducts } from "@/lib/product-recommender";
-import type { Product } from "@/lib/products";
 import { useCart } from "@/lib/cart/store";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -328,49 +326,51 @@ function pickTopWinners(biomarkers: Biomarker[], limit: number): Biomarker[] {
   return scored.slice(0, limit).map((s) => s.biomarker);
 }
 
-/** Tom didático pra explicar o que o biomarcador alterado SIGNIFICA. */
+/** Tom conversa pra explicar o que o biomarcador alterado significa.
+ *  Lucas (2026-05): "não seja tão formal no onboarding, o onboarding
+ *  tem que ter um tom de conversa". */
 function explainConcern(b: Biomarker): string {
   switch (b.id) {
     case "ldl":
-      return "LDL é o colesterol que tende a depositar nas paredes das artérias. Acima de 100 mg/dL começa a aumentar risco cardiovascular a longo prazo.";
+      return "Sabe aquele colesterol que a gente fala que entope artéria? É esse aí. Acima de 100 já começa a virar problema lá na frente.";
     case "apob":
-      return "ApoB conta o número de partículas que carregam colesterol pro sangue — é o termômetro mais preciso de risco cardio.";
+      return "Pensa assim: ApoB conta cada caminhãozinho de colesterol no seu sangue. Quanto mais caminhão, mais coisa pra grudar nas artérias.";
     case "vitd":
-      return "Vitamina D regula osso, imunidade e humor. Abaixo de 50 ng/dL você não está com reserva ideal.";
+      return "Vit D é a vitamina do sol — mexe com osso, imunidade e até com seu humor. Abaixo de 50, dá pra subir tranquilo.";
     case "hba1c":
-      return "HbA1c mostra a média da glicose dos últimos 2-3 meses. Acima de 5.7% começa a sinalizar resistência insulínica.";
+      return "Esse marcador é a média do seu açúcar dos últimos 3 meses. Subindo de 5.7% já é sinal que o corpo tá começando a resistir à insulina.";
     case "crp":
-      return "PCR ultrassensível mede inflamação silenciosa no corpo. Inflamação crônica acelera envelhecimento.";
+      return "PCR é tipo um alarme silencioso de inflamação. Você nem sente, mas é ela que acelera o envelhecimento por dentro.";
     case "hdl":
-      return "HDL é o colesterol 'limpa-trilho' — quanto mais alto, mais proteção cardiovascular.";
+      return "Esse é o colesterol amigo — o que limpa a sujeira das suas artérias. Quanto mais alto, melhor pro coração.";
     case "ferritin":
-      return "Ferritina mostra suas reservas de ferro. Baixa = anemia em formação. Alta = inflamação.";
+      return "Ferritina é o tanque de reserva do seu ferro. Baixo é sinal de pré-anemia. Alto pode ser inflamação rodando.";
     case "testo":
-      return "Testosterona regula massa magra, libido, energia e densidade óssea — em homens e mulheres.";
+      return "Testosterona não é só coisa de homem — ela mexe com músculo, energia, libido e osso pra todo mundo.";
     default:
-      return `${b.name} está fora da faixa ideal. Vamos trabalhar pra normalizar.`;
+      return `${b.name} tá fora do ideal. Bora trabalhar pra ajustar.`;
   }
 }
 
-/** Tom curto + positivo pra explicar por que o biomarcador ótimo é bom. */
+/** Tom de elogio rápido, conversa. Não soa relatório clínico. */
 function explainWinner(b: Biomarker): string {
   switch (b.id) {
     case "ldl":
-      return "Seu colesterol 'ruim' tá protegido — risco cardio baixo nesse marcador.";
+      return "Beleza pura. Colesterol ruim baixinho — seu coração agradece.";
     case "apob":
-      return "Número de partículas aterogênicas baixo — coração agradece.";
+      return "Pouco caminhão de colesterol rodando no sangue. Tá no ponto.";
     case "vitd":
-      return "Reserva de Vit D ideal — imunidade, osso e humor recebem o suficiente.";
+      return "Vit D no ponto. Osso, imunidade e humor agradecem.";
     case "hdl":
-      return "HDL alto = proteção cardiovascular natural.";
+      return "Colesterol amigo lá em cima — proteção cardio na medida.";
     case "ferritin":
-      return "Reserva de ferro saudável — energia e oxigenação em dia.";
+      return "Tanque de ferro cheio. Energia e oxigenação em dia.";
     case "hba1c":
-      return "Glicose média ótima — sensibilidade à insulina preservada.";
+      return "Açúcar médio ótimo. Seu corpo tá processando insulina certinho.";
     case "testo":
-      return "Hormônio em faixa boa pra massa magra e disposição.";
+      return "Hormônio em faixa boa. Músculo e disposição na medida.";
     default:
-      return `${b.name} está na faixa ideal. Continua assim.`;
+      return `${b.name} tá na faixa boa. Continua assim.`;
   }
 }
 
@@ -401,10 +401,10 @@ const SLIDES: SlideContent[] = [
 
           <div className="relative w-full max-w-[360px] story-card-in">
             <p className="mb-1 text-[12px] uppercase tracking-[0.18em] text-white/55">
-              Bem-vindo, {patient.firstName}
+              Oi, {patient.firstName}
             </p>
             <h2 className="text-[26px] font-semibold tracking-tight leading-[1.1]">
-              Aqui está sua saúde<br />em uma página
+              Olha sua saúde<br />numa página só
             </h2>
 
             {/* Card — estilo "Seus pontos fortes" */}
@@ -461,7 +461,7 @@ const SLIDES: SlideContent[] = [
             </div>
 
             <p className="mt-5 text-[12.5px] leading-relaxed text-white/65">
-              Toque na lateral pra avançar · sem pressa, fica aberto até você fechar
+              É só ir tocando pra avançar · sem pressa, fica aí o tempo que precisar
             </p>
           </div>
         </div>
@@ -503,12 +503,12 @@ const SLIDES: SlideContent[] = [
           </div>
           <div className="relative mt-10 max-w-md story-fade-up">
             <h2 className="text-[22px] font-semibold tracking-tight">
-              Sua idade biológica é {patient.biologicalAge}
+              Sua idade biológica tá em {patient.biologicalAge}
             </h2>
             <p className="mt-2 text-[14px] leading-relaxed text-white/75">
               {younger
-                ? `Você está ${Math.abs(delta).toFixed(1)} anos mais jovem que sua idade cronológica. Seus biomarcadores indicam um corpo metabolicamente mais novo.`
-                : `Seus biomarcadores estão envelhecendo um pouco mais rápido que sua idade cronológica. Vamos reverter isso.`}
+                ? `Beleza pura — você tá ${Math.abs(delta).toFixed(1)} anos mais novo do que sua idade do RG. Os exames mostram um corpo rodando mais jovem do que ele tem de fato.`
+                : `Os exames mostram que seu corpo tá envelhecendo um pouquinho mais rápido que devia. Mas relaxa, é pra isso que a gente tá aqui — bora reverter.`}
             </p>
           </div>
         </div>
@@ -545,7 +545,7 @@ const SLIDES: SlideContent[] = [
 
         <div className="relative mt-8 max-w-md">
           <h2 className="text-[20px] font-semibold tracking-tight">
-            Toque em cada sistema pra ver a nota
+            Toca em cada sistema pra ver como tá
           </h2>
           <div className="mt-4 flex flex-wrap justify-center gap-2">
             {(patient.organScores ?? []).map((o, i) => (
@@ -579,13 +579,13 @@ const SLIDES: SlideContent[] = [
         <div className="flex h-full w-full flex-col justify-center bg-white px-6 py-20 text-zinc-900">
           <div className="mx-auto w-full max-w-md">
             <h2 className="text-center text-[24px] font-semibold tracking-tight">
-              Seus pontos fortes
+              Onde você tá mandando bem
             </h2>
             <p className="mt-1 text-center text-[13px] text-zinc-500">
               <span className="font-semibold text-emerald-700">
                 <AnimatedNumber value={winners.length} />
               </span>{" "}
-              de {total} sistemas orgânicos estão indo excepcionalmente bem
+              de {total} sistemas tão voando — segue assim
             </p>
 
             <div className="story-card-in mt-8 rounded-[28px] border border-zinc-200 bg-gradient-to-b from-white to-emerald-50/40 p-6 shadow-[0_24px_48px_-24px_rgba(31,93,63,0.25)]">
@@ -639,22 +639,23 @@ const SLIDES: SlideContent[] = [
         <div className="m-auto flex w-full max-w-md flex-col px-6 py-16">
           <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">
             <ThumbsUp className="h-3 w-3" />
-            Pontos altos
+            Vitórias
           </div>
           <h2 className="mt-3 text-[26px] font-semibold tracking-tight text-zinc-900 leading-[1.1] story-fade-up">
-            {patient.firstName}, esses resultados<br />
-            estão excelentes
+            {patient.firstName}, aqui você<br />
+            tá acertando em cheio
           </h2>
           <p className="mt-3 text-[14px] leading-relaxed text-zinc-600 story-fade-up-2">
-            Vamos começar pelo que tá indo bem — esses marcadores estão na
-            faixa ótima e merecem ser preservados.
+            Antes de falar do que dá pra melhorar, deixa eu te mostrar onde
+            você tá voando. Esses três aqui você não precisa mexer — segue
+            como tá.
           </p>
 
           <div className="mt-7 flex flex-col gap-2.5">
             {topWinners.length === 0 ? (
               <p className="rounded-2xl bg-zinc-50 px-4 py-3 text-[13px] text-zinc-500">
-                Nenhum biomarcador em faixa ótima ainda — vamos focar nos
-                pontos a melhorar pra mudar isso.
+                Por enquanto nenhum marcador tá na faixa ótima — mas calma,
+                a gente resolve isso nos próximos slides.
               </p>
             ) : (
               topWinners.map((b, i) => (
@@ -682,16 +683,16 @@ const SLIDES: SlideContent[] = [
         <div className="m-auto flex w-full max-w-md flex-col px-6 py-16">
           <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-700">
             <TrendingUp className="h-3 w-3" />
-            Pontos a melhorar
+            Pra melhorar
           </div>
           <h2 className="mt-3 text-[26px] font-semibold tracking-tight text-zinc-900 leading-[1.1] story-fade-up">
-            Agora, onde dá<br />
-            pra ganhar mais
+            Agora bora pro<br />
+            que importa
           </h2>
           <p className="mt-3 text-[14px] leading-relaxed text-zinc-600 story-fade-up-2">
-            {patient.firstName}, identificamos {topConcerns.length} marcadores
-            com espaço pra otimização. Próximos slides mostram exatamente o
-            que fazer com cada um — com o suplemento Longevify direto ao lado.
+            {patient.firstName}, olha esses {topConcerns.length} aqui — são
+            os marcadores onde você tem mais espaço pra ganhar. No próximo
+            slide a gente já te mostra como resolver tudo de uma vez.
           </p>
 
           <div className="mt-7 flex flex-col gap-2.5">
@@ -710,36 +711,10 @@ const SLIDES: SlideContent[] = [
   },
 
   // ──────────────────────────────────────────────────────────────────────────
-  // 7-9. FOCO POR BIOMARCADOR — 3 slides com produto Longevify lateral
-  //      Lucas: "Sua vitamina D veio baixa -> logo ao lado ja tem uma
-  //      opção para resolver o problema, com um botão de comprar ou
-  //      assinar o suplemento de vitamina D da longevify".
-  ...([0, 1, 2] as const).map((idx) => ({
-    id: `focus-bio-${idx}` as const,
-    theme: "light" as const,
-    duration: 6000,
-    render: (ctx: StoryCtx) => {
-      const biomarker = ctx.topConcerns[idx];
-      if (!biomarker) return null;
-      const rec = ctx.recommendations.find((r) =>
-        r.product.targetsBiomarkers.includes(biomarker.id),
-      );
-      return (
-        <BiomarkerFocusSlide
-          idx={idx}
-          biomarker={biomarker}
-          product={rec?.product}
-          reason={rec?.reason}
-        />
-      );
-    },
-  })),
-
-  // ──────────────────────────────────────────────────────────────────────────
-  // 10. BUNDLE — "Resolver tudo de uma vez"
-  //     Lucas: "um botão central com alguma mensagem similar a essa
-  //     'resolver todos os problemas', esse botão assinará ou comprará
-  //     tudo que foi recomendado".
+  // 7. BUNDLE — "Resolver tudo de uma vez" (Lucas 2026-05: consolidou os
+  //    3 slides individuais por biomarcador num único slide de pacote
+  //    pra "não parecer tanto uma grande propaganda"). Os problemas já
+  //    foram apresentados nos slides 5 e 6; aqui é só a solução.
   {
     id: "bundle",
     theme: "tinted",
@@ -772,21 +747,21 @@ const SLIDES: SlideContent[] = [
 
         <div className="relative w-full max-w-md story-card-in">
           <p className="text-[11px] uppercase tracking-[0.18em] text-emerald-300">
-            Sua trajetória
+            Como vai rolar
           </p>
           <h2 className="mt-2 text-[26px] font-semibold tracking-tight leading-[1.1]">
-            O Longevify trabalha<br />em ciclos de 6 meses
+            Pensa em ciclos<br />de 6 meses
           </h2>
           <p className="mt-2 text-[13px] leading-relaxed text-white/65">
-            2 coletas por ano. Tempo suficiente pra protocolo agir e
-            biomarcadores responderem antes da reavaliação completa.
+            Duas coletas por ano, com tempo no meio pra você seguir o
+            protocolo e os marcadores responderem antes da gente medir de novo.
           </p>
 
           <div className="mt-6 grid grid-cols-1 gap-2.5 text-left">
             <TimelineItem
               icon={ClipboardCheck}
               date={formatDatePtBR(patient.latestExamDate)}
-              title="Coleta inicial — feita"
+              title="Sua primeira coleta — feita"
               detail="Painel completo · 50+ biomarcadores"
               done
               delay={150}
@@ -794,22 +769,22 @@ const SLIDES: SlideContent[] = [
             <TimelineItem
               icon={Apple}
               date="Próximos 6 meses"
-              title="Protocolo ativo"
-              detail="Hábitos diários + suplementação"
+              title="Vc seguindo o protocolo"
+              detail="Hábitos diários + suplementação na medida"
               delay={300}
             />
             <TimelineItem
               icon={TrendingUp}
-              date="Em 6 meses"
-              title="Segunda coleta do ano"
-              detail="Reavaliação completa — Painel inteiro novamente"
+              date="Daqui 6 meses"
+              title="Segunda coleta"
+              detail="A gente mede tudo de novo pra ver o quanto andou"
               delay={450}
             />
             <TimelineItem
               icon={Heart}
-              date="Contínuo"
-              title="Concierge Dr. Lon"
-              detail="IA médica + equipe humana 24/7 entre coletas"
+              date="O tempo todo"
+              title="Dr. Lon no celular"
+              detail="Assistente IA pra dúvidas educacionais + médico parceiro credenciado em teleorientação periódica"
               delay={600}
             />
           </div>
@@ -839,11 +814,11 @@ const SLIDES: SlideContent[] = [
         <div className="relative max-w-md story-card-in">
           <Sparkles className="mx-auto h-9 w-9 text-emerald-300" />
           <h2 className="mt-4 text-[30px] font-semibold tracking-tight leading-[1.05]">
-            Pronto, {patient.firstName}?
+            Bora começar, {patient.firstName}?
           </h2>
           <p className="mt-3 text-[15px] leading-relaxed text-white/75">
-            Seu protocolo já está na home. Comece pela primeira ação de hoje —
-            cinco minutos por dia mudam a curva.
+            Teu protocolo já tá na home. Começa pela primeira ação de hoje —
+            cinco minutos por dia já muda o jogo.
           </p>
         </div>
       </div>
@@ -1066,171 +1041,11 @@ function BiomarkerConcernPreviewCard({
 
 // ─── BiomarkerFocusSlide — slide 7/8/9 (foco + produto lateral) ────────────
 
-const FOCUS_THEMES = [
-  {
-    bg: "from-rose-50 via-white to-white",
-    accent: "text-rose-600",
-    accentBg: "bg-rose-100",
-    ring: "border-rose-200",
-    kicker: "Foco #1 — Prioridade",
-  },
-  {
-    bg: "from-amber-50 via-white to-white",
-    accent: "text-amber-700",
-    accentBg: "bg-amber-100",
-    ring: "border-amber-200",
-    kicker: "Foco #2",
-  },
-  {
-    bg: "from-sky-50 via-white to-white",
-    accent: "text-sky-700",
-    accentBg: "bg-sky-100",
-    ring: "border-sky-200",
-    kicker: "Foco #3",
-  },
-];
-
-function BiomarkerFocusSlide({
-  idx,
-  biomarker,
-  product,
-  reason,
-}: {
-  idx: number;
-  biomarker: Biomarker;
-  product?: Product;
-  reason?: string;
-}) {
-  const theme = FOCUS_THEMES[idx] ?? FOCUS_THEMES[0];
-  const cart = useCart();
-
-  const handleAddSingle = useCallback(
-    (recurring: boolean) => {
-      if (!product) return;
-      cart.addItem(product.id, { recurring });
-      cart.openCart();
-    },
-    [cart, product],
-  );
-
-  return (
-    <div className={cn("flex h-full w-full bg-gradient-to-br", theme.bg)}>
-      <div className="m-auto flex w-full max-w-md flex-col px-6 py-14">
-        <p
-          className={cn(
-            "text-[11px] font-semibold uppercase tracking-[0.18em]",
-            theme.accent,
-          )}
-        >
-          {theme.kicker}
-        </p>
-
-        <h2 className="mt-2 text-[26px] font-semibold tracking-tight text-zinc-900 leading-[1.1] story-fade-up">
-          Sua {biomarker.name.toLowerCase()} veio{" "}
-          <span className={theme.accent}>
-            {biomarker.status === "out" ? "fora da faixa" : "abaixo do ótimo"}
-          </span>
-        </h2>
-
-        {/* Card resumo do biomarcador */}
-        <div className="mt-4 flex items-baseline gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-sm story-fade-up-2">
-          <div>
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
-              Seu valor
-            </div>
-            <div className={cn("text-[24px] font-semibold tabular-nums", theme.accent)}>
-              <AnimatedNumber value={biomarker.value} />
-              <span className="ml-1 text-[12px] font-normal text-zinc-400">
-                {biomarker.unit}
-              </span>
-            </div>
-          </div>
-          <div className="ml-auto text-right">
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
-              Ideal
-            </div>
-            <div className="text-[14px] font-semibold tabular-nums text-zinc-700">
-              {biomarker.referenceLabel}
-            </div>
-          </div>
-        </div>
-
-        <p className="mt-4 text-[13.5px] leading-relaxed text-zinc-600 story-fade-up-2">
-          {explainConcern(biomarker)}
-        </p>
-
-        {/* CARD DO PRODUTO — Lucas: "logo ao lado já tem uma opção pra
-            resolver o problema, com um botão de comprar ou assinar". */}
-        {product ? (
-          <div
-            className={cn(
-              "story-pop mt-5 overflow-hidden rounded-2xl border bg-white shadow-md",
-              theme.ring,
-            )}
-            style={{ animationDelay: "500ms" }}
-          >
-            <div className="flex items-start gap-3 px-4 py-3.5">
-              <div className={cn("grid h-12 w-12 shrink-0 place-items-center rounded-xl", theme.accentBg)}>
-                <ShoppingBag className={cn("h-5 w-5", theme.accent)} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
-                  Solução Longevify
-                </div>
-                <div className="text-[14px] font-semibold leading-tight text-zinc-900">
-                  {product.name}
-                </div>
-                {reason ? (
-                  <p className="mt-1 line-clamp-2 text-[11.5px] leading-snug text-zinc-500">
-                    {reason}
-                  </p>
-                ) : null}
-              </div>
-              <div className="shrink-0 text-right">
-                <div className="text-[10px] uppercase text-zinc-400">desde</div>
-                <div className="text-[16px] font-semibold tabular-nums text-zinc-900">
-                  R$ {product.priceBRL}
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-px bg-zinc-100">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleAddSingle(false);
-                }}
-                className="bg-white py-2.5 text-[13px] font-semibold text-zinc-800 transition hover:bg-zinc-50"
-              >
-                Comprar
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleAddSingle(true);
-                }}
-                className={cn(
-                  "py-2.5 text-[13px] font-semibold text-white transition",
-                  "bg-gradient-to-br from-brand-600 to-brand-800 hover:from-brand-700 hover:to-brand-900",
-                )}
-              >
-                Assinar (10% off)
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="mt-5 rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-[12.5px] text-zinc-500">
-            Sua equipe Longevify vai personalizar a abordagem pra esse
-            marcador — você vai receber a recomendação no protocolo.
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── BundleSlide — slide 10 ("Resolver tudo") ──────────────────────────────
+// ─── BundleSlide — slide 7 ("Resolver tudo") ──────────────────────────────
+//
+// Lucas (2026-05-17): bulk buttons (Assinar tudo / Comprar uma vez) ficam
+// no TOPO; lista de produtos individuais com botões próprios fica
+// EMBAIXO; tudo num único slide scrollable.
 
 function BundleSlide({
   recommendations,
@@ -1240,7 +1055,8 @@ function BundleSlide({
   firstName: string;
 }) {
   const cart = useCart();
-  const [added, setAdded] = useState(false);
+  const [bulkAdded, setBulkAdded] = useState(false);
+  const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
 
   const products = recommendations.map((r) => r.product);
   const totalOnce = products.reduce((sum, p) => sum + p.priceBRL, 0);
@@ -1252,19 +1068,25 @@ function BundleSlide({
         products.map((p) => p.id),
         { recurring },
       );
-      setAdded(true);
-      setTimeout(() => {
-        cart.openCart();
-      }, 800);
+      setBulkAdded(true);
+      setTimeout(() => cart.openCart(), 800);
     },
     [cart, products],
   );
 
+  const handleAddSingle = useCallback(
+    (productId: string, recurring: boolean) => {
+      cart.addItem(productId, { recurring });
+      setAddedIds((prev) => new Set(prev).add(productId));
+    },
+    [cart],
+  );
+
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center text-white">
+    <div className="relative flex h-full w-full flex-col text-white">
       <div className="pointer-events-none absolute inset-0 grid place-items-center">
         <div
-          className="h-[600px] w-[600px] rounded-full opacity-50 blur-[60px] story-glow"
+          className="h-[600px] w-[600px] rounded-full opacity-40 blur-[60px] story-glow"
           style={{
             background:
               "radial-gradient(circle, #3f9a6b 0%, transparent 70%)",
@@ -1272,96 +1094,235 @@ function BundleSlide({
         />
       </div>
 
-      <div className="relative w-full max-w-md story-card-in">
-        <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-300 ring-1 ring-emerald-400/30">
-          <Sparkles className="h-3 w-3" />
-          Pacote completo
-        </div>
-        <h2 className="mt-3 text-[28px] font-semibold tracking-tight leading-[1.05]">
-          Resolver tudo<br />de uma vez
-        </h2>
-        <p className="mt-2 text-[13.5px] leading-relaxed text-white/70">
-          {firstName}, juntamos os {products.length} suplementos recomendados
-          pros seus marcadores num pacote único.
-        </p>
+      {/* Container scrollable — pra caber lista grande de produtos.
+          Padding top/bottom dá espaço pro header dos stories (progress
+          bar + close) e pro botão "Continuar" do rodapé.
 
-        {/* Lista compacta dos produtos */}
-        <div className="mt-5 flex flex-col gap-1.5 rounded-2xl border border-white/15 bg-white/[0.06] p-3 backdrop-blur-md">
-          {products.map((p) => (
-            <div
-              key={p.id}
-              className="flex items-center justify-between gap-3 text-left"
+          py-[88px,120px] = ~88px top (header+logo), ~120px bottom (CTA
+          do story shell). Em mobile menor (< 600px viewport height) o
+          overflow garante que dá pra rolar até o último produto. */}
+      <div className="relative flex-1 overflow-y-auto overscroll-contain px-5 pt-[88px] pb-[120px]">
+        <div className="mx-auto w-full max-w-md story-card-in text-center">
+          <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-300 ring-1 ring-emerald-400/30">
+            <Sparkles className="h-3 w-3" />
+            Bora resolver
+          </div>
+          <h2 className="mt-3 text-[26px] font-semibold tracking-tight leading-[1.05]">
+            Pra cada um,<br />a gente já tem
+          </h2>
+          <p className="mt-2 text-[13px] leading-relaxed text-white/70">
+            {firstName}, pra cada marcador que tá pedindo atenção, a
+            Longevify tem um suplemento — sem chute, com evidência. Pega
+            tudo de uma vez (mais barato) ou escolhe um por um.
+          </p>
+
+          {/* Totais lado-a-lado */}
+          <div className="mt-4 grid grid-cols-2 gap-2 text-left">
+            <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2">
+              <div className="text-[10px] uppercase tracking-wide text-white/55">
+                Comprar tudo
+              </div>
+              <div className="text-[18px] font-semibold tabular-nums text-white">
+                R$ {totalOnce}
+              </div>
+            </div>
+            <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/15 px-3 py-2">
+              <div className="text-[10px] uppercase tracking-wide text-emerald-200">
+                Assinar (10% off)
+              </div>
+              <div className="text-[18px] font-semibold tabular-nums text-emerald-100">
+                R$ {totalSubscribe}
+                <span className="ml-1 text-[10px] font-normal">/mês</span>
+              </div>
+            </div>
+          </div>
+
+          {/* CTAs BULK no topo */}
+          <div className="mt-3 flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleResolveAll(true);
+              }}
+              disabled={bulkAdded || products.length === 0}
+              className={cn(
+                "inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-3 text-[14px] font-semibold transition will-change-transform hover:scale-[1.01]",
+                bulkAdded
+                  ? "bg-emerald-500 text-white"
+                  : "bg-white text-brand-800 hover:bg-white/90",
+              )}
             >
-              <span className="truncate text-[12.5px] text-white/85">
-                {p.name}
-              </span>
-              <span className="shrink-0 text-[11.5px] tabular-nums text-white/55">
-                R$ {p.priceBRL}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        {/* Totais */}
-        <div className="mt-4 grid grid-cols-2 gap-2 text-left">
-          <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2">
-            <div className="text-[10px] uppercase tracking-wide text-white/55">
-              Comprar tudo
-            </div>
-            <div className="text-[18px] font-semibold tabular-nums text-white">
-              R$ {totalOnce}
-            </div>
+              {bulkAdded ? (
+                <>
+                  <Check className="h-4 w-4" />
+                  Tá no carrinho
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  Assinar tudo (mais barato)
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleResolveAll(false);
+              }}
+              disabled={bulkAdded || products.length === 0}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white/10 px-6 py-2.5 text-[12.5px] font-semibold text-white backdrop-blur-md transition hover:bg-white/20 ring-1 ring-white/20 disabled:opacity-50"
+            >
+              Só comprar uma vez tudo
+            </button>
           </div>
-          <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/15 px-3 py-2">
-            <div className="text-[10px] uppercase tracking-wide text-emerald-200">
-              Assinar (10% off)
-            </div>
-            <div className="text-[18px] font-semibold tabular-nums text-emerald-100">
-              R$ {totalSubscribe}
-              <span className="ml-1 text-[10px] font-normal">/mês</span>
-            </div>
-          </div>
-        </div>
 
-        {/* CTAs */}
-        <div className="mt-5 flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleResolveAll(true);
-            }}
-            disabled={added || products.length === 0}
-            className={cn(
-              "inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-3.5 text-[14px] font-semibold transition will-change-transform hover:scale-[1.01]",
-              added
-                ? "bg-emerald-500 text-white"
-                : "bg-white text-brand-800 hover:bg-white/90",
-            )}
-          >
-            {added ? (
-              <>
-                <Check className="h-4 w-4" />
-                Adicionado ao carrinho
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4" />
-                Assinar pacote completo
-              </>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleResolveAll(false);
-            }}
-            disabled={added || products.length === 0}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white/10 px-6 py-2.5 text-[13px] font-semibold text-white backdrop-blur-md transition hover:bg-white/20 ring-1 ring-white/20 disabled:opacity-50"
-          >
-            Comprar tudo de uma vez
-          </button>
+          {/* Separador */}
+          <div className="mt-6 flex items-center gap-3 text-[10.5px] uppercase tracking-[0.18em] text-white/40">
+            <span className="h-px flex-1 bg-white/10" />
+            <span>ou escolha um por um</span>
+            <span className="h-px flex-1 bg-white/10" />
+          </div>
+
+          {/* Lista de produtos individuais com cards melhorados.
+              Lucas (2026-05-17): "melhore o design do card de compra do
+              suplemento". Cada card agora tem:
+              - Ícone de cápsula colorido por status (visual hierarchy)
+              - Badge "Pra: <razão curta>" mostrando o problema atacado
+              - Preço cheio + faixa de subscrição com badge "10% off"
+              - Botões maiores, com hover state mais óbvio
+              - Animação de adicionado (ring verde pulse) */}
+          <div className="mt-4 flex flex-col gap-3 text-left">
+            {recommendations.map((r, i) => {
+              const isAdded = addedIds.has(r.product.id) || bulkAdded;
+              const subPrice = Math.round(r.product.priceBRL * 0.9);
+              // Pega o primeiro biomarcador como "Pra: X" — mais
+              // específico que a razão completa.
+              const primaryConcern = r.matchedBiomarkers[0];
+              const targetLabel = primaryConcern
+                ? `Pra ${primaryConcern.name}`
+                : "Recomendado pra você";
+              return (
+                <div
+                  key={r.product.id}
+                  className={cn(
+                    "story-pop overflow-hidden rounded-2xl border bg-white/[0.07] backdrop-blur-md transition-all",
+                    isAdded
+                      ? "border-emerald-400/50 ring-1 ring-emerald-400/30"
+                      : "border-white/15 hover:border-white/25 hover:bg-white/[0.10]",
+                  )}
+                  style={{ animationDelay: `${500 + i * 100}ms` }}
+                >
+                  {/* Cabeçalho do card — ícone + info + preço */}
+                  <div className="flex items-start gap-3 px-4 pt-3.5 pb-3">
+                    {/* Ícone de cápsula colorido */}
+                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-emerald-400/30 to-emerald-600/20 ring-1 ring-emerald-400/30">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        className="h-5 w-5 text-emerald-300"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                      >
+                        {/* Capsula simples — Pill icon manual pra não importar
+                            mais lucide icons (já tem muitos imports). */}
+                        <path d="M10.5 20.5l10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7z" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M8.5 8.5l7 7" strokeLinecap="round" />
+                      </svg>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="text-[14px] font-semibold leading-tight text-white">
+                          {r.product.name}
+                        </h3>
+                      </div>
+                      {/* Badge "Pra: X" */}
+                      <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-200 ring-1 ring-emerald-400/20">
+                        {targetLabel}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Razão clínica — agora sem line-clamp tão agressivo */}
+                  <p className="px-4 pb-3 text-[11.5px] leading-relaxed text-white/65">
+                    {r.reason}
+                  </p>
+
+                  {/* Botões — Comprar (à esquerda, preço destaque) +
+                      Assinar (à direita, com badge "10% off"). */}
+                  <div className="grid grid-cols-2 gap-0 border-t border-white/10">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddSingle(r.product.id, false);
+                      }}
+                      disabled={isAdded}
+                      className={cn(
+                        "group flex flex-col items-center gap-0.5 py-2.5 transition-colors",
+                        isAdded
+                          ? "bg-white/5 text-white/40"
+                          : "bg-white/[0.04] text-white hover:bg-white/[0.10]",
+                      )}
+                    >
+                      {isAdded ? (
+                        <span className="text-[13px] font-semibold">✓ Adicionado</span>
+                      ) : (
+                        <>
+                          <span className="text-[10.5px] uppercase tracking-wide text-white/55 group-hover:text-white/75">
+                            Comprar
+                          </span>
+                          <span className="text-[14px] font-semibold tabular-nums">
+                            R$ {r.product.priceBRL}
+                          </span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddSingle(r.product.id, true);
+                      }}
+                      disabled={isAdded}
+                      className={cn(
+                        "group relative flex flex-col items-center gap-0.5 border-l border-white/10 py-2.5 transition-colors",
+                        isAdded
+                          ? "bg-emerald-500/10 text-emerald-300/40"
+                          : "bg-gradient-to-br from-emerald-500/30 to-emerald-600/20 text-emerald-100 hover:from-emerald-500/40 hover:to-emerald-600/30",
+                      )}
+                    >
+                      {/* Badge "-10%" no canto */}
+                      {!isAdded && (
+                        <span className="absolute right-1.5 top-1 rounded-full bg-emerald-300 px-1.5 py-px text-[9px] font-bold text-emerald-900">
+                          −10%
+                        </span>
+                      )}
+                      <span className="text-[10.5px] uppercase tracking-wide text-emerald-200/80 group-hover:text-emerald-100">
+                        Assinar
+                      </span>
+                      <span className="text-[14px] font-semibold tabular-nums">
+                        R$ {subPrice}
+                        <span className="ml-0.5 text-[10px] font-normal text-emerald-200/65">
+                          /mês
+                        </span>
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Hint sutil de scroll, só quando há produtos suficientes pra
+              passar do viewport (3+). Mobile small height precisa do
+              cue visual. */}
+          {recommendations.length >= 3 ? (
+            <p className="mt-4 text-[11px] text-white/40">
+              ↑ role pra ver tudo
+            </p>
+          ) : null}
         </div>
       </div>
     </div>
@@ -1378,12 +1339,16 @@ function BundleSlide({
 // Sem timer, sem auto-advance, sem hold-to-pause — fica aberto até
 // o user fechar.
 //
-// 12 slides, mannequim colorido por status nos slides 1 e 4. Ações
-// dos focos (slides 5-7) são accordeões expansíveis com detalhes.
+// 9 slides (Lucas 2026-05: consolidou os 3 slides de foco-por-biomarcador
+// num único slide-pacote pra não parecer propaganda):
+//   1. Overall          5. Exames melhores
+//   2. Idade biológica  6. Pontos a melhorar
+//   3. Score            7. Resolver tudo (pacote único)
+//   4. Pontos fortes    8. Sua trajetória  9. CTA final
 
 export function PostExamStories({
   patient,
-  storageKey = "longevify-stories-shown-v4",
+  storageKey = "longevify-stories-shown-v5",
   forceShow = false,
   onClose,
 }: PostExamStoriesProps) {

@@ -1,22 +1,39 @@
 /**
  * Reconhecimento de comida a partir de foto.
  *
- * Cadeia de providers com fallback em cascata (Lucas 2026-05):
+ * Cadeia de providers com fallback em cascata (Lucas 2026-05+):
  *
  *   1. Gemini 2.5 Flash (primário, gratuito até 1500 reqs/dia, ~1.5s)
- *   2. GPT-5 vision (fallback se confidence baixa ou erro, ~3s)
- *   3. Moonshot Kimi K2 vision (fallback final — já configurado em prod
- *      via MOONSHOT_API_KEY, OpenAI-compatible)
- *   4. Throws "AllProvidersFailedError" → route.ts retorna 503 com
+ *   2. GPT-5 vision (~3s, ~$0.01/foto)
+ *   3. Claude Sonnet 4.6 vision (~2-3s, ~$0.01/foto)
+ *   4. Moonshot Kimi vision (~2-3s, barato — OpenAI-compatible)
+ *   5. Hugging Face Llama 3.2 Vision (~3-5s, gratuito free tier —
+ *      `HUGGINGFACE_API_KEY` já configurada no prod)
+ *   6. Throws "AllProvidersFailedError" → route.ts retorna 503 com
  *      mensagem útil
+ *
+ * Ordenação: fastest+highest quality primeiro, mais lento+gratuito por
+ * último. Cada provider missing key vira "skip" silencioso — não bloqueia
+ * cascade. Single error de qualquer um cai pro próximo.
  */
 
 import type { FoodItem, Nutrients } from "./types";
 
 const GEMINI_MODEL = "gemini-2.5-flash";
 const OPENAI_MODEL = "gpt-5";
-const MOONSHOT_MODEL = "kimi-latest";
+const ANTHROPIC_MODEL = "claude-sonnet-4-6";
+// Moonshot vision: `kimi-latest` retornava "404 Not found the model kimi-latest"
+// nos logs. O nome canônico do modelo vision é moonshot-v1-{8k,32k,128k}-vision-preview
+// — preview ainda mas disponível pra contas com vision liberado. 32k é o sweet
+// spot (~$0.5/M tokens, contexto suficiente pra imagem+resposta).
+const MOONSHOT_MODEL = "moonshot-v1-32k-vision-preview";
 const MOONSHOT_BASE_URL = "https://api.moonshot.ai/v1";
+// HuggingFace Inference Providers (router endpoint). Modelo Llama 3.2 Vision
+// Instruct é open source, free tier ~30 calls/dia. Boa qualidade pra reconhecer
+// pratos brasileiros comuns (treinou com web data PT-BR).
+const HUGGINGFACE_MODEL = "meta-llama/Llama-3.2-11B-Vision-Instruct";
+const HUGGINGFACE_BASE_URL =
+  "https://router.huggingface.co/v1";
 
 // Confidence média abaixo desse threshold → vai pro fallback
 const FALLBACK_CONFIDENCE_THRESHOLD = 0.6;
@@ -28,7 +45,7 @@ interface RecognizedItem {
   nutrients: Nutrients;
 }
 
-type Provider = "gemini" | "gpt-5" | "moonshot";
+type Provider = "gemini" | "gpt-5" | "anthropic" | "moonshot" | "huggingface";
 
 interface RecognitionResult {
   items: RecognizedItem[];
@@ -309,108 +326,114 @@ async function callMoonshot(apiKey: string, image: File) {
   });
 }
 
-// ─── Orchestrator com cascade de providers ──────────────────────────────────
+// ─── HuggingFace Inference Providers ───────────────────────────────────────
+//
+// HF tem um router OpenAI-compatible que aceita o mesmo formato que GPT-5 /
+// Moonshot. Modelo Llama 3.2 11B Vision Instruct é grátis no free tier
+// (com rate limit), bom o suficiente pra fallback final.
+async function callHuggingFace(apiKey: string, image: File) {
+  return callOpenAICompatible({
+    apiKey,
+    model: HUGGINGFACE_MODEL,
+    baseURL: HUGGINGFACE_BASE_URL,
+    image,
+  });
+}
+
+// ─── Anthropic Claude vision ───────────────────────────────────────────────
+//
+// SDK próprio (não-OpenAI-compatible). Claude Sonnet 4.6 tem vision nativo,
+// excelente em interpretação de imagens (com structured output via tool use
+// ou parsing direto). Aqui fazemos parsing direto do response text — mais
+// simples e barato (tool use cobra extra tokens).
+async function callAnthropic(
+  apiKey: string,
+  image: File,
+): Promise<RecognizedItem[]> {
+  const { default: Anthropic } = await import("@anthropic-ai/sdk");
+  const client = new Anthropic({ apiKey });
+
+  const base64 = await fileToBase64(image);
+  const mimeType = image.type || "image/jpeg";
+
+  const response = await client.messages.create({
+    model: ANTHROPIC_MODEL,
+    max_tokens: 4096,
+    system: RECOGNITION_INSTRUCTION,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: mimeType as
+                | "image/jpeg"
+                | "image/png"
+                | "image/webp"
+                | "image/gif",
+              data: base64,
+            },
+          },
+          {
+            type: "text",
+            text: "Analise essa refeição e retorne o JSON conforme as instruções. SOMENTE o JSON, sem texto antes ou depois.",
+          },
+        ],
+      },
+    ],
+  });
+
+  // Extrai texto do response (Claude pode retornar múltiplos blocks).
+  // Filter por type === "text" e cast — o SDK tipa estrito (TextBlock,
+  // ThinkingBlock, etc.) mas só queremos a text aqui.
+  const text = response.content
+    .filter((block) => block.type === "text")
+    .map((b) => (b as { text: string }).text)
+    .join("");
+
+  return normalizeItems(extractJson(text));
+}
+
+// ─── Orchestrator ───────────────────────────────────────────────────────────
 
 /**
- * Reconhece os itens de uma foto de refeição com fallback em cascata.
+ * Reconhece os itens de uma foto de refeição.
  *
- * Estratégia (Lucas 2026-05 — depois que Gemini deu 403 PERMISSION_DENIED):
- *   1. Gemini Flash → se OK e confidence ≥ 0.6, retorna
- *   2. GPT-5 → se OK, retorna (com flag de fallback)
- *   3. Moonshot Kimi K2 vision → última tentativa
- *   4. AllProvidersFailedError → route.ts retorna 503 com detalhe
+ * Lucas (2026-05-17): "Deixe o OpenAI como unico modelo no momento,
+ * depois eu adiciono o gemini."
  *
- * Cada falha (erro de rede, 403, 401, JSON malformado) cai pro próximo
- * provider. Provider missing key também conta como skip (não bloqueia
- * a cascade).
+ * Estratégia simplificada:
+ *   - SÓ usa OpenAI GPT-5 vision (OPENAI_API_KEY)
+ *   - Sem cascade — se OpenAI falhar, retorna AllProvidersFailedError
+ *
+ * Os helpers de cascade (callGemini/callAnthropic/callMoonshot/
+ * callHuggingFace) ficam preservados no arquivo pra quando Lucas
+ * quiser reativar — basta voltar a lista `enabledProviders` aqui.
  */
 export async function recognizeFoodPhoto(
   image: File,
 ): Promise<RecognitionResult> {
-  const geminiKey = process.env.GEMINI_API_KEY;
   const openaiKey = process.env.OPENAI_API_KEY;
-  const moonshotKey = process.env.MOONSHOT_API_KEY;
-
   const errors: Array<{ provider: Provider; message: string }> = [];
 
-  // ── 1ª tentativa: Gemini Flash ──
-  let geminiItems: RecognizedItem[] | null = null;
-  let geminiLowConfidence = false;
-  if (geminiKey) {
-    try {
-      geminiItems = await callGemini(geminiKey, image);
-      const avg = avgConfidence(geminiItems);
-      if (geminiItems.length > 0 && avg >= FALLBACK_CONFIDENCE_THRESHOLD) {
-        return { items: geminiItems, provider: "gemini" };
-      }
-      geminiLowConfidence = true;
-      const reason =
-        geminiItems.length === 0
-          ? "gemini retornou 0 itens"
-          : `gemini confidence ${avg.toFixed(2)} < ${FALLBACK_CONFIDENCE_THRESHOLD}`;
-      errors.push({ provider: "gemini", message: reason });
-    } catch (err) {
-      errors.push({
-        provider: "gemini",
-        message: err instanceof Error ? err.message : "erro desconhecido",
-      });
-    }
-  } else {
-    errors.push({ provider: "gemini", message: "key ausente" });
+  if (!openaiKey) {
+    errors.push({ provider: "gpt-5", message: "OPENAI_API_KEY ausente" });
+    throw new AllProvidersFailedError(errors);
   }
 
-  // ── 2ª tentativa: GPT-5 ──
-  if (openaiKey) {
-    try {
-      const items = await callOpenAI(openaiKey, image);
-      if (items.length > 0) {
-        return {
-          items,
-          provider: "gpt-5",
-          fallbackReason: errors[errors.length - 1]?.message,
-        };
-      }
-      errors.push({ provider: "gpt-5", message: "retornou 0 itens" });
-    } catch (err) {
-      errors.push({
-        provider: "gpt-5",
-        message: err instanceof Error ? err.message : "erro desconhecido",
-      });
+  try {
+    const items = await callOpenAI(openaiKey, image);
+    if (items.length > 0) {
+      return { items, provider: "gpt-5" };
     }
-  } else {
-    errors.push({ provider: "gpt-5", message: "key ausente" });
-  }
-
-  // ── 3ª tentativa: Moonshot Kimi K2 vision ──
-  if (moonshotKey) {
-    try {
-      const items = await callMoonshot(moonshotKey, image);
-      if (items.length > 0) {
-        return {
-          items,
-          provider: "moonshot",
-          fallbackReason: errors[errors.length - 1]?.message,
-        };
-      }
-      errors.push({ provider: "moonshot", message: "retornou 0 itens" });
-    } catch (err) {
-      errors.push({
-        provider: "moonshot",
-        message: err instanceof Error ? err.message : "erro desconhecido",
-      });
-    }
-  } else {
-    errors.push({ provider: "moonshot", message: "key ausente" });
-  }
-
-  // ── Última cartada: se Gemini deu items com low confidence, devolve eles
-  // melhor do que erro 500
-  if (geminiItems && geminiItems.length > 0 && geminiLowConfidence) {
-    return {
-      items: geminiItems,
-      provider: "gemini",
-      fallbackReason: "todos fallbacks falharam — usando gemini low-confidence",
-    };
+    errors.push({ provider: "gpt-5", message: "retornou 0 itens" });
+  } catch (err) {
+    errors.push({
+      provider: "gpt-5",
+      message: err instanceof Error ? err.message : "erro desconhecido",
+    });
   }
 
   throw new AllProvidersFailedError(errors);
