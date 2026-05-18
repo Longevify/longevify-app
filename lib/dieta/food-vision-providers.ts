@@ -396,109 +396,44 @@ async function callAnthropic(
   return normalizeItems(extractJson(text));
 }
 
-// ─── Orchestrator com cascade de providers ──────────────────────────────────
+// ─── Orchestrator ───────────────────────────────────────────────────────────
 
 /**
- * Reconhece os itens de uma foto de refeição com fallback em cascata.
+ * Reconhece os itens de uma foto de refeição.
  *
- * Estratégia (Lucas 2026-05 — depois que Gemini deu 403 PERMISSION_DENIED):
- *   1. Gemini Flash → se OK e confidence ≥ 0.6, retorna
- *   2. GPT-5 → se OK, retorna (com flag de fallback)
- *   3. Moonshot Kimi K2 vision → última tentativa
- *   4. AllProvidersFailedError → route.ts retorna 503 com detalhe
+ * Lucas (2026-05-17): "Deixe o OpenAI como unico modelo no momento,
+ * depois eu adiciono o gemini."
  *
- * Cada falha (erro de rede, 403, 401, JSON malformado) cai pro próximo
- * provider. Provider missing key também conta como skip (não bloqueia
- * a cascade).
+ * Estratégia simplificada:
+ *   - SÓ usa OpenAI GPT-5 vision (OPENAI_API_KEY)
+ *   - Sem cascade — se OpenAI falhar, retorna AllProvidersFailedError
+ *
+ * Os helpers de cascade (callGemini/callAnthropic/callMoonshot/
+ * callHuggingFace) ficam preservados no arquivo pra quando Lucas
+ * quiser reativar — basta voltar a lista `enabledProviders` aqui.
  */
 export async function recognizeFoodPhoto(
   image: File,
 ): Promise<RecognitionResult> {
-  const geminiKey = process.env.GEMINI_API_KEY;
   const openaiKey = process.env.OPENAI_API_KEY;
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  const moonshotKey = process.env.MOONSHOT_API_KEY;
-  const huggingfaceKey = process.env.HUGGINGFACE_API_KEY;
-
   const errors: Array<{ provider: Provider; message: string }> = [];
 
-  // Helper genérico — chama provider, retorna result se sucesso, push
-  // erro se falha. Reduz boilerplate dos 5 try/catch.
-  const tryProvider = async (
-    provider: Provider,
-    key: string | undefined,
-    call: (k: string) => Promise<RecognizedItem[]>,
-  ): Promise<RecognitionResult | null> => {
-    if (!key) {
-      errors.push({ provider, message: "key ausente" });
-      return null;
-    }
-    try {
-      const items = await call(key);
-      if (items.length > 0) {
-        return {
-          items,
-          provider,
-          fallbackReason: errors[errors.length - 1]?.message,
-        };
-      }
-      errors.push({ provider, message: "retornou 0 itens" });
-    } catch (err) {
-      errors.push({
-        provider,
-        message: err instanceof Error ? err.message : "erro desconhecido",
-      });
-    }
-    return null;
-  };
-
-  // ── 1ª tentativa: Gemini Flash (tratamento especial pra low confidence) ──
-  let geminiItems: RecognizedItem[] | null = null;
-  let geminiLowConfidence = false;
-  if (geminiKey) {
-    try {
-      geminiItems = await callGemini(geminiKey, image);
-      const avg = avgConfidence(geminiItems);
-      if (geminiItems.length > 0 && avg >= FALLBACK_CONFIDENCE_THRESHOLD) {
-        return { items: geminiItems, provider: "gemini" };
-      }
-      geminiLowConfidence = true;
-      const reason =
-        geminiItems.length === 0
-          ? "gemini retornou 0 itens"
-          : `gemini confidence ${avg.toFixed(2)} < ${FALLBACK_CONFIDENCE_THRESHOLD}`;
-      errors.push({ provider: "gemini", message: reason });
-    } catch (err) {
-      errors.push({
-        provider: "gemini",
-        message: err instanceof Error ? err.message : "erro desconhecido",
-      });
-    }
-  } else {
-    errors.push({ provider: "gemini", message: "key ausente" });
+  if (!openaiKey) {
+    errors.push({ provider: "gpt-5", message: "OPENAI_API_KEY ausente" });
+    throw new AllProvidersFailedError(errors);
   }
 
-  // ── 2-5: cascade ──
-  const cascade: Array<[Provider, string | undefined, (k: string) => Promise<RecognizedItem[]>]> = [
-    ["gpt-5", openaiKey, (k) => callOpenAI(k, image)],
-    ["anthropic", anthropicKey, (k) => callAnthropic(k, image)],
-    ["moonshot", moonshotKey, (k) => callMoonshot(k, image)],
-    ["huggingface", huggingfaceKey, (k) => callHuggingFace(k, image)],
-  ];
-
-  for (const [provider, key, call] of cascade) {
-    const result = await tryProvider(provider, key, call);
-    if (result) return result;
-  }
-
-  // ── Última cartada: se Gemini deu items com low confidence, devolve eles
-  // melhor do que erro 500
-  if (geminiItems && geminiItems.length > 0 && geminiLowConfidence) {
-    return {
-      items: geminiItems,
-      provider: "gemini",
-      fallbackReason: "todos fallbacks falharam — usando gemini low-confidence",
-    };
+  try {
+    const items = await callOpenAI(openaiKey, image);
+    if (items.length > 0) {
+      return { items, provider: "gpt-5" };
+    }
+    errors.push({ provider: "gpt-5", message: "retornou 0 itens" });
+  } catch (err) {
+    errors.push({
+      provider: "gpt-5",
+      message: err instanceof Error ? err.message : "erro desconhecido",
+    });
   }
 
   throw new AllProvidersFailedError(errors);
