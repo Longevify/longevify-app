@@ -163,8 +163,8 @@ export function StoriesFinaleTransition({
           longevify
         </div>
         <p className="mt-3 max-w-xs text-[14px] leading-relaxed text-white/75">
-          {firstName ? `Bora pra cima, ${firstName}.` : "Bora pra cima."} Tá
-          começando agora.
+          {firstName ? `${firstName}, vamos começar.` : "Vamos começar."} Sua
+          jornada de longevidade está pronta.
         </p>
       </div>
 

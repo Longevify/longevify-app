@@ -20,13 +20,12 @@
 import type { FoodItem, Nutrients } from "./types";
 
 const GEMINI_MODEL = "gemini-2.5-flash";
-// gpt-5 estava dando Vercel timeout (>30s) — provavelmente reasoning interno
-// pesado. gpt-4o-mini é vision-capable, ~1-2s, ~$0.0001/foto. Vale mais a
-// pena pra reconhecimento de comida (não é tarefa que precisa raciocínio
-// profundo, é apenas identificação visual). Reativar gpt-5 quando OpenAI
-// adicionar streaming pra responses de vision e Vercel suportar maxDuration
-// mais alto no plano atual.
-const OPENAI_MODEL = "gpt-4o-mini";
+// gpt-4o (não mini) — Lucas 2026-05-18 pediu maior precisão estilo Cal.ai.
+// Mini errava muito em pratos brasileiros mistos. gpt-4o vision é ~2-4×
+// melhor em food recognition + portion estimation. Custo sobe de
+// ~$0.0001/foto pra ~$0.005/foto, mas latência ainda fica ~3-5s
+// (dentro do timeout de 45s).
+const OPENAI_MODEL = "gpt-4o";
 const ANTHROPIC_MODEL = "claude-sonnet-4-6";
 // Moonshot vision: `kimi-latest` retornava "404 Not found the model kimi-latest"
 // nos logs. O nome canônico do modelo vision é moonshot-v1-{8k,32k,128k}-vision-preview
@@ -73,17 +72,46 @@ export class AllProvidersFailedError extends Error {
 
 // ─── Prompt compartilhado ──────────────────────────────────────────────────
 
-const RECOGNITION_INSTRUCTION = `Você é um nutricionista brasileiro analisando a foto de uma refeição.
+const RECOGNITION_INSTRUCTION = `Você é um nutricionista brasileiro experiente, treinado em fotografia de comida estilo Cal.ai. Sua especialidade é identificar PRATOS BRASILEIROS (feijoada, picadinho, escondidinho, bobó, baião, virado, etc.) e estimar porções com precisão.
 
-Identifique CADA alimento visível na foto, estime a porção em gramas e retorne os nutrientes daquela porção.
+PROCESSO DE ANÁLISE — siga essas 3 etapas mentalmente antes de retornar:
 
-Regras:
-- Nomes em português do Brasil (ex: "Arroz integral", "Frango grelhado", "Feijão preto")
-- Estimativas de gramas baseadas no tamanho aparente do prato/utensílio (assume prato padrão ~26cm, talher de mesa, copo 250ml)
-- Nutrientes pro TAMANHO real estimado (não por 100g)
-- confidence (0-1): 1.0 = certeza absoluta; 0.5 = razoável; 0.2 = chute educado
-- Se o prato não parecer comida (foto borrada, animal, paisagem), retorne items vazios
-- Não invente alimentos não visíveis
+ETAPA 1 — IDENTIFICAÇÃO
+- Liste TODOS os alimentos distinguíveis na foto (mesmo os pequenos: pickles, ervas, azeite)
+- Use cores, texturas, formas pra distinguir alimentos parecidos (ex: arroz branco vs integral pela cor; carne moída vs picada pela textura)
+- Em pratos típicos BR: identifique o prato base (ex: "feijoada") E os componentes ("feijão preto", "carne seca", "linguiça", "couve refogada")
+- Em dúvida entre 2 alimentos similares, escolha o mais comum no contexto BR
+
+ETAPA 2 — ESTIMATIVA DE PORÇÃO
+Use referências visuais conhecidas:
+- Prato raso padrão BR: 26cm de diâmetro = ~500ml de capacidade
+- Prato fundo: 22cm, ~400ml
+- Travessa: 28-32cm
+- Colher de sopa rasa: ~15g sólido / 12ml líquido
+- Copo americano: 200ml | Copo longo: 300ml
+- 1 fatia de pão de forma: ~25g | 1 pão francês: ~50g
+- 1 ovo médio: ~50g (sem casca)
+- 1 banana média: ~120g | 1 maçã média: ~180g
+- Filé de frango do tamanho da palma: ~120g
+- 1 concha de feijão: ~80g (com caldo)
+- Arroz cozido cobrindo metade do prato: ~150g
+
+Pense: "quanto isso ocupa do prato?" e "quão espessa é a camada?" pra calcular gramas.
+
+ETAPA 3 — NUTRIENTES
+Calcule os nutrientes pra GRAMAS REAIS estimadas (não por 100g). Use tabela TACO (brasileira) como base; USDA pra alimentos importados.
+
+REGRAS RÍGIDAS:
+- Nomes em PT-BR específicos (ex: "Arroz branco cozido", não só "arroz"; "Frango grelhado peito sem pele")
+- Se vir cebola/temperos pequenos em quantidade trivial (<5g), INCLUA no item principal (não criar item separado)
+- Se prato típico BR (feijoada/baião/etc.), retorne componentes E não o conjunto agregado
+- confidence (0-1):
+  • 0.85-1.0: alimento óbvio e bem visível, porção clara
+  • 0.6-0.85: alimento identificado mas porção estimada
+  • 0.3-0.6: alimento ambíguo OU porção difícil de medir
+  • 0.0-0.3: chute educado
+- Foto borrada, sem comida, ou inviável → retorne items: []
+- NUNCA invente o que não está visível
 
 Valores nutricionais — preencha o que conseguir estimar:
 - calories (kcal), protein (g), carbs (g), fat (g) — SEMPRE
@@ -297,6 +325,10 @@ async function callOpenAICompatible({
   const completion = await client.chat.completions.create({
     model,
     response_format: { type: "json_object" },
+    // temperature 0 → respostas determinísticas. Pra reconhecimento de
+    // alimento, NÃO queremos criatividade — queremos consistência (mesma
+    // foto, mesma análise). Lucas 2026-05-18: "tente ser mais certeiro".
+    temperature: 0,
     messages: [
       {
         role: "system",
@@ -307,9 +339,16 @@ async function callOpenAICompatible({
         content: [
           {
             type: "text",
-            text: "Analise essa refeição e retorne o JSON conforme as instruções.",
+            text: "Analise essa refeição passo a passo (identificação → porção → nutrientes) e retorne SOMENTE o JSON. Lembre: usa as referências visuais (prato 26cm, colher 15g, etc.) pra estimar gramas.",
           },
-          { type: "image_url", image_url: { url: dataUrl } },
+          {
+            type: "image_url",
+            // detail: "high" → OpenAI usa 765 tokens em vez de 85 pra
+            // analisar a imagem. Custa mais ($0.005 vs $0.001 por foto)
+            // mas a precisão sobe MUITO em identificação e estimativa de
+            // porção. Cal.ai usa essa estratégia.
+            image_url: { url: dataUrl, detail: "high" },
+          },
         ],
       },
     ],
