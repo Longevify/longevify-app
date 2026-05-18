@@ -219,14 +219,20 @@ const USDA_DATATYPE_RANK: Record<string, number> = {
 export async function lookupUsda(
   name: string,
   grams: number,
+  /**
+   * Nome em inglês (opcional, mas FORTEMENTE recomendado). USDA indexa
+   * apenas EN — query "feijão" retorna 0 hits, query "black beans cooked"
+   * retorna 8. GPT-4o gera o nameEn no mesmo prompt de identificação,
+   * custo extra zero. Sem nameEn, cai pra PT (compat) e provavelmente
+   * vira null.
+   */
+  nameEn?: string,
 ): Promise<NutritionLookupResult | null> {
   const apiKey = usdaApiKey();
-  // Traduzir nome pra inglês (USDA é DB internacional, indexado em EN).
-  // Hack simples: enviar o nome em PT mesmo — o USDA tem alguns matches
-  // pra termos comuns ("rice", "chicken") e também aceita queries fuzzy.
-  // Pra prod, considerar pré-translation via dicionário.
+  // Prioriza EN; cai pra PT só pra manter compat caso GPT não tenha mandado nameEn.
+  const query = nameEn && nameEn.length > 0 ? nameEn : name;
   const url = new URL(`${USDA_BASE}/foods/search`);
-  url.searchParams.set("query", name);
+  url.searchParams.set("query", query);
   url.searchParams.set("pageSize", "5");
   url.searchParams.set("api_key", apiKey);
 
@@ -402,25 +408,30 @@ export async function lookupOpenFoodFacts(
 /**
  * Tenta enriquecer um alimento com nutrientes via cascade:
  *
- *   1. TACO local (instant, BR oficial)
- *   2. USDA FDC (1.4M+ items, padrão mundial)
- *   3. Open Food Facts (produtos industrializados, com prefer BR)
+ *   1. TACO local (instant, BR oficial) — usa nome PT
+ *   2. USDA FDC (1.4M+ items, padrão mundial) — usa nameEn (EN) se disponível
+ *   3. Open Food Facts (produtos industrializados, com prefer BR) — usa nome PT
  *
  * Retorna o primeiro hit. Se todas falharem, retorna null —
  * caller usa fallback (LLM ou nutrientes zerados).
+ *
+ * @param name nome em PT-BR (usado em TACO + OFF + UI matchedName)
+ * @param grams porção real em gramas
+ * @param nameEn nome em inglês (opcional, melhora MUITO match no USDA)
  */
 export async function lookupNutritionCascade(
   name: string,
   grams: number,
+  nameEn?: string,
 ): Promise<NutritionLookupResult | null> {
-  // 1) TACO (síncrono, microsegundos)
+  // 1) TACO (síncrono, microsegundos) — usa nome PT
   const taco = await lookupTaco(name, grams);
   if (taco) return taco;
 
   // 2) USDA + 3) OFF em paralelo (race-style: o que voltar primeiro com
-  // dado válido ganha). Reduz latência ~50%.
+  // dado válido ganha). Reduz latência ~50%. USDA usa EN, OFF usa PT.
   const [usda, off] = await Promise.allSettled([
-    lookupUsda(name, grams),
+    lookupUsda(name, grams, nameEn),
     lookupOpenFoodFacts(name, grams),
   ]);
 

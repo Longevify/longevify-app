@@ -50,7 +50,15 @@ const OPENAI_NUTRIENTS_FALLBACK_MODEL = "gpt-4o-mini";
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 interface IdentifiedItem {
+  /** Nome em PT-BR (idioma principal, usado em UI e TACO/OFF lookup). */
   name: string;
+  /**
+   * Nome em inglês (opcional). Usado pra lookup no USDA FoodData Central
+   * que indexa só em EN. Sem nameEn, USDA pode não dar match em pratos BR
+   * — ex: "feijão" retorna 0 hits no USDA, mas "black beans cooked" volta
+   * com 8 hits válidos. GPT-4o gera o EN no mesmo prompt — custo zero.
+   */
+  nameEn?: string;
   grams: number;
   confidence: number;
 }
@@ -106,6 +114,11 @@ ETAPA 1 — IDENTIFICAÇÃO
   • "Frango grelhado, peito sem pele" (não só "frango")
   • "Feijão preto cozido" (não só "feijão")
   • "Pão francês" (não só "pão")
+- Pra CADA alimento, forneça TAMBÉM o nome em inglês ("nameEn") — usaremos pra lookup em base nutricional internacional (USDA). Use o nome técnico/genérico em EN, não marca:
+  • "Arroz branco cozido" → "white rice cooked"
+  • "Frango grelhado, peito sem pele" → "chicken breast grilled skinless"
+  • "Feijão preto cozido" → "black beans cooked"
+  • "Pão francês" → "french bread roll"
 - Se vir tempero/molho pequeno (<5g), INCLUA no item principal — não criar item separado
 
 ETAPA 2 — ESTIMATIVA DE PORÇÃO (em gramas)
@@ -138,7 +151,7 @@ REGRAS:
 Retorne SOMENTE JSON no schema:
 {
   "items": [
-    { "name": "string", "grams": number, "confidence": number }
+    { "name": "string (PT-BR)", "nameEn": "string (English)", "grams": number, "confidence": number }
   ]
 }`;
 
@@ -159,6 +172,7 @@ function extractJson(raw: string): unknown {
 interface RawIdentifyPayload {
   items?: Array<{
     name?: unknown;
+    nameEn?: unknown;
     grams?: unknown;
     confidence?: unknown;
   }>;
@@ -172,6 +186,10 @@ function parseIdentifiedItems(payload: unknown): IdentifiedItem[] {
     .map((it): IdentifiedItem | null => {
       if (!it || typeof it !== "object") return null;
       const name = typeof it.name === "string" ? it.name.trim() : null;
+      const nameEn =
+        typeof it.nameEn === "string" && it.nameEn.trim().length > 0
+          ? it.nameEn.trim()
+          : undefined;
       const grams =
         typeof it.grams === "number" && it.grams > 0 ? it.grams : null;
       if (!name || !grams) return null;
@@ -179,7 +197,7 @@ function parseIdentifiedItems(payload: unknown): IdentifiedItem[] {
         typeof it.confidence === "number"
           ? Math.max(0, Math.min(1, it.confidence))
           : 0.5;
-      return { name, grams, confidence };
+      return { name, nameEn, grams, confidence };
     })
     .filter((it): it is IdentifiedItem => it !== null);
 }
@@ -324,8 +342,11 @@ export async function recognizeFoodPhoto(
   }
 
   // ── Etapa 2: lookup de nutrientes em cascade pra cada item, paralelo ──
+  // Passa nameEn (quando GPT forneceu) pro USDA matchar em inglês.
   const lookupResults = await Promise.all(
-    identified.map((it) => lookupNutritionCascade(it.name, it.grams)),
+    identified.map((it) =>
+      lookupNutritionCascade(it.name, it.grams, it.nameEn),
+    ),
   );
 
   // ── Etapa 3: pra items sem match no cascade, fallback LLM ──
