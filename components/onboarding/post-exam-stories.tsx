@@ -1195,7 +1195,9 @@ function BiomarkerDeepDiveSlide({
 
   return (
     <div className={cn("flex h-full w-full", theme.cardBg)}>
-      <div className="relative flex-1 overflow-y-auto overscroll-contain px-5 pt-[88px] pb-[120px]">
+      {/* z-20 → acima das tap zones do shell (z-10) pra scroll funcionar
+          em mobile. Mesmo fix do BundleSlide. */}
+      <div className="relative z-20 flex-1 overflow-y-auto overscroll-contain px-5 pt-[88px] pb-[120px]">
         <div className="mx-auto w-full max-w-md text-left">
           <div
             className={cn(
@@ -1406,14 +1408,12 @@ function BundleSlide({
         />
       </div>
 
-      {/* Container scrollable — pra caber lista grande de produtos.
-          Padding top/bottom dá espaço pro header dos stories (progress
-          bar + close) e pro botão "Continuar" do rodapé.
-
-          py-[88px,120px] = ~88px top (header+logo), ~120px bottom (CTA
-          do story shell). Em mobile menor (< 600px viewport height) o
-          overflow garante que dá pra rolar até o último produto. */}
-      <div className="relative flex-1 overflow-y-auto overscroll-contain px-5 pt-[88px] pb-[120px]">
+      {/* Container scrollable — z-20 PRA FICAR ACIMA das tap zones
+          (z-10) do shell de stories. Lucas (2026-05-18) reportou que
+          "o scroll não ta funcionando" — as tap zones laterais de
+          12% interceptavam o touch antes do scroll. Com z-20 aqui, o
+          scroll captura todos os toques na área do conteúdo. */}
+      <div className="relative z-20 flex-1 overflow-y-auto overscroll-contain px-5 pt-[88px] pb-[120px]">
         <div className="mx-auto w-full max-w-md story-card-in text-center">
           <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-300 ring-1 ring-emerald-400/30">
             <Sparkles className="h-3 w-3" />
@@ -1497,149 +1497,205 @@ function BundleSlide({
             <span className="h-px flex-1 bg-white/10" />
           </div>
 
-          {/* Lista de produtos com cards BRANCOS pra quebrar o verde
-              monotônico do slide (Lucas 2026-05-17: "coloque um pouco
-              de branco nos cards para variar desse verde").
-              Mudanças vs versão anterior:
-              - bg-white em vez de bg-white/[0.07] → contraste forte
-              - Foto do produto (r.product.image) com fallback de ícone
-              - Padding mais apertado → cards menores
-              - Texto zinc-900 (escuro) em fundo branco
-              - Botões mantêm o verde pra reforçar a marca */}
-          <div className="mt-4 flex flex-col gap-2.5 text-left">
-            {recommendations.map((r, i) => {
-              const isAdded = addedIds.has(r.product.id) || bulkAdded;
-              const subPrice = Math.round(r.product.priceBRL * 0.9);
-              const primaryConcern = r.matchedBiomarkers[0];
-              const targetLabel = primaryConcern
-                ? `Pra ${primaryConcern.name}`
-                : "Recomendado pra você";
-              return (
-                <div
-                  key={r.product.id}
-                  className={cn(
-                    "story-pop overflow-hidden rounded-2xl bg-white transition-all",
-                    "shadow-[0_8px_24px_-12px_rgba(0,0,0,0.4)]",
-                    isAdded
-                      ? "ring-2 ring-emerald-400"
-                      : "ring-1 ring-white/20 hover:ring-white/40",
-                  )}
-                  style={{ animationDelay: `${500 + i * 100}ms` }}
-                >
-                  {/* Cabeçalho — foto + info do produto */}
-                  <div className="flex items-start gap-2.5 px-3 pt-3 pb-2">
-                    {/* Foto do produto. Fallback pro ícone cápsula
-                        quando o produto não tem imagem cadastrada. */}
-                    <div className="relative grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl bg-emerald-50 ring-1 ring-emerald-100">
-                      {r.product.image ? (
-                        <Image
-                          src={r.product.image}
-                          alt={r.product.name}
-                          width={48}
-                          height={48}
-                          className="h-12 w-12 object-contain"
-                        />
-                      ) : (
-                        <svg
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          className="h-6 w-6 text-emerald-600"
-                          stroke="currentColor"
-                          strokeWidth="1.8"
-                        >
-                          <path d="M10.5 20.5l10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7z" strokeLinecap="round" strokeLinejoin="round" />
-                          <path d="M8.5 8.5l7 7" strokeLinecap="round" />
-                        </svg>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-[13.5px] font-semibold leading-tight text-zinc-900">
-                        {r.product.name}
-                      </h3>
-                      <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 ring-1 ring-emerald-100">
-                        {targetLabel}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Razão clínica — texto zinc num bg branco quase */}
-                  <p className="px-3 pb-2.5 text-[11.5px] leading-relaxed text-zinc-600">
-                    {r.reason}
-                  </p>
-
-                  {/* Botões — Comprar (cinza claro) + Assinar (verde) */}
-                  <div className="grid grid-cols-2 gap-0 border-t border-zinc-100">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAddSingle(r.product.id, false);
-                      }}
-                      disabled={isAdded}
-                      className={cn(
-                        "group flex flex-col items-center gap-0.5 py-2 transition-colors",
-                        isAdded
-                          ? "bg-zinc-50 text-zinc-400"
-                          : "bg-white text-zinc-800 hover:bg-zinc-50",
-                      )}
-                    >
-                      {isAdded ? (
-                        <span className="text-[12px] font-semibold">✓ Adicionado</span>
-                      ) : (
-                        <>
-                          <span className="text-[9.5px] uppercase tracking-wide text-zinc-400 group-hover:text-zinc-500">
-                            Comprar
-                          </span>
-                          <span className="text-[13px] font-semibold tabular-nums">
-                            R$ {r.product.priceBRL}
-                          </span>
-                        </>
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAddSingle(r.product.id, true);
-                      }}
-                      disabled={isAdded}
-                      className={cn(
-                        "group relative flex flex-col items-center gap-0.5 border-l border-zinc-100 py-2 transition-colors",
-                        isAdded
-                          ? "bg-emerald-50 text-emerald-400"
-                          : "bg-gradient-to-br from-brand-600 to-brand-800 text-white hover:from-brand-700 hover:to-brand-900",
-                      )}
-                    >
-                      {!isAdded && (
-                        <span className="absolute right-1.5 top-1 rounded-full bg-emerald-300 px-1.5 py-px text-[9px] font-bold text-emerald-900">
-                          −10%
-                        </span>
-                      )}
-                      <span className="text-[9.5px] uppercase tracking-wide opacity-75 group-hover:opacity-100">
-                        Assinar
-                      </span>
-                      <span className="text-[13px] font-semibold tabular-nums">
-                        R$ {subPrice}
-                        <span className="ml-0.5 text-[9.5px] font-normal opacity-65">
-                          /mês
-                        </span>
-                      </span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+          {/* Lista de produtos — cards MINIMALISTAS (Lucas 2026-05-18:
+              "os cards tem que ser menores e com menos informações,
+              apenas nome do ingrediente, preço, botão para comprar ou
+              assinar, e um botão para entender mais (...) quando
+              clicar nessa opção para entender, mostre um texto
+              explicando com base em qual biomarcador").
+              Estrutura:
+                [foto] Nome              R$ 89
+                       [Saber mais ↓]
+                [Comprar R$89] [Assinar R$80/mês]
+              Quando expande, mostra razão clínica baseada no
+              biomarcador matched (ex: "Seu LDL em 103 mg/dL..."). */}
+          <div className="mt-4 flex flex-col gap-2 text-left">
+            {recommendations.map((r, i) => (
+              <ProductMiniCard
+                key={r.product.id}
+                product={r.product}
+                reason={r.reason}
+                matchedBiomarkers={r.matchedBiomarkers}
+                isAdded={addedIds.has(r.product.id) || bulkAdded}
+                onAdd={(recurring) => handleAddSingle(r.product.id, recurring)}
+                delayMs={500 + i * 100}
+              />
+            ))}
           </div>
 
-          {/* Hint sutil de scroll, só quando há produtos suficientes pra
-              passar do viewport (3+). Mobile small height precisa do
-              cue visual. */}
+          {/* Hint sutil de scroll */}
           {recommendations.length >= 3 ? (
-            <p className="mt-4 text-[11px] text-white/40">
+            <p className="mt-3 text-[11px] text-white/40">
               ↑ role pra ver tudo
             </p>
           ) : null}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── ProductMiniCard — card minimalista de produto (Lucas 2026-05-18) ─────
+//
+// Estrutura compacta com expand "Saber mais":
+//   ┌─────────────────────────────────────┐
+//   │ [📷] Ômega 3 1.000mg         R$ 89  │
+//   │      [↓ Saber mais]                  │
+//   │                                       │
+//   │ [ Comprar R$89 ] [ Assinar -10% ]    │
+//   └─────────────────────────────────────┘
+//
+// Quando expande, mostra texto explicando POR QUE a recomendação,
+// baseado no biomarcador específico do paciente (ex: "Seu LDL em
+// 103 mg/dL, e Ômega 3 é uma das intervenções mais estudadas...").
+
+function ProductMiniCard({
+  product,
+  reason,
+  matchedBiomarkers,
+  isAdded,
+  onAdd,
+  delayMs,
+}: {
+  product: ReturnType<typeof getRecommendedProducts>[0]["product"];
+  reason: string;
+  matchedBiomarkers: Biomarker[];
+  isAdded: boolean;
+  onAdd: (recurring: boolean) => void;
+  delayMs: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const subPrice = Math.round(product.priceBRL * 0.9);
+  const primaryBiomarker = matchedBiomarkers[0];
+
+  return (
+    <div
+      className={cn(
+        "story-pop overflow-hidden rounded-2xl bg-white transition-all",
+        "shadow-[0_8px_24px_-12px_rgba(0,0,0,0.4)]",
+        isAdded
+          ? "ring-2 ring-emerald-400"
+          : "ring-1 ring-white/20 hover:ring-white/40",
+      )}
+      style={{ animationDelay: `${delayMs}ms` }}
+    >
+      {/* Header — foto + nome + preço + saber mais */}
+      <div className="flex items-center gap-3 px-3 py-2.5">
+        <div className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-emerald-50 ring-1 ring-emerald-100">
+          {product.image ? (
+            <Image
+              src={product.image}
+              alt={product.name}
+              width={44}
+              height={44}
+              className="h-11 w-11 object-contain"
+            />
+          ) : (
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              className="h-5 w-5 text-emerald-600"
+              stroke="currentColor"
+              strokeWidth="1.8"
+            >
+              <path
+                d="M10.5 20.5l10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7z"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path d="M8.5 8.5l7 7" strokeLinecap="round" />
+            </svg>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="truncate text-[13.5px] font-semibold leading-tight text-zinc-900">
+              {product.name}
+            </h3>
+            <span className="shrink-0 text-[13px] font-semibold tabular-nums text-zinc-700">
+              R$ {product.priceBRL}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded((v) => !v);
+            }}
+            className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-brand-700 hover:text-brand-900"
+            aria-expanded={expanded}
+          >
+            {expanded ? "Fechar" : "Saber mais"}
+            <ChevronRight
+              className={cn(
+                "h-3 w-3 transition-transform",
+                expanded ? "rotate-90" : "rotate-0",
+              )}
+            />
+          </button>
+        </div>
+      </div>
+
+      {/* Razão clínica expansível — explica baseado no biomarcador */}
+      <div
+        className={cn(
+          "grid transition-[grid-template-rows] duration-300 ease-out",
+          expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+        )}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="border-t border-zinc-100 bg-zinc-50/60 px-3 py-2.5">
+            {primaryBiomarker ? (
+              <div className="mb-1.5 inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 ring-1 ring-zinc-200">
+                Baseado em {primaryBiomarker.name}
+              </div>
+            ) : null}
+            <p className="text-[12px] leading-relaxed text-zinc-700">
+              {reason}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Botões — Comprar (cinza claro) + Assinar (verde) */}
+      <div className="grid grid-cols-2 gap-0 border-t border-zinc-100">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onAdd(false);
+          }}
+          disabled={isAdded}
+          className={cn(
+            "py-2 text-[12.5px] font-semibold transition-colors",
+            isAdded
+              ? "bg-zinc-50 text-zinc-400"
+              : "bg-white text-zinc-800 hover:bg-zinc-50",
+          )}
+        >
+          {isAdded ? "✓ No carrinho" : `Comprar R$ ${product.priceBRL}`}
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onAdd(true);
+          }}
+          disabled={isAdded}
+          className={cn(
+            "relative border-l border-zinc-100 py-2 text-[12.5px] font-semibold transition-colors",
+            isAdded
+              ? "bg-emerald-50 text-emerald-400"
+              : "bg-gradient-to-br from-brand-600 to-brand-800 text-white hover:from-brand-700 hover:to-brand-900",
+          )}
+        >
+          {!isAdded && (
+            <span className="absolute right-1.5 top-1 rounded-full bg-emerald-300 px-1.5 py-px text-[9px] font-bold text-emerald-900">
+              −10%
+            </span>
+          )}
+          {isAdded ? "✓" : `Assinar R$ ${subPrice}/mês`}
+        </button>
       </div>
     </div>
   );
@@ -1665,7 +1721,7 @@ function BundleSlide({
 
 export function PostExamStories({
   patient,
-  storageKey = "longevify-stories-shown-v6",
+  storageKey = "longevify-stories-shown-v7",
   forceShow = false,
   onClose,
   prefetchedInsights,
