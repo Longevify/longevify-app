@@ -43,6 +43,21 @@ export default function AppError({
           </code>
         ) : null}
 
+        {/* Mensagem técnica do erro — vital pra debug em mobile onde
+            Lucas não tem console. Mostra a primeira linha do erro num
+            <details> colapsado pra não assustar o user comum. */}
+        {error?.message ? (
+          <details className="w-full max-w-md text-left">
+            <summary className="cursor-pointer text-[11px] text-muted hover:text-ink">
+              Detalhes técnicos
+            </summary>
+            <pre className="mt-2 max-h-32 overflow-auto rounded-lg bg-zinc-50 p-2 text-[10px] leading-relaxed text-zinc-600">
+              {error.message}
+              {error.stack ? `\n\n${error.stack.split("\n").slice(0, 6).join("\n")}` : null}
+            </pre>
+          </details>
+        ) : null}
+
         <div className="flex flex-col gap-2 sm:flex-row">
           <Button variant="dark" size="lg" onClick={() => reset()}>
             <RefreshCw className="h-4 w-4" />

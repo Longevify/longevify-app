@@ -1042,6 +1042,10 @@ function BiomarkerConcernPreviewCard({
 // ─── BiomarkerFocusSlide — slide 7/8/9 (foco + produto lateral) ────────────
 
 // ─── BundleSlide — slide 7 ("Resolver tudo") ──────────────────────────────
+//
+// Lucas (2026-05-17): bulk buttons (Assinar tudo / Comprar uma vez) ficam
+// no TOPO; lista de produtos individuais com botões próprios fica
+// EMBAIXO; tudo num único slide scrollable.
 
 function BundleSlide({
   recommendations,
@@ -1051,7 +1055,8 @@ function BundleSlide({
   firstName: string;
 }) {
   const cart = useCart();
-  const [added, setAdded] = useState(false);
+  const [bulkAdded, setBulkAdded] = useState(false);
+  const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
 
   const products = recommendations.map((r) => r.product);
   const totalOnce = products.reduce((sum, p) => sum + p.priceBRL, 0);
@@ -1063,19 +1068,25 @@ function BundleSlide({
         products.map((p) => p.id),
         { recurring },
       );
-      setAdded(true);
-      setTimeout(() => {
-        cart.openCart();
-      }, 800);
+      setBulkAdded(true);
+      setTimeout(() => cart.openCart(), 800);
     },
     [cart, products],
   );
 
+  const handleAddSingle = useCallback(
+    (productId: string, recurring: boolean) => {
+      cart.addItem(productId, { recurring });
+      setAddedIds((prev) => new Set(prev).add(productId));
+    },
+    [cart],
+  );
+
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center text-white">
+    <div className="relative flex h-full w-full flex-col text-white">
       <div className="pointer-events-none absolute inset-0 grid place-items-center">
         <div
-          className="h-[600px] w-[600px] rounded-full opacity-50 blur-[60px] story-glow"
+          className="h-[600px] w-[600px] rounded-full opacity-40 blur-[60px] story-glow"
           style={{
             background:
               "radial-gradient(circle, #3f9a6b 0%, transparent 70%)",
@@ -1083,113 +1094,174 @@ function BundleSlide({
         />
       </div>
 
-      <div className="relative w-full max-w-md story-card-in">
-        <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-300 ring-1 ring-emerald-400/30">
-          <Sparkles className="h-3 w-3" />
-          Bora resolver
-        </div>
-        <h2 className="mt-3 text-[28px] font-semibold tracking-tight leading-[1.05]">
-          Pra cada um,<br />a gente já tem
-        </h2>
-        <p className="mt-2 text-[13.5px] leading-relaxed text-white/70">
-          Olha, {firstName} — pra cada um dos {products.length} marcadores
-          que tão pedindo atenção, a gente separou um suplemento da
-          Longevify que ataca exatamente aquilo. Sem chute. Você pode pegar
-          um por um ou tudo de uma vez (sai mais barato).
-        </p>
+      {/* Container scrollable — pra caber lista grande de produtos.
+          Padding top/bottom dá espaço pro header dos stories (progress
+          bar + close) e pro botão "Continuar" do rodapé.
 
-        {/* Lista dos produtos com razão clínica (não é propaganda — é
-            por que CADA um foi escolhido pra você). */}
-        <div className="mt-5 flex flex-col gap-2 rounded-2xl border border-white/15 bg-white/[0.06] p-3.5 text-left backdrop-blur-md">
-          {recommendations.map((r, i) => (
-            <div
-              key={r.product.id}
+          py-[88px,120px] = ~88px top (header+logo), ~120px bottom (CTA
+          do story shell). Em mobile menor (< 600px viewport height) o
+          overflow garante que dá pra rolar até o último produto. */}
+      <div className="relative flex-1 overflow-y-auto overscroll-contain px-5 pt-[88px] pb-[120px]">
+        <div className="mx-auto w-full max-w-md story-card-in text-center">
+          <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-300 ring-1 ring-emerald-400/30">
+            <Sparkles className="h-3 w-3" />
+            Bora resolver
+          </div>
+          <h2 className="mt-3 text-[26px] font-semibold tracking-tight leading-[1.05]">
+            Pra cada um,<br />a gente já tem
+          </h2>
+          <p className="mt-2 text-[13px] leading-relaxed text-white/70">
+            {firstName}, pra cada marcador que tá pedindo atenção, a
+            Longevify tem um suplemento — sem chute, com evidência. Pega
+            tudo de uma vez (mais barato) ou escolhe um por um.
+          </p>
+
+          {/* Totais lado-a-lado */}
+          <div className="mt-4 grid grid-cols-2 gap-2 text-left">
+            <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2">
+              <div className="text-[10px] uppercase tracking-wide text-white/55">
+                Comprar tudo
+              </div>
+              <div className="text-[18px] font-semibold tabular-nums text-white">
+                R$ {totalOnce}
+              </div>
+            </div>
+            <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/15 px-3 py-2">
+              <div className="text-[10px] uppercase tracking-wide text-emerald-200">
+                Assinar (10% off)
+              </div>
+              <div className="text-[18px] font-semibold tabular-nums text-emerald-100">
+                R$ {totalSubscribe}
+                <span className="ml-1 text-[10px] font-normal">/mês</span>
+              </div>
+            </div>
+          </div>
+
+          {/* CTAs BULK no topo */}
+          <div className="mt-3 flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleResolveAll(true);
+              }}
+              disabled={bulkAdded || products.length === 0}
               className={cn(
-                "story-pop flex items-start gap-3 rounded-xl bg-white/[0.04] px-3 py-2.5",
-                i > 0 ? "border-t border-white/5 mt-0" : "",
+                "inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-3 text-[14px] font-semibold transition will-change-transform hover:scale-[1.01]",
+                bulkAdded
+                  ? "bg-emerald-500 text-white"
+                  : "bg-white text-brand-800 hover:bg-white/90",
               )}
-              style={{ animationDelay: `${300 + i * 100}ms` }}
             >
-              <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-500/20 text-[11px] font-bold tabular-nums text-emerald-200">
-                {i + 1}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="truncate text-[13px] font-semibold text-white">
-                    {r.product.name}
-                  </span>
-                  <span className="shrink-0 text-[11px] tabular-nums text-white/65">
-                    R$ {r.product.priceBRL}
-                  </span>
+              {bulkAdded ? (
+                <>
+                  <Check className="h-4 w-4" />
+                  Tá no carrinho
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  Assinar tudo (mais barato)
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleResolveAll(false);
+              }}
+              disabled={bulkAdded || products.length === 0}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white/10 px-6 py-2.5 text-[12.5px] font-semibold text-white backdrop-blur-md transition hover:bg-white/20 ring-1 ring-white/20 disabled:opacity-50"
+            >
+              Só comprar uma vez tudo
+            </button>
+          </div>
+
+          {/* Separador */}
+          <div className="mt-6 flex items-center gap-3 text-[10.5px] uppercase tracking-[0.18em] text-white/40">
+            <span className="h-px flex-1 bg-white/10" />
+            <span>ou escolha um por um</span>
+            <span className="h-px flex-1 bg-white/10" />
+          </div>
+
+          {/* Lista de produtos individuais com botões próprios. */}
+          <div className="mt-4 flex flex-col gap-2.5 text-left">
+            {recommendations.map((r, i) => {
+              const isAdded = addedIds.has(r.product.id) || bulkAdded;
+              const subPrice = Math.round(r.product.priceBRL * 0.9);
+              return (
+                <div
+                  key={r.product.id}
+                  className="story-pop overflow-hidden rounded-2xl border border-white/15 bg-white/[0.06] backdrop-blur-md"
+                  style={{ animationDelay: `${500 + i * 100}ms` }}
+                >
+                  <div className="flex items-start gap-3 px-3.5 py-3">
+                    <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-500/20 text-[11px] font-bold tabular-nums text-emerald-200">
+                      {i + 1}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="truncate text-[13px] font-semibold text-white">
+                          {r.product.name}
+                        </span>
+                        <span className="shrink-0 text-[11px] tabular-nums text-white/65">
+                          R$ {r.product.priceBRL}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-white/55">
+                        {r.reason}
+                      </p>
+                    </div>
+                  </div>
+                  {/* Botões individuais */}
+                  <div className="grid grid-cols-2 gap-px bg-white/5">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddSingle(r.product.id, false);
+                      }}
+                      disabled={isAdded}
+                      className={cn(
+                        "py-2 text-[12px] font-semibold transition",
+                        isAdded
+                          ? "bg-white/5 text-white/40"
+                          : "bg-white/10 text-white hover:bg-white/20",
+                      )}
+                    >
+                      {isAdded ? "✓" : "Comprar"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddSingle(r.product.id, true);
+                      }}
+                      disabled={isAdded}
+                      className={cn(
+                        "py-2 text-[12px] font-semibold transition",
+                        isAdded
+                          ? "bg-emerald-500/15 text-emerald-300/40"
+                          : "bg-emerald-500/25 text-emerald-100 hover:bg-emerald-500/35",
+                      )}
+                    >
+                      Assinar R$ {subPrice}/mês
+                    </button>
+                  </div>
                 </div>
-                <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-white/55">
-                  {r.reason}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Totais */}
-        <div className="mt-4 grid grid-cols-2 gap-2 text-left">
-          <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2">
-            <div className="text-[10px] uppercase tracking-wide text-white/55">
-              Comprar tudo
-            </div>
-            <div className="text-[18px] font-semibold tabular-nums text-white">
-              R$ {totalOnce}
-            </div>
+              );
+            })}
           </div>
-          <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/15 px-3 py-2">
-            <div className="text-[10px] uppercase tracking-wide text-emerald-200">
-              Assinar (10% off)
-            </div>
-            <div className="text-[18px] font-semibold tabular-nums text-emerald-100">
-              R$ {totalSubscribe}
-              <span className="ml-1 text-[10px] font-normal">/mês</span>
-            </div>
-          </div>
-        </div>
 
-        {/* CTAs */}
-        <div className="mt-5 flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleResolveAll(true);
-            }}
-            disabled={added || products.length === 0}
-            className={cn(
-              "inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-3.5 text-[14px] font-semibold transition will-change-transform hover:scale-[1.01]",
-              added
-                ? "bg-emerald-500 text-white"
-                : "bg-white text-brand-800 hover:bg-white/90",
-            )}
-          >
-            {added ? (
-              <>
-                <Check className="h-4 w-4" />
-                Tá no carrinho
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4" />
-                Assinar tudo (mais barato)
-              </>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleResolveAll(false);
-            }}
-            disabled={added || products.length === 0}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white/10 px-6 py-2.5 text-[13px] font-semibold text-white backdrop-blur-md transition hover:bg-white/20 ring-1 ring-white/20 disabled:opacity-50"
-          >
-            Só comprar uma vez
-          </button>
+          {/* Hint sutil de scroll, só quando há produtos suficientes pra
+              passar do viewport (3+). Mobile small height precisa do
+              cue visual. */}
+          {recommendations.length >= 3 ? (
+            <p className="mt-4 text-[11px] text-white/40">
+              ↑ role pra ver tudo
+            </p>
+          ) : null}
         </div>
       </div>
     </div>

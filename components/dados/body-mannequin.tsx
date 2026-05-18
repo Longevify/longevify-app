@@ -13,6 +13,7 @@ import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { PatientSex } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import { MannequinErrorBoundary } from "@/components/dados/mannequin-error-boundary";
 
 const PORCELAIN_COLOR = "#ECE5DA";
 
@@ -389,7 +390,20 @@ interface BodyMannequinProps {
 
 const GROUP_OFFSET_Y = -0.88; // centraliza model (height 1.77) em Y=0
 
-export function BodyMannequin({
+export function BodyMannequin(props: BodyMannequinProps) {
+  // ErrorBoundary local — se WebGL/Three.js crashar no mobile (causa
+  // mais provável dos "Algo deu errado" reportados por Lucas em
+  // /dados e na "Rever apresentação"), cai num fallback 2D estático
+  // em vez de derrubar a página inteira pelo error boundary do (app)
+  // route group.
+  return (
+    <MannequinErrorBoundary sex={props.sex}>
+      <BodyMannequinInner {...props} />
+    </MannequinErrorBoundary>
+  );
+}
+
+function BodyMannequinInner({
   sex,
   className,
   activeOrgan,
