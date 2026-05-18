@@ -1,61 +1,76 @@
 /**
- * Reconhecimento de comida a partir de foto.
+ * Reconhecimento de comida a partir de foto — arquitetura híbrida.
  *
- * Cadeia de providers com fallback em cascata (Lucas 2026-05+):
+ * Lucas (2026-05-18): "o unico pago que eu coloco é o GPT, o Logmeal e o
+ * fatsecret a gente coloca em um futuro distante. As opções grátis pode
+ * colocar se você achar que vai agregar para a identificação e analise."
  *
- *   1. Gemini 2.5 Flash (primário, gratuito até 1500 reqs/dia, ~1.5s)
- *   2. GPT-5 vision (~3s, ~$0.01/foto)
- *   3. Claude Sonnet 4.6 vision (~2-3s, ~$0.01/foto)
- *   4. Moonshot Kimi vision (~2-3s, barato — OpenAI-compatible)
- *   5. Hugging Face Llama 3.2 Vision (~3-5s, gratuito free tier —
- *      `HUGGINGFACE_API_KEY` já configurada no prod)
- *   6. Throws "AllProvidersFailedError" → route.ts retorna 503 com
- *      mensagem útil
+ * Pipeline:
  *
- * Ordenação: fastest+highest quality primeiro, mais lento+gratuito por
- * último. Cada provider missing key vira "skip" silencioso — não bloqueia
- * cascade. Single error de qualquer um cai pro próximo.
+ *   FOTO
+ *    │
+ *    ├─ ETAPA 1: identifyFood() — GPT-4o vision (detail:high, temperature:0)
+ *    │   → retorna lista [{name: "arroz branco", grams: 150, confidence: 0.9}, ...]
+ *    │   PROMPT SÓ pede identificação + porção. SEM calcular nutrientes.
+ *    │   (LLMs são fortes em ver comida, fracos em valores nutricionais exatos.)
+ *    │
+ *    └─ ETAPA 2: lookupNutritionCascade() — pra cada item em paralelo:
+ *        1) TACO local (NEPA/Unicamp, BR oficial, ~80 alimentos comuns)
+ *        2) USDA FoodData Central (API pública, 1.4M+ alimentos)
+ *        3) Open Food Facts (produtos industrializados, com filter BR)
+ *        4) Fallback: GPT-4o estima nutrientes em chamada adicional
+ *
+ * Trade-off: separar identify de nutrition adiciona 1-3s de latência total
+ * (lookup HTTP em USDA/OFF), mas GANHA muita precisão nutricional —
+ * valores oficiais BR + USDA verificados, não estimativa LLM. Para
+ * pratos BR comuns, TACO bate match instantâneo (< 1ms).
+ *
+ * Histórico: até PR #191 mantínhamos cascade Gemini→GPT→Claude→Moonshot→HF
+ * pra ter providers fallback. Lucas decidiu simplificar: SÓ GPT pago. Se
+ * GPT cair, retornamos erro friendly em vez de tentar provider inferior.
  */
 
 import type { FoodItem, Nutrients } from "./types";
+import {
+  lookupNutritionCascade,
+  summarizeSources,
+  type NutritionSource,
+} from "./nutrition-databases";
 
-const GEMINI_MODEL = "gemini-2.5-flash";
 // gpt-4o (não mini) — Lucas 2026-05-18 pediu maior precisão estilo Cal.ai.
 // Mini errava muito em pratos brasileiros mistos. gpt-4o vision é ~2-4×
 // melhor em food recognition + portion estimation. Custo sobe de
-// ~$0.0001/foto pra ~$0.005/foto, mas latência ainda fica ~3-5s
-// (dentro do timeout de 45s).
+// ~$0.0001/foto pra ~$0.005/foto.
 const OPENAI_MODEL = "gpt-4o";
-const ANTHROPIC_MODEL = "claude-sonnet-4-6";
-// Moonshot vision: `kimi-latest` retornava "404 Not found the model kimi-latest"
-// nos logs. O nome canônico do modelo vision é moonshot-v1-{8k,32k,128k}-vision-preview
-// — preview ainda mas disponível pra contas com vision liberado. 32k é o sweet
-// spot (~$0.5/M tokens, contexto suficiente pra imagem+resposta).
-const MOONSHOT_MODEL = "moonshot-v1-32k-vision-preview";
-const MOONSHOT_BASE_URL = "https://api.moonshot.ai/v1";
-// HuggingFace Inference Providers (router endpoint). Modelo Llama 3.2 Vision
-// Instruct é open source, free tier ~30 calls/dia. Boa qualidade pra reconhecer
-// pratos brasileiros comuns (treinou com web data PT-BR).
-const HUGGINGFACE_MODEL = "meta-llama/Llama-3.2-11B-Vision-Instruct";
-const HUGGINGFACE_BASE_URL =
-  "https://router.huggingface.co/v1";
 
-// Confidence média abaixo desse threshold → vai pro fallback
-const FALLBACK_CONFIDENCE_THRESHOLD = 0.6;
+// Para o "fallback de nutrientes via LLM" usamos gpt-4o-mini — mais barato
+// e suficiente pra valores aproximados quando TACO/USDA/OFF falham.
+const OPENAI_NUTRIENTS_FALLBACK_MODEL = "gpt-4o-mini";
 
-interface RecognizedItem {
+// ─── Types ──────────────────────────────────────────────────────────────────
+
+interface IdentifiedItem {
+  name: string;
+  grams: number;
+  confidence: number;
+}
+
+export interface RecognizedItem {
   name: string;
   grams: number;
   confidence: number;
   nutrients: Nutrients;
+  nutritionSource: NutritionSource;
+  matchedName?: string;
 }
 
-type Provider = "gemini" | "gpt-5" | "anthropic" | "moonshot" | "huggingface";
+type Provider = "gpt-4o" | "gpt-4o-mini-fallback";
 
 interface RecognitionResult {
   items: RecognizedItem[];
   provider: Provider;
-  fallbackReason?: string;
+  /** Estatísticas de fontes dos nutrientes — útil pra debug e UI ("8 itens do TACO, 2 do USDA"). */
+  nutritionSourceStats: Record<NutritionSource, number>;
 }
 
 export class AllProvidersFailedError extends Error {
@@ -64,25 +79,36 @@ export class AllProvidersFailedError extends Error {
     const summary = providerErrors
       .map((e) => `${e.provider}: ${e.message}`)
       .join(" | ");
-    super(`Todos os providers de visão falharam: ${summary}`);
+    super(`Reconhecimento de comida falhou: ${summary}`);
     this.name = "AllProvidersFailedError";
     this.providerErrors = providerErrors;
   }
 }
 
-// ─── Prompt compartilhado ──────────────────────────────────────────────────
+// ─── Prompt: SÓ identificação + porção ──────────────────────────────────────
+//
+// Diferente do prompt antigo, este NÃO pede nutrientes. Razões:
+//   1) LLMs estimam macros decentes mas micros muito mal (vits/minerais
+//      "inventados" sem base científica real)
+//   2) Foco do prompt em "ver bem o prato" → output mais consistente
+//   3) Resposta mais curta = mais barata + mais rápida (~30% redução)
 
-const RECOGNITION_INSTRUCTION = `Você é um nutricionista brasileiro experiente, treinado em fotografia de comida estilo Cal.ai. Sua especialidade é identificar PRATOS BRASILEIROS (feijoada, picadinho, escondidinho, bobó, baião, virado, etc.) e estimar porções com precisão.
+const IDENTIFICATION_PROMPT = `Você é um nutricionista brasileiro experiente, treinado em fotografia de comida estilo Cal.ai. Sua única tarefa AGORA: IDENTIFICAR os alimentos visíveis e ESTIMAR a porção de cada um em gramas. NÃO calcule nutrientes — outro sistema vai fazer isso.
 
-PROCESSO DE ANÁLISE — siga essas 3 etapas mentalmente antes de retornar:
+PROCESSO DE ANÁLISE — siga essas 2 etapas mentalmente:
 
 ETAPA 1 — IDENTIFICAÇÃO
 - Liste TODOS os alimentos distinguíveis na foto (mesmo os pequenos: pickles, ervas, azeite)
 - Use cores, texturas, formas pra distinguir alimentos parecidos (ex: arroz branco vs integral pela cor; carne moída vs picada pela textura)
-- Em pratos típicos BR: identifique o prato base (ex: "feijoada") E os componentes ("feijão preto", "carne seca", "linguiça", "couve refogada")
-- Em dúvida entre 2 alimentos similares, escolha o mais comum no contexto BR
+- Em pratos típicos BR: identifique componentes separados ("feijão preto cozido", "carne seca cozida", "linguiça", "couve manteiga refogada") — NÃO retorne o agregado ("feijoada")
+- Use nomes em PT-BR específicos:
+  • "Arroz branco cozido" (não só "arroz")
+  • "Frango grelhado, peito sem pele" (não só "frango")
+  • "Feijão preto cozido" (não só "feijão")
+  • "Pão francês" (não só "pão")
+- Se vir tempero/molho pequeno (<5g), INCLUA no item principal — não criar item separado
 
-ETAPA 2 — ESTIMATIVA DE PORÇÃO
+ETAPA 2 — ESTIMATIVA DE PORÇÃO (em gramas)
 Use referências visuais conhecidas:
 - Prato raso padrão BR: 26cm de diâmetro = ~500ml de capacidade
 - Prato fundo: 22cm, ~400ml
@@ -94,91 +120,56 @@ Use referências visuais conhecidas:
 - 1 banana média: ~120g | 1 maçã média: ~180g
 - Filé de frango do tamanho da palma: ~120g
 - 1 concha de feijão: ~80g (com caldo)
-- Arroz cozido cobrindo metade do prato: ~150g
+- Arroz cozido cobrindo metade do prato raso: ~150g
 
 Pense: "quanto isso ocupa do prato?" e "quão espessa é a camada?" pra calcular gramas.
 
-ETAPA 3 — NUTRIENTES
-Calcule os nutrientes pra GRAMAS REAIS estimadas (não por 100g). Use tabela TACO (brasileira) como base; USDA pra alimentos importados.
+CONFIDENCE (0-1):
+- 0.85-1.0: alimento óbvio e bem visível, porção clara
+- 0.6-0.85: alimento identificado mas porção estimada
+- 0.3-0.6: alimento ambíguo OU porção difícil de medir
+- 0.0-0.3: chute educado
 
-REGRAS RÍGIDAS:
-- Nomes em PT-BR específicos (ex: "Arroz branco cozido", não só "arroz"; "Frango grelhado peito sem pele")
-- Se vir cebola/temperos pequenos em quantidade trivial (<5g), INCLUA no item principal (não criar item separado)
-- Se prato típico BR (feijoada/baião/etc.), retorne componentes E não o conjunto agregado
-- confidence (0-1):
-  • 0.85-1.0: alimento óbvio e bem visível, porção clara
-  • 0.6-0.85: alimento identificado mas porção estimada
-  • 0.3-0.6: alimento ambíguo OU porção difícil de medir
-  • 0.0-0.3: chute educado
+REGRAS:
 - Foto borrada, sem comida, ou inviável → retorne items: []
 - NUNCA invente o que não está visível
-
-Valores nutricionais — preencha o que conseguir estimar:
-- calories (kcal), protein (g), carbs (g), fat (g) — SEMPRE
-- fiber, sugar, saturatedFat, cholesterol (mg), sodium (mg)
-- vitaminA (µg), vitaminD (µg), vitaminE (mg), vitaminK (µg)
-- vitaminC (mg), vitaminB1, vitaminB2, vitaminB3, vitaminB6 (mg), vitaminB9 (µg), vitaminB12 (µg)
-- calcium (mg), iron (mg), magnesium (mg), potassium (mg), zinc (mg), selenium (µg)
-- omega3 (g), choline (mg)
-
-Use referências TACO (Tabela Brasileira) ou USDA. Omita campo se for desprezível (<5% da DRI).
+- Preferir nomes que existam na Tabela Brasileira (TACO) ou USDA — vai facilitar lookup nutricional automático
 
 Retorne SOMENTE JSON no schema:
 {
   "items": [
-    {
-      "name": "string",
-      "grams": number,
-      "confidence": number,
-      "nutrients": {
-        "calories": number,
-        "protein": number,
-        "carbs": number,
-        "fat": number,
-        "fiber": number,
-        ...
-      }
-    }
+    { "name": "string", "grams": number, "confidence": number }
   ]
 }`;
 
-// ─── Helpers ──────────────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
 async function fileToBase64(file: File): Promise<string> {
   const buf = Buffer.from(await file.arrayBuffer());
   return buf.toString("base64");
 }
 
-function avgConfidence(items: RecognizedItem[]): number {
-  if (items.length === 0) return 0;
-  const sum = items.reduce((acc, it) => acc + (it.confidence ?? 0), 0);
-  return sum / items.length;
-}
-
-/** Parser tolerante — modelos às vezes envolvem JSON em ```json ... ``` */
 function extractJson(raw: string): unknown {
   const trimmed = raw.trim();
-  // Strip markdown fences se vierem
   const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
   const body = fenced ? fenced[1] : trimmed;
   return JSON.parse(body);
 }
 
-interface RawApiPayload {
+interface RawIdentifyPayload {
   items?: Array<{
     name?: unknown;
     grams?: unknown;
     confidence?: unknown;
-    nutrients?: Record<string, unknown>;
   }>;
 }
 
-function normalizeItems(payload: unknown): RecognizedItem[] {
+function parseIdentifiedItems(payload: unknown): IdentifiedItem[] {
   if (!payload || typeof payload !== "object") return [];
-  const p = payload as RawApiPayload;
+  const p = payload as RawIdentifyPayload;
   if (!Array.isArray(p.items)) return [];
   return p.items
-    .map((it): RecognizedItem | null => {
+    .map((it): IdentifiedItem | null => {
       if (!it || typeof it !== "object") return null;
       const name = typeof it.name === "string" ? it.name.trim() : null;
       const grams =
@@ -188,165 +179,42 @@ function normalizeItems(payload: unknown): RecognizedItem[] {
         typeof it.confidence === "number"
           ? Math.max(0, Math.min(1, it.confidence))
           : 0.5;
-      const nutrients = sanitizeNutrients(it.nutrients);
-      return { name, grams, confidence, nutrients };
+      return { name, grams, confidence };
     })
-    .filter((it): it is RecognizedItem => it !== null);
+    .filter((it): it is IdentifiedItem => it !== null);
 }
 
-const NUTRIENT_KEYS: (keyof Nutrients)[] = [
-  "calories",
-  "protein",
-  "carbs",
-  "fat",
-  "fiber",
-  "sugar",
-  "saturatedFat",
-  "cholesterol",
-  "sodium",
-  "vitaminA",
-  "vitaminD",
-  "vitaminE",
-  "vitaminK",
-  "vitaminC",
-  "vitaminB1",
-  "vitaminB2",
-  "vitaminB3",
-  "vitaminB6",
-  "vitaminB9",
-  "vitaminB12",
-  "calcium",
-  "iron",
-  "magnesium",
-  "potassium",
-  "zinc",
-  "selenium",
-  "omega3",
-  "choline",
-];
+// ─── Etapa 1: identificação via GPT-4o vision ───────────────────────────────
 
-function sanitizeNutrients(raw: Record<string, unknown> | undefined): Nutrients {
-  const out: Nutrients = {
-    calories: 0,
-    protein: 0,
-    carbs: 0,
-    fat: 0,
-  };
-  if (!raw || typeof raw !== "object") return out;
-  for (const key of NUTRIENT_KEYS) {
-    const v = raw[key];
-    if (typeof v === "number" && Number.isFinite(v) && v >= 0) {
-      out[key] = v;
-    }
-  }
-  return out;
-}
-
-// ─── Gemini 2.5 Flash ──────────────────────────────────────────────────────
-
-async function callGemini(
+async function identifyFood(
   apiKey: string,
   image: File,
-): Promise<RecognizedItem[]> {
-  const { GoogleGenAI, Type } = await import("@google/genai");
-  const client = new GoogleGenAI({ apiKey });
-
-  const base64 = await fileToBase64(image);
-  const mimeType = image.type || "image/jpeg";
-
-  // Schema explícito → Gemini garante JSON válido (response.text é parseable)
-  const nutrientsSchema = {
-    type: Type.OBJECT,
-    properties: Object.fromEntries(
-      NUTRIENT_KEYS.map((k) => [k, { type: Type.NUMBER }]),
-    ),
-    required: ["calories", "protein", "carbs", "fat"],
-  };
-
-  const response = await client.models.generateContent({
-    model: GEMINI_MODEL,
-    contents: [
-      {
-        role: "user",
-        parts: [
-          { text: RECOGNITION_INSTRUCTION },
-          { inlineData: { mimeType, data: base64 } },
-        ],
-      },
-    ],
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          items: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                name: { type: Type.STRING },
-                grams: { type: Type.NUMBER },
-                confidence: { type: Type.NUMBER },
-                nutrients: nutrientsSchema,
-              },
-              required: ["name", "grams", "confidence", "nutrients"],
-            },
-          },
-        },
-        required: ["items"],
-      },
-    },
-  });
-
-  const text = response.text ?? "";
-  return normalizeItems(extractJson(text));
-}
-
-// ─── OpenAI-compatible vision (GPT-5 e Moonshot Kimi compartilham SDK) ──────
-
-async function callOpenAICompatible({
-  apiKey,
-  model,
-  baseURL,
-  image,
-}: {
-  apiKey: string;
-  model: string;
-  baseURL?: string;
-  image: File;
-}): Promise<RecognizedItem[]> {
+): Promise<IdentifiedItem[]> {
   const { default: OpenAI } = await import("openai");
-  const client = new OpenAI({ apiKey, baseURL });
+  const client = new OpenAI({ apiKey });
 
   const base64 = await fileToBase64(image);
   const mimeType = image.type || "image/jpeg";
   const dataUrl = `data:${mimeType};base64,${base64}`;
 
   const completion = await client.chat.completions.create({
-    model,
+    model: OPENAI_MODEL,
     response_format: { type: "json_object" },
-    // temperature 0 → respostas determinísticas. Pra reconhecimento de
-    // alimento, NÃO queremos criatividade — queremos consistência (mesma
-    // foto, mesma análise). Lucas 2026-05-18: "tente ser mais certeiro".
     temperature: 0,
     messages: [
       {
         role: "system",
-        content: RECOGNITION_INSTRUCTION,
+        content: IDENTIFICATION_PROMPT,
       },
       {
         role: "user",
         content: [
           {
             type: "text",
-            text: "Analise essa refeição passo a passo (identificação → porção → nutrientes) e retorne SOMENTE o JSON. Lembre: usa as referências visuais (prato 26cm, colher 15g, etc.) pra estimar gramas.",
+            text: "Identifique os alimentos e estime a porção em gramas. Retorne SOMENTE o JSON.",
           },
           {
             type: "image_url",
-            // detail: "high" → OpenAI usa 765 tokens em vez de 85 pra
-            // analisar a imagem. Custa mais ($0.005 vs $0.001 por foto)
-            // mas a precisão sobe MUITO em identificação e estimativa de
-            // porção. Cal.ai usa essa estratégia.
             image_url: { url: dataUrl, detail: "high" },
           },
         ],
@@ -355,107 +223,74 @@ async function callOpenAICompatible({
   });
 
   const content = completion.choices[0]?.message?.content ?? "";
-  return normalizeItems(extractJson(content));
+  return parseIdentifiedItems(extractJson(content));
 }
 
-async function callOpenAI(apiKey: string, image: File) {
-  return callOpenAICompatible({ apiKey, model: OPENAI_MODEL, image });
-}
+// ─── Etapa 2 (fallback): nutrientes via GPT-4o-mini quando TACO/USDA/OFF falham ─
 
-async function callMoonshot(apiKey: string, image: File) {
-  return callOpenAICompatible({
-    apiKey,
-    model: MOONSHOT_MODEL,
-    baseURL: MOONSHOT_BASE_URL,
-    image,
-  });
+const NUTRIENT_FALLBACK_PROMPT = `Você é um nutricionista. Dado o alimento e a quantidade em gramas, retorne os nutrientes ESTIMADOS PARA AQUELA QUANTIDADE EXATA (não por 100g). Use referências TACO (Brasil) e USDA. Retorne SOMENTE JSON no schema:
+{
+  "calories": number,
+  "protein": number,
+  "carbs": number,
+  "fat": number,
+  "fiber": number,
+  "sugar": number,
+  "saturatedFat": number,
+  "cholesterol": number,
+  "sodium": number
 }
+Omita campo se for desprezível. Valores devem ser pra a quantidade pedida, não por 100g.`;
 
-// ─── HuggingFace Inference Providers ───────────────────────────────────────
-//
-// HF tem um router OpenAI-compatible que aceita o mesmo formato que GPT-5 /
-// Moonshot. Modelo Llama 3.2 11B Vision Instruct é grátis no free tier
-// (com rate limit), bom o suficiente pra fallback final.
-async function callHuggingFace(apiKey: string, image: File) {
-  return callOpenAICompatible({
-    apiKey,
-    model: HUGGINGFACE_MODEL,
-    baseURL: HUGGINGFACE_BASE_URL,
-    image,
-  });
-}
-
-// ─── Anthropic Claude vision ───────────────────────────────────────────────
-//
-// SDK próprio (não-OpenAI-compatible). Claude Sonnet 4.6 tem vision nativo,
-// excelente em interpretação de imagens (com structured output via tool use
-// ou parsing direto). Aqui fazemos parsing direto do response text — mais
-// simples e barato (tool use cobra extra tokens).
-async function callAnthropic(
+async function estimateNutrientsViaLLM(
   apiKey: string,
-  image: File,
-): Promise<RecognizedItem[]> {
-  const { default: Anthropic } = await import("@anthropic-ai/sdk");
-  const client = new Anthropic({ apiKey });
+  name: string,
+  grams: number,
+): Promise<Nutrients | null> {
+  try {
+    const { default: OpenAI } = await import("openai");
+    const client = new OpenAI({ apiKey });
 
-  const base64 = await fileToBase64(image);
-  const mimeType = image.type || "image/jpeg";
+    const completion = await client.chat.completions.create({
+      model: OPENAI_NUTRIENTS_FALLBACK_MODEL,
+      response_format: { type: "json_object" },
+      temperature: 0,
+      messages: [
+        { role: "system", content: NUTRIENT_FALLBACK_PROMPT },
+        { role: "user", content: `Alimento: ${name}\nQuantidade: ${grams}g` },
+      ],
+    });
 
-  const response = await client.messages.create({
-    model: ANTHROPIC_MODEL,
-    max_tokens: 4096,
-    system: RECOGNITION_INSTRUCTION,
-    messages: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "image",
-            source: {
-              type: "base64",
-              media_type: mimeType as
-                | "image/jpeg"
-                | "image/png"
-                | "image/webp"
-                | "image/gif",
-              data: base64,
-            },
-          },
-          {
-            type: "text",
-            text: "Analise essa refeição e retorne o JSON conforme as instruções. SOMENTE o JSON, sem texto antes ou depois.",
-          },
-        ],
-      },
-    ],
-  });
+    const content = completion.choices[0]?.message?.content ?? "{}";
+    const parsed = JSON.parse(content) as Record<string, unknown>;
+    const num = (v: unknown): number =>
+      typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : 0;
 
-  // Extrai texto do response (Claude pode retornar múltiplos blocks).
-  // Filter por type === "text" e cast — o SDK tipa estrito (TextBlock,
-  // ThinkingBlock, etc.) mas só queremos a text aqui.
-  const text = response.content
-    .filter((block) => block.type === "text")
-    .map((b) => (b as { text: string }).text)
-    .join("");
-
-  return normalizeItems(extractJson(text));
+    return {
+      calories: num(parsed.calories),
+      protein: num(parsed.protein),
+      carbs: num(parsed.carbs),
+      fat: num(parsed.fat),
+      fiber: num(parsed.fiber),
+      sugar: num(parsed.sugar),
+      saturatedFat: num(parsed.saturatedFat),
+      cholesterol: num(parsed.cholesterol),
+      sodium: num(parsed.sodium),
+    };
+  } catch (err) {
+    console.warn(`[LLM-nutrients-fallback] falhou pra ${name}:`, err);
+    return null;
+  }
 }
 
 // ─── Orchestrator ───────────────────────────────────────────────────────────
 
 /**
- * Reconhece os itens de uma foto de refeição.
+ * Pipeline completo: foto → itens identificados + nutrientes do BD.
  *
- * Lucas (2026-05-17): "Deixe o OpenAI como unico modelo no momento,
- * depois eu adiciono o gemini."
- *
- * Estratégia simplificada:
- *   - SÓ usa OpenAI GPT-5 vision (OPENAI_API_KEY)
- *   - Sem cascade — se OpenAI falhar, retorna AllProvidersFailedError
- *
- * Os helpers de cascade (callGemini/callAnthropic/callMoonshot/
- * callHuggingFace) ficam preservados no arquivo pra quando Lucas
- * quiser reativar — basta voltar a lista `enabledProviders` aqui.
+ * 1. identifyFood() via GPT-4o vision → lista de items + gramas
+ * 2. Pra cada item: lookupNutritionCascade() (TACO → USDA → OFF) em paralelo
+ * 3. Se cascade falhar pra algum item: fallback LLM estima nutrientes
  */
 export async function recognizeFoodPhoto(
   image: File,
@@ -464,24 +299,75 @@ export async function recognizeFoodPhoto(
   const errors: Array<{ provider: Provider; message: string }> = [];
 
   if (!openaiKey) {
-    errors.push({ provider: "gpt-5", message: "OPENAI_API_KEY ausente" });
+    errors.push({ provider: "gpt-4o", message: "OPENAI_API_KEY ausente" });
     throw new AllProvidersFailedError(errors);
   }
 
+  // ── Etapa 1: identifica os alimentos ──
+  let identified: IdentifiedItem[];
   try {
-    const items = await callOpenAI(openaiKey, image);
-    if (items.length > 0) {
-      return { items, provider: "gpt-5" };
-    }
-    errors.push({ provider: "gpt-5", message: "retornou 0 itens" });
+    identified = await identifyFood(openaiKey, image);
   } catch (err) {
     errors.push({
-      provider: "gpt-5",
+      provider: "gpt-4o",
       message: err instanceof Error ? err.message : "erro desconhecido",
     });
+    throw new AllProvidersFailedError(errors);
   }
 
-  throw new AllProvidersFailedError(errors);
+  if (identified.length === 0) {
+    errors.push({
+      provider: "gpt-4o",
+      message: "Nenhum alimento identificado na foto",
+    });
+    throw new AllProvidersFailedError(errors);
+  }
+
+  // ── Etapa 2: lookup de nutrientes em cascade pra cada item, paralelo ──
+  const lookupResults = await Promise.all(
+    identified.map((it) => lookupNutritionCascade(it.name, it.grams)),
+  );
+
+  // ── Etapa 3: pra items sem match no cascade, fallback LLM ──
+  const items: RecognizedItem[] = await Promise.all(
+    identified.map(async (it, idx): Promise<RecognizedItem> => {
+      const lookup = lookupResults[idx];
+      if (lookup) {
+        return {
+          name: it.name,
+          grams: it.grams,
+          confidence: it.confidence,
+          nutrients: lookup.nutrients,
+          nutritionSource: lookup.source,
+          matchedName: lookup.matchedName,
+        };
+      }
+      // Cascade falhou → tentar LLM fallback
+      const llmEstimate = await estimateNutrientsViaLLM(
+        openaiKey,
+        it.name,
+        it.grams,
+      );
+      return {
+        name: it.name,
+        grams: it.grams,
+        confidence: it.confidence,
+        nutrients: llmEstimate ?? {
+          calories: 0,
+          protein: 0,
+          carbs: 0,
+          fat: 0,
+        },
+        nutritionSource: llmEstimate ? "llm" : "none",
+      };
+    }),
+  );
+
+  return {
+    items,
+    provider: "gpt-4o",
+    nutritionSourceStats: summarizeSources(lookupResults),
+  };
 }
 
 /** Converte RecognizedItem[] pra FoodItem[] (modelo de domínio do app). */

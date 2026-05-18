@@ -9,22 +9,30 @@ import {
 /**
  * POST /api/dieta/recognize-photo
  *
- * Recebe FormData com `image` (foto do prato). Pipeline (Lucas 2026-05):
- *   - Gemini 2.5 Flash primeiro (rápido, grátis até 1500/dia)
- *   - GPT-5 vision como fallback quando confidence baixa ou erro
+ * Recebe FormData com `image` (foto do prato). Pipeline híbrido
+ * (Lucas 2026-05-18 — "o único pago que coloco é o GPT, opções grátis
+ * pode adicionar se agregar"):
+ *
+ *   1. GPT-4o vision (detail:high, temperature:0) — identifica alimentos
+ *      e estima porção em gramas. SÓ identificação, sem nutrientes.
+ *   2. Pra cada alimento, lookup cascade em bases gratuitas:
+ *      a) TACO local (Tabela Brasileira oficial, ~80 alimentos comuns)
+ *      b) USDA FoodData Central API (1.4M alimentos)
+ *      c) Open Food Facts (produtos industrializados, prefer BR)
+ *   3. Fallback LLM (gpt-4o-mini) se cascade falhar.
  *
  * Resposta:
  *   {
  *     items: FoodItem[],
  *     totalNutrients: Nutrients,
- *     provider: "gemini" | "gpt-5",
- *     fallbackReason?: string  // só presente se houve fallback
+ *     provider: "gpt-4o",
+ *     nutritionSourceStats: { taco: n, usda: n, openfoodfacts: n, llm: n, none: n }
  *   }
  *
  * Limites:
  *   - Arquivo max 4MB (Vercel function payload limit padrão 4.5MB; 4MB
  *     dá margem). Se passar, user precisa comprimir antes de enviar.
- *   - Tipos aceitos: image/jpeg, image/png, image/webp, image/heic.
+ *   - Tipos aceitos: image/jpeg, image/png, image/webp. HEIC bloqueado.
  */
 
 const MAX_BYTES = 4 * 1024 * 1024; // 4 MB
@@ -102,7 +110,7 @@ export async function POST(request: Request) {
           items: [],
           totalNutrients: sumNutrients([]),
           provider: result.provider,
-          fallbackReason: result.fallbackReason,
+          nutritionSourceStats: result.nutritionSourceStats,
           note: "Nenhum alimento identificado na foto. Tenta outra foto mais nítida ou usa o input de texto.",
         },
         { status: 200 },
@@ -118,14 +126,14 @@ export async function POST(request: Request) {
       avgConfidence:
         result.items.reduce((s, it) => s + it.confidence, 0) /
         result.items.length,
-      fallbackReason: result.fallbackReason,
+      nutritionSourceStats: result.nutritionSourceStats,
     });
 
     return NextResponse.json({
       items: foodItems,
       totalNutrients: sumNutrients(foodItems),
       provider: result.provider,
-      fallbackReason: result.fallbackReason,
+      nutritionSourceStats: result.nutritionSourceStats,
     });
   } catch (err) {
     if (err instanceof AllProvidersFailedError) {

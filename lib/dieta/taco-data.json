@@ -1,0 +1,1330 @@
+{
+  "_meta": {
+    "source": "Tabela Brasileira de Composição de Alimentos (TACO), NEPA/UNICAMP, 4ª edição (2011)",
+    "license": "Dados públicos (domínio do governo brasileiro)",
+    "unit": "Valores por 100g de alimento (porção edível)",
+    "notes": "Curadoria parcial — top 80 alimentos mais comuns em refeições brasileiras. Expandir conforme necessidade. Aliases pra match flexível de nomes retornados pelo GPT-4o.",
+    "version": "1.0.0",
+    "lastUpdated": "2026-05-18"
+  },
+  "foods": [
+    {
+      "id": "arroz-branco-cozido",
+      "name": "Arroz branco cozido",
+      "category": "cereais",
+      "aliases": ["arroz", "arroz branco", "arroz cozido", "rice", "white rice"],
+      "per100g": {
+        "calories": 128,
+        "protein": 2.5,
+        "carbs": 28.1,
+        "fat": 0.2,
+        "fiber": 1.6,
+        "calcium": 4,
+        "iron": 0.1,
+        "magnesium": 2,
+        "potassium": 15,
+        "sodium": 1,
+        "zinc": 0.5,
+        "vitaminB1": 0.02,
+        "vitaminB2": 0.02,
+        "vitaminB3": 0.2,
+        "vitaminB6": 0.04,
+        "vitaminB9": 7
+      }
+    },
+    {
+      "id": "arroz-integral-cozido",
+      "name": "Arroz integral cozido",
+      "category": "cereais",
+      "aliases": ["arroz integral", "brown rice", "arroz integral cozido"],
+      "per100g": {
+        "calories": 124,
+        "protein": 2.6,
+        "carbs": 25.8,
+        "fat": 1.0,
+        "fiber": 2.7,
+        "calcium": 5,
+        "iron": 0.3,
+        "magnesium": 59,
+        "potassium": 75,
+        "sodium": 1,
+        "zinc": 0.7,
+        "vitaminB1": 0.08,
+        "vitaminB2": 0.02,
+        "vitaminB3": 0.85,
+        "vitaminB6": 0.13
+      }
+    },
+    {
+      "id": "feijao-preto-cozido",
+      "name": "Feijão preto cozido",
+      "category": "leguminosas",
+      "aliases": ["feijão", "feijão preto", "feijao preto", "feijão com caldo", "feijao", "black beans"],
+      "per100g": {
+        "calories": 77,
+        "protein": 4.5,
+        "carbs": 14.0,
+        "fat": 0.5,
+        "fiber": 8.4,
+        "calcium": 29,
+        "iron": 1.5,
+        "magnesium": 40,
+        "potassium": 256,
+        "sodium": 2,
+        "zinc": 0.7,
+        "vitaminB1": 0.07,
+        "vitaminB2": 0.05,
+        "vitaminB9": 71
+      }
+    },
+    {
+      "id": "feijao-carioca-cozido",
+      "name": "Feijão carioca cozido",
+      "category": "leguminosas",
+      "aliases": ["feijão carioca", "feijao carioca", "feijão mulatinho", "pinto beans"],
+      "per100g": {
+        "calories": 76,
+        "protein": 4.8,
+        "carbs": 13.6,
+        "fat": 0.5,
+        "fiber": 8.5,
+        "calcium": 27,
+        "iron": 1.3,
+        "magnesium": 42,
+        "potassium": 255,
+        "sodium": 2,
+        "zinc": 0.6,
+        "vitaminB1": 0.06,
+        "vitaminB2": 0.04,
+        "vitaminB9": 78
+      }
+    },
+    {
+      "id": "feijao-fradinho-cozido",
+      "name": "Feijão fradinho cozido",
+      "category": "leguminosas",
+      "aliases": ["feijão fradinho", "feijao fradinho", "feijão de corda", "black-eyed peas"],
+      "per100g": {
+        "calories": 102,
+        "protein": 7.3,
+        "carbs": 18.4,
+        "fat": 0.4,
+        "fiber": 5.6,
+        "calcium": 24,
+        "iron": 0.7,
+        "magnesium": 24,
+        "potassium": 187,
+        "vitaminB9": 100
+      }
+    },
+    {
+      "id": "lentilha-cozida",
+      "name": "Lentilha cozida",
+      "category": "leguminosas",
+      "aliases": ["lentilha", "lentil", "lentilha cozida"],
+      "per100g": {
+        "calories": 93,
+        "protein": 6.3,
+        "carbs": 16.3,
+        "fat": 0.5,
+        "fiber": 7.9,
+        "calcium": 16,
+        "iron": 1.5,
+        "magnesium": 22,
+        "potassium": 220,
+        "vitaminB9": 181
+      }
+    },
+    {
+      "id": "grao-de-bico-cozido",
+      "name": "Grão de bico cozido",
+      "category": "leguminosas",
+      "aliases": ["grão de bico", "grao de bico", "chickpea", "chickpeas", "grão-de-bico"],
+      "per100g": {
+        "calories": 121,
+        "protein": 5.0,
+        "carbs": 21.2,
+        "fat": 2.1,
+        "fiber": 7.6,
+        "calcium": 30,
+        "iron": 1.5,
+        "magnesium": 30,
+        "potassium": 200,
+        "vitaminB9": 172
+      }
+    },
+    {
+      "id": "frango-grelhado-peito",
+      "name": "Frango grelhado, peito sem pele",
+      "category": "carnes",
+      "aliases": ["frango", "frango grelhado", "peito de frango", "filé de frango", "filet de frango", "chicken breast", "chicken"],
+      "per100g": {
+        "calories": 159,
+        "protein": 32.0,
+        "carbs": 0,
+        "fat": 3.2,
+        "iron": 0.4,
+        "magnesium": 27,
+        "potassium": 273,
+        "sodium": 81,
+        "zinc": 0.9,
+        "vitaminB3": 14.8,
+        "vitaminB6": 0.55,
+        "vitaminB12": 0.3,
+        "cholesterol": 99,
+        "saturatedFat": 0.9
+      }
+    },
+    {
+      "id": "frango-coxa-assada",
+      "name": "Frango assado, coxa com pele",
+      "category": "carnes",
+      "aliases": ["coxa de frango", "coxa", "sobrecoxa", "frango assado", "chicken thigh"],
+      "per100g": {
+        "calories": 215,
+        "protein": 26.0,
+        "carbs": 0,
+        "fat": 12.0,
+        "iron": 1.1,
+        "potassium": 200,
+        "sodium": 78,
+        "zinc": 2.1,
+        "vitaminB12": 0.3,
+        "cholesterol": 130,
+        "saturatedFat": 3.4
+      }
+    },
+    {
+      "id": "carne-bovina-grelhada",
+      "name": "Carne bovina, contrafilé grelhado",
+      "category": "carnes",
+      "aliases": ["bife", "carne", "carne bovina", "contrafilé", "contra filé", "filé", "steak", "beef"],
+      "per100g": {
+        "calories": 220,
+        "protein": 32.4,
+        "carbs": 0,
+        "fat": 9.8,
+        "iron": 2.7,
+        "magnesium": 23,
+        "potassium": 339,
+        "sodium": 58,
+        "zinc": 7.0,
+        "vitaminB12": 2.0,
+        "cholesterol": 80,
+        "saturatedFat": 3.8
+      }
+    },
+    {
+      "id": "carne-moida-cozida",
+      "name": "Carne bovina, moída cozida",
+      "category": "carnes",
+      "aliases": ["carne moída", "carne moida", "moída", "ground beef", "carne picada"],
+      "per100g": {
+        "calories": 212,
+        "protein": 27.0,
+        "carbs": 0,
+        "fat": 11.0,
+        "iron": 2.5,
+        "zinc": 6.0,
+        "vitaminB12": 2.5,
+        "cholesterol": 87,
+        "saturatedFat": 4.2
+      }
+    },
+    {
+      "id": "carne-seca-cozida",
+      "name": "Carne seca cozida",
+      "category": "carnes",
+      "aliases": ["carne seca", "charque", "carne de sol", "jabá"],
+      "per100g": {
+        "calories": 250,
+        "protein": 32.0,
+        "carbs": 0,
+        "fat": 13.0,
+        "iron": 4.6,
+        "sodium": 1810,
+        "zinc": 5.0,
+        "cholesterol": 75
+      }
+    },
+    {
+      "id": "linguica-toscana-cozida",
+      "name": "Linguiça toscana cozida",
+      "category": "carnes",
+      "aliases": ["linguiça", "linguica", "linguiça toscana", "sausage"],
+      "per100g": {
+        "calories": 282,
+        "protein": 14.3,
+        "carbs": 1.1,
+        "fat": 24.7,
+        "iron": 1.4,
+        "sodium": 1120,
+        "cholesterol": 65,
+        "saturatedFat": 9.0
+      }
+    },
+    {
+      "id": "ovo-galinha-cozido",
+      "name": "Ovo de galinha cozido",
+      "category": "ovos",
+      "aliases": ["ovo", "ovo cozido", "ovo de galinha", "egg", "egg boiled"],
+      "per100g": {
+        "calories": 146,
+        "protein": 13.3,
+        "carbs": 0.6,
+        "fat": 9.5,
+        "calcium": 49,
+        "iron": 1.2,
+        "potassium": 130,
+        "sodium": 140,
+        "zinc": 1.1,
+        "vitaminA": 156,
+        "vitaminD": 2.0,
+        "vitaminB12": 1.1,
+        "vitaminB9": 47,
+        "cholesterol": 397,
+        "saturatedFat": 2.8,
+        "choline": 294
+      }
+    },
+    {
+      "id": "ovo-galinha-frito",
+      "name": "Ovo de galinha frito",
+      "category": "ovos",
+      "aliases": ["ovo frito", "fried egg"],
+      "per100g": {
+        "calories": 240,
+        "protein": 13.6,
+        "carbs": 1.5,
+        "fat": 19.8,
+        "calcium": 62,
+        "iron": 1.6,
+        "vitaminA": 200,
+        "vitaminD": 1.9,
+        "cholesterol": 415,
+        "saturatedFat": 4.2,
+        "choline": 280
+      }
+    },
+    {
+      "id": "salmao-grelhado",
+      "name": "Salmão grelhado",
+      "category": "peixes",
+      "aliases": ["salmão", "salmao", "salmon", "salmão grelhado"],
+      "per100g": {
+        "calories": 214,
+        "protein": 23.0,
+        "carbs": 0,
+        "fat": 13.5,
+        "iron": 0.4,
+        "potassium": 470,
+        "sodium": 55,
+        "selenium": 36,
+        "vitaminD": 11.0,
+        "vitaminB12": 2.8,
+        "omega3": 2.3,
+        "cholesterol": 65,
+        "saturatedFat": 2.6
+      }
+    },
+    {
+      "id": "atum-em-conserva",
+      "name": "Atum em conserva, em óleo",
+      "category": "peixes",
+      "aliases": ["atum", "atum em conserva", "tuna", "atum em óleo"],
+      "per100g": {
+        "calories": 167,
+        "protein": 24.6,
+        "carbs": 0,
+        "fat": 7.0,
+        "sodium": 408,
+        "selenium": 67,
+        "vitaminD": 6.8,
+        "vitaminB12": 4.0,
+        "omega3": 0.7,
+        "cholesterol": 30
+      }
+    },
+    {
+      "id": "tilapia-grelhada",
+      "name": "Tilápia grelhada",
+      "category": "peixes",
+      "aliases": ["tilápia", "tilapia", "filé de tilápia", "filé de peixe", "peixe grelhado", "fish"],
+      "per100g": {
+        "calories": 128,
+        "protein": 26.0,
+        "carbs": 0,
+        "fat": 2.7,
+        "potassium": 380,
+        "selenium": 54,
+        "vitaminB12": 1.9,
+        "cholesterol": 57,
+        "saturatedFat": 0.9
+      }
+    },
+    {
+      "id": "sardinha-em-conserva",
+      "name": "Sardinha em conserva",
+      "category": "peixes",
+      "aliases": ["sardinha", "sardine", "sardinha em lata"],
+      "per100g": {
+        "calories": 208,
+        "protein": 25.0,
+        "carbs": 0,
+        "fat": 11.5,
+        "calcium": 382,
+        "iron": 2.9,
+        "sodium": 500,
+        "vitaminD": 4.8,
+        "vitaminB12": 8.9,
+        "omega3": 1.5,
+        "cholesterol": 142
+      }
+    },
+    {
+      "id": "leite-integral",
+      "name": "Leite de vaca integral",
+      "category": "laticinios",
+      "aliases": ["leite", "leite integral", "milk", "leite de vaca"],
+      "per100g": {
+        "calories": 61,
+        "protein": 2.9,
+        "carbs": 4.3,
+        "fat": 3.5,
+        "calcium": 123,
+        "potassium": 152,
+        "sodium": 50,
+        "vitaminA": 56,
+        "vitaminB12": 0.4,
+        "cholesterol": 11,
+        "saturatedFat": 2.0,
+        "sugar": 4.3
+      }
+    },
+    {
+      "id": "iogurte-natural",
+      "name": "Iogurte natural integral",
+      "category": "laticinios",
+      "aliases": ["iogurte", "iogurte natural", "yogurt"],
+      "per100g": {
+        "calories": 51,
+        "protein": 4.1,
+        "carbs": 1.9,
+        "fat": 3.0,
+        "calcium": 143,
+        "potassium": 188,
+        "sodium": 40,
+        "vitaminB2": 0.14,
+        "vitaminB12": 0.4,
+        "saturatedFat": 1.7
+      }
+    },
+    {
+      "id": "queijo-minas-frescal",
+      "name": "Queijo minas frescal",
+      "category": "laticinios",
+      "aliases": ["queijo minas", "queijo branco", "queijo minas frescal"],
+      "per100g": {
+        "calories": 264,
+        "protein": 17.4,
+        "carbs": 3.2,
+        "fat": 20.2,
+        "calcium": 579,
+        "sodium": 346,
+        "vitaminA": 207,
+        "cholesterol": 62,
+        "saturatedFat": 12.3
+      }
+    },
+    {
+      "id": "queijo-mussarela",
+      "name": "Queijo mussarela",
+      "category": "laticinios",
+      "aliases": ["mussarela", "muçarela", "queijo mussarela", "mozzarella"],
+      "per100g": {
+        "calories": 330,
+        "protein": 22.6,
+        "carbs": 3.0,
+        "fat": 25.0,
+        "calcium": 875,
+        "sodium": 528,
+        "saturatedFat": 14.5,
+        "cholesterol": 89
+      }
+    },
+    {
+      "id": "requeijao",
+      "name": "Requeijão cremoso",
+      "category": "laticinios",
+      "aliases": ["requeijão", "requeijao", "requeijão cremoso", "cream cheese"],
+      "per100g": {
+        "calories": 257,
+        "protein": 9.0,
+        "carbs": 4.1,
+        "fat": 23.4,
+        "calcium": 250,
+        "sodium": 562,
+        "saturatedFat": 14.8,
+        "cholesterol": 76
+      }
+    },
+    {
+      "id": "pao-frances",
+      "name": "Pão francês",
+      "category": "paes",
+      "aliases": ["pão", "pão francês", "pao frances", "pão de sal", "french bread", "pãozinho"],
+      "per100g": {
+        "calories": 300,
+        "protein": 8.0,
+        "carbs": 58.6,
+        "fat": 3.1,
+        "fiber": 2.3,
+        "iron": 1.5,
+        "sodium": 643,
+        "calcium": 16
+      }
+    },
+    {
+      "id": "pao-forma-integral",
+      "name": "Pão de forma integral",
+      "category": "paes",
+      "aliases": ["pão integral", "pão de forma", "pão de forma integral", "whole wheat bread"],
+      "per100g": {
+        "calories": 253,
+        "protein": 9.4,
+        "carbs": 49.9,
+        "fat": 3.0,
+        "fiber": 6.9,
+        "iron": 2.4,
+        "sodium": 461
+      }
+    },
+    {
+      "id": "pao-de-queijo",
+      "name": "Pão de queijo",
+      "category": "paes",
+      "aliases": ["pão de queijo", "pao de queijo", "brazilian cheese bread"],
+      "per100g": {
+        "calories": 363,
+        "protein": 8.5,
+        "carbs": 49.3,
+        "fat": 14.0,
+        "calcium": 110,
+        "sodium": 459,
+        "saturatedFat": 5.8,
+        "cholesterol": 52
+      }
+    },
+    {
+      "id": "macarrao-cozido",
+      "name": "Macarrão cozido",
+      "category": "cereais",
+      "aliases": ["macarrão", "macarrao", "espaguete", "pasta", "macarrão cozido"],
+      "per100g": {
+        "calories": 158,
+        "protein": 6.5,
+        "carbs": 30.9,
+        "fat": 0.9,
+        "fiber": 1.8,
+        "iron": 0.5,
+        "sodium": 1
+      }
+    },
+    {
+      "id": "batata-cozida",
+      "name": "Batata inglesa cozida",
+      "category": "tuberculos",
+      "aliases": ["batata", "batata inglesa", "batata cozida", "potato"],
+      "per100g": {
+        "calories": 52,
+        "protein": 1.2,
+        "carbs": 11.9,
+        "fat": 0,
+        "fiber": 1.3,
+        "potassium": 302,
+        "vitaminC": 6.3,
+        "vitaminB6": 0.18
+      }
+    },
+    {
+      "id": "batata-frita",
+      "name": "Batata frita (fritura profunda)",
+      "category": "tuberculos",
+      "aliases": ["batata frita", "fritas", "french fries", "batata frita comum"],
+      "per100g": {
+        "calories": 312,
+        "protein": 3.4,
+        "carbs": 37.0,
+        "fat": 17.1,
+        "fiber": 3.0,
+        "potassium": 540,
+        "sodium": 210,
+        "saturatedFat": 3.2
+      }
+    },
+    {
+      "id": "batata-doce-cozida",
+      "name": "Batata doce cozida",
+      "category": "tuberculos",
+      "aliases": ["batata doce", "sweet potato", "batata-doce"],
+      "per100g": {
+        "calories": 77,
+        "protein": 0.6,
+        "carbs": 18.4,
+        "fat": 0.1,
+        "fiber": 2.2,
+        "potassium": 230,
+        "vitaminA": 384,
+        "vitaminC": 24.6
+      }
+    },
+    {
+      "id": "mandioca-cozida",
+      "name": "Mandioca cozida",
+      "category": "tuberculos",
+      "aliases": ["mandioca", "aipim", "macaxeira", "cassava", "yuca"],
+      "per100g": {
+        "calories": 125,
+        "protein": 0.6,
+        "carbs": 30.1,
+        "fat": 0.3,
+        "fiber": 1.6,
+        "potassium": 230,
+        "vitaminC": 16.5
+      }
+    },
+    {
+      "id": "banana-nanica",
+      "name": "Banana nanica",
+      "category": "frutas",
+      "aliases": ["banana", "banana nanica", "banana d'água", "banana caturra", "banana branca"],
+      "per100g": {
+        "calories": 92,
+        "protein": 1.4,
+        "carbs": 23.8,
+        "fat": 0.1,
+        "fiber": 1.9,
+        "potassium": 376,
+        "magnesium": 28,
+        "vitaminB6": 0.4,
+        "vitaminC": 6.4,
+        "sugar": 12.2
+      }
+    },
+    {
+      "id": "maca",
+      "name": "Maçã",
+      "category": "frutas",
+      "aliases": ["maçã", "maca", "apple", "maçã fuji", "maçã gala"],
+      "per100g": {
+        "calories": 56,
+        "protein": 0.3,
+        "carbs": 15.2,
+        "fat": 0,
+        "fiber": 1.3,
+        "potassium": 117,
+        "vitaminC": 2.4,
+        "sugar": 11.5
+      }
+    },
+    {
+      "id": "laranja-pera",
+      "name": "Laranja pera",
+      "category": "frutas",
+      "aliases": ["laranja", "orange", "laranja pera", "laranja lima"],
+      "per100g": {
+        "calories": 37,
+        "protein": 1.0,
+        "carbs": 8.9,
+        "fat": 0.1,
+        "fiber": 0.8,
+        "calcium": 36,
+        "potassium": 163,
+        "vitaminC": 53.7,
+        "vitaminB9": 30,
+        "sugar": 7.0
+      }
+    },
+    {
+      "id": "mamao-papaya",
+      "name": "Mamão papaya",
+      "category": "frutas",
+      "aliases": ["mamão", "mamao", "mamão papaya", "papaya"],
+      "per100g": {
+        "calories": 40,
+        "protein": 0.5,
+        "carbs": 10.4,
+        "fat": 0.1,
+        "fiber": 1.8,
+        "calcium": 25,
+        "vitaminA": 91,
+        "vitaminC": 82.5,
+        "sugar": 7.8
+      }
+    },
+    {
+      "id": "manga-palmer",
+      "name": "Manga palmer",
+      "category": "frutas",
+      "aliases": ["manga", "mango", "manga rosa", "manga espada", "manga tommy"],
+      "per100g": {
+        "calories": 72,
+        "protein": 0.9,
+        "carbs": 19.4,
+        "fat": 0.2,
+        "fiber": 1.6,
+        "potassium": 138,
+        "vitaminA": 54,
+        "vitaminC": 27.7,
+        "sugar": 14.0
+      }
+    },
+    {
+      "id": "abacate",
+      "name": "Abacate",
+      "category": "frutas",
+      "aliases": ["abacate", "avocado", "guacamole"],
+      "per100g": {
+        "calories": 96,
+        "protein": 1.2,
+        "carbs": 6.0,
+        "fat": 8.4,
+        "fiber": 6.3,
+        "potassium": 206,
+        "magnesium": 15,
+        "vitaminE": 1.9,
+        "vitaminK": 21,
+        "vitaminB9": 11,
+        "saturatedFat": 1.2,
+        "omega3": 0.1
+      }
+    },
+    {
+      "id": "morango",
+      "name": "Morango",
+      "category": "frutas",
+      "aliases": ["morango", "strawberry", "morangos"],
+      "per100g": {
+        "calories": 30,
+        "protein": 0.9,
+        "carbs": 6.8,
+        "fat": 0.3,
+        "fiber": 1.7,
+        "potassium": 165,
+        "vitaminC": 63.6,
+        "vitaminB9": 24,
+        "sugar": 4.9
+      }
+    },
+    {
+      "id": "uva-italia",
+      "name": "Uva itália",
+      "category": "frutas",
+      "aliases": ["uva", "grape", "uva itália", "uva niágara", "uva rubi"],
+      "per100g": {
+        "calories": 53,
+        "protein": 0.7,
+        "carbs": 13.6,
+        "fat": 0.2,
+        "fiber": 0.9,
+        "potassium": 168,
+        "vitaminC": 3.2,
+        "sugar": 13.0
+      }
+    },
+    {
+      "id": "abacaxi",
+      "name": "Abacaxi",
+      "category": "frutas",
+      "aliases": ["abacaxi", "ananás", "pineapple"],
+      "per100g": {
+        "calories": 48,
+        "protein": 0.9,
+        "carbs": 12.3,
+        "fat": 0.1,
+        "fiber": 1.0,
+        "potassium": 131,
+        "vitaminC": 34.6,
+        "sugar": 9.9
+      }
+    },
+    {
+      "id": "melancia",
+      "name": "Melancia",
+      "category": "frutas",
+      "aliases": ["melancia", "watermelon"],
+      "per100g": {
+        "calories": 33,
+        "protein": 0.9,
+        "carbs": 8.1,
+        "fat": 0.2,
+        "fiber": 0.1,
+        "potassium": 100,
+        "vitaminC": 6.1,
+        "vitaminA": 28,
+        "sugar": 6.2
+      }
+    },
+    {
+      "id": "tomate",
+      "name": "Tomate",
+      "category": "vegetais",
+      "aliases": ["tomate", "tomato", "tomatinho", "tomates"],
+      "per100g": {
+        "calories": 15,
+        "protein": 1.1,
+        "carbs": 3.1,
+        "fat": 0.2,
+        "fiber": 1.2,
+        "potassium": 222,
+        "vitaminA": 42,
+        "vitaminC": 21.2,
+        "vitaminK": 7.9,
+        "sugar": 2.6
+      }
+    },
+    {
+      "id": "alface",
+      "name": "Alface crespa",
+      "category": "vegetais",
+      "aliases": ["alface", "lettuce", "alface lisa", "alface americana", "alface crespa", "alface roxa"],
+      "per100g": {
+        "calories": 11,
+        "protein": 1.3,
+        "carbs": 1.7,
+        "fat": 0.2,
+        "fiber": 1.8,
+        "calcium": 38,
+        "iron": 0.4,
+        "potassium": 192,
+        "vitaminA": 174,
+        "vitaminC": 15.6,
+        "vitaminK": 102
+      }
+    },
+    {
+      "id": "couve-manteiga",
+      "name": "Couve manteiga refogada",
+      "category": "vegetais",
+      "aliases": ["couve", "couve refogada", "couve manteiga", "kale", "couve picada"],
+      "per100g": {
+        "calories": 90,
+        "protein": 4.0,
+        "carbs": 5.5,
+        "fat": 6.2,
+        "fiber": 5.5,
+        "calcium": 177,
+        "iron": 1.9,
+        "potassium": 332,
+        "magnesium": 41,
+        "vitaminA": 770,
+        "vitaminC": 96.7,
+        "vitaminK": 705
+      }
+    },
+    {
+      "id": "brocolis",
+      "name": "Brócolis cozido",
+      "category": "vegetais",
+      "aliases": ["brócolis", "brocolis", "broccoli", "brócolis cozido"],
+      "per100g": {
+        "calories": 25,
+        "protein": 2.1,
+        "carbs": 4.0,
+        "fat": 0.4,
+        "fiber": 3.4,
+        "calcium": 51,
+        "iron": 0.5,
+        "potassium": 322,
+        "vitaminA": 39,
+        "vitaminC": 42.6,
+        "vitaminK": 102
+      }
+    },
+    {
+      "id": "cenoura-crua",
+      "name": "Cenoura crua",
+      "category": "vegetais",
+      "aliases": ["cenoura", "carrot", "cenoura crua", "cenoura ralada", "cenoura cozida"],
+      "per100g": {
+        "calories": 34,
+        "protein": 1.3,
+        "carbs": 7.7,
+        "fat": 0.2,
+        "fiber": 3.2,
+        "calcium": 27,
+        "potassium": 315,
+        "vitaminA": 1130,
+        "vitaminC": 5.1,
+        "sugar": 4.7
+      }
+    },
+    {
+      "id": "cebola-crua",
+      "name": "Cebola crua",
+      "category": "vegetais",
+      "aliases": ["cebola", "onion", "cebola crua", "cebola picada"],
+      "per100g": {
+        "calories": 39,
+        "protein": 1.7,
+        "carbs": 8.9,
+        "fat": 0.1,
+        "fiber": 2.2,
+        "potassium": 176,
+        "vitaminC": 5.9
+      }
+    },
+    {
+      "id": "abobora-cozida",
+      "name": "Abóbora cozida",
+      "category": "vegetais",
+      "aliases": ["abóbora", "abobora", "moranga", "pumpkin", "abóbora cabotiá"],
+      "per100g": {
+        "calories": 18,
+        "protein": 1.2,
+        "carbs": 4.2,
+        "fat": 0.1,
+        "fiber": 1.4,
+        "calcium": 17,
+        "potassium": 161,
+        "vitaminA": 488,
+        "vitaminC": 5.8
+      }
+    },
+    {
+      "id": "chuchu-cozido",
+      "name": "Chuchu cozido",
+      "category": "vegetais",
+      "aliases": ["chuchu", "chayote", "chuchu cozido"],
+      "per100g": {
+        "calories": 17,
+        "protein": 0.7,
+        "carbs": 4.2,
+        "fat": 0.1,
+        "fiber": 1.0,
+        "potassium": 138,
+        "vitaminC": 8.0
+      }
+    },
+    {
+      "id": "azeite-de-oliva",
+      "name": "Azeite de oliva",
+      "category": "gorduras",
+      "aliases": ["azeite", "azeite de oliva", "olive oil"],
+      "per100g": {
+        "calories": 884,
+        "protein": 0,
+        "carbs": 0,
+        "fat": 100,
+        "vitaminE": 14.4,
+        "vitaminK": 60,
+        "saturatedFat": 13.8,
+        "omega3": 0.8
+      }
+    },
+    {
+      "id": "manteiga",
+      "name": "Manteiga sem sal",
+      "category": "gorduras",
+      "aliases": ["manteiga", "butter"],
+      "per100g": {
+        "calories": 760,
+        "protein": 0.5,
+        "carbs": 0.1,
+        "fat": 84,
+        "calcium": 14,
+        "vitaminA": 671,
+        "cholesterol": 215,
+        "saturatedFat": 51.4
+      }
+    },
+    {
+      "id": "amendoim-torrado",
+      "name": "Amendoim torrado",
+      "category": "oleaginosas",
+      "aliases": ["amendoim", "peanut", "amendoim torrado", "amendoim japonês"],
+      "per100g": {
+        "calories": 544,
+        "protein": 22.5,
+        "carbs": 20.3,
+        "fat": 43.9,
+        "fiber": 8.0,
+        "calcium": 54,
+        "iron": 1.5,
+        "magnesium": 175,
+        "potassium": 666,
+        "vitaminE": 6.4,
+        "vitaminB3": 11.7,
+        "vitaminB9": 145,
+        "zinc": 3.5,
+        "saturatedFat": 6.1
+      }
+    },
+    {
+      "id": "castanha-do-para",
+      "name": "Castanha do Brasil",
+      "category": "oleaginosas",
+      "aliases": ["castanha", "castanha do brasil", "castanha do pará", "brazil nut"],
+      "per100g": {
+        "calories": 643,
+        "protein": 14.5,
+        "carbs": 15.1,
+        "fat": 63.5,
+        "fiber": 7.9,
+        "calcium": 146,
+        "iron": 2.3,
+        "magnesium": 376,
+        "potassium": 651,
+        "zinc": 4.2,
+        "selenium": 1917,
+        "vitaminE": 5.7,
+        "saturatedFat": 15.1
+      }
+    },
+    {
+      "id": "amendoa",
+      "name": "Amêndoa",
+      "category": "oleaginosas",
+      "aliases": ["amêndoa", "amendoa", "almond", "amêndoas"],
+      "per100g": {
+        "calories": 581,
+        "protein": 18.6,
+        "carbs": 19.5,
+        "fat": 47.3,
+        "fiber": 11.6,
+        "calcium": 237,
+        "iron": 3.0,
+        "magnesium": 232,
+        "potassium": 687,
+        "zinc": 3.4,
+        "vitaminE": 24.0,
+        "saturatedFat": 3.7
+      }
+    },
+    {
+      "id": "feijoada",
+      "name": "Feijoada (prato completo)",
+      "category": "pratos-tipicos",
+      "aliases": ["feijoada", "feijoada completa", "brazilian feijoada"],
+      "per100g": {
+        "calories": 117,
+        "protein": 9.0,
+        "carbs": 10.9,
+        "fat": 3.7,
+        "fiber": 5.5,
+        "calcium": 19,
+        "iron": 1.7,
+        "sodium": 290,
+        "potassium": 220,
+        "zinc": 1.4,
+        "vitaminB12": 0.4,
+        "saturatedFat": 1.3,
+        "cholesterol": 18
+      }
+    },
+    {
+      "id": "baiao-de-dois",
+      "name": "Baião de dois",
+      "category": "pratos-tipicos",
+      "aliases": ["baião de dois", "baiao de dois", "baião"],
+      "per100g": {
+        "calories": 145,
+        "protein": 5.5,
+        "carbs": 22.0,
+        "fat": 3.8,
+        "fiber": 2.5,
+        "calcium": 35,
+        "sodium": 250,
+        "iron": 1.0
+      }
+    },
+    {
+      "id": "escondidinho-carne-seca",
+      "name": "Escondidinho de carne seca",
+      "category": "pratos-tipicos",
+      "aliases": ["escondidinho", "escondidinho de carne seca", "escondidinho carne"],
+      "per100g": {
+        "calories": 165,
+        "protein": 11.5,
+        "carbs": 15.0,
+        "fat": 6.8,
+        "calcium": 80,
+        "sodium": 380,
+        "saturatedFat": 3.0
+      }
+    },
+    {
+      "id": "coxinha-frango",
+      "name": "Coxinha de frango",
+      "category": "salgados",
+      "aliases": ["coxinha", "coxinha de frango"],
+      "per100g": {
+        "calories": 282,
+        "protein": 9.2,
+        "carbs": 30.5,
+        "fat": 13.8,
+        "sodium": 380,
+        "saturatedFat": 3.5
+      }
+    },
+    {
+      "id": "pastel-frito",
+      "name": "Pastel frito recheado",
+      "category": "salgados",
+      "aliases": ["pastel", "pastel frito", "pastel de carne", "pastel de queijo"],
+      "per100g": {
+        "calories": 320,
+        "protein": 10.0,
+        "carbs": 34.0,
+        "fat": 16.0,
+        "sodium": 460,
+        "saturatedFat": 4.0
+      }
+    },
+    {
+      "id": "salada-mista",
+      "name": "Salada mista (alface, tomate, cenoura)",
+      "category": "saladas",
+      "aliases": ["salada", "salada mista", "salada verde", "salada simples"],
+      "per100g": {
+        "calories": 20,
+        "protein": 1.0,
+        "carbs": 4.0,
+        "fat": 0.2,
+        "fiber": 1.5,
+        "potassium": 250,
+        "vitaminA": 400,
+        "vitaminC": 18,
+        "vitaminK": 60
+      }
+    },
+    {
+      "id": "arroz-feijao",
+      "name": "Arroz com feijão (proporção tradicional 2:1)",
+      "category": "pratos-tipicos",
+      "aliases": ["arroz com feijão", "arroz e feijão", "rice and beans"],
+      "per100g": {
+        "calories": 111,
+        "protein": 3.2,
+        "carbs": 23.4,
+        "fat": 0.3,
+        "fiber": 3.9,
+        "iron": 0.6,
+        "potassium": 95,
+        "vitaminB9": 32
+      }
+    },
+    {
+      "id": "agua",
+      "name": "Água",
+      "category": "bebidas",
+      "aliases": ["água", "agua", "water", "água mineral"],
+      "per100g": {
+        "calories": 0,
+        "protein": 0,
+        "carbs": 0,
+        "fat": 0
+      }
+    },
+    {
+      "id": "suco-laranja-natural",
+      "name": "Suco de laranja natural",
+      "category": "bebidas",
+      "aliases": ["suco de laranja", "suco laranja", "orange juice"],
+      "per100g": {
+        "calories": 36,
+        "protein": 0.5,
+        "carbs": 8.6,
+        "fat": 0.1,
+        "vitaminC": 73,
+        "potassium": 161,
+        "sugar": 7.5
+      }
+    },
+    {
+      "id": "cafe-coado",
+      "name": "Café coado, sem açúcar",
+      "category": "bebidas",
+      "aliases": ["café", "cafe", "coffee", "café coado", "café preto"],
+      "per100g": {
+        "calories": 9,
+        "protein": 0.2,
+        "carbs": 0,
+        "fat": 0,
+        "potassium": 49,
+        "vitaminB2": 0.07,
+        "vitaminB3": 0.5
+      }
+    },
+    {
+      "id": "refrigerante-cola",
+      "name": "Refrigerante de cola",
+      "category": "bebidas",
+      "aliases": ["coca cola", "refrigerante", "coca", "refrigerante cola", "soda"],
+      "per100g": {
+        "calories": 38,
+        "protein": 0,
+        "carbs": 10.2,
+        "fat": 0,
+        "sodium": 4,
+        "sugar": 10.0
+      }
+    },
+    {
+      "id": "cerveja-pilsen",
+      "name": "Cerveja pilsen",
+      "category": "bebidas",
+      "aliases": ["cerveja", "cerveja pilsen", "beer", "chopp"],
+      "per100g": {
+        "calories": 41,
+        "protein": 0.4,
+        "carbs": 3.5,
+        "fat": 0
+      }
+    },
+    {
+      "id": "acai-polpa",
+      "name": "Açaí (polpa)",
+      "category": "frutas",
+      "aliases": ["açaí", "acai", "açaí na tigela", "açaí polpa"],
+      "per100g": {
+        "calories": 58,
+        "protein": 0.8,
+        "carbs": 6.2,
+        "fat": 3.9,
+        "fiber": 2.6,
+        "calcium": 35,
+        "iron": 0.4,
+        "vitaminA": 89
+      }
+    },
+    {
+      "id": "tapioca-pura",
+      "name": "Tapioca pura",
+      "category": "cereais",
+      "aliases": ["tapioca", "tapioca pura", "goma de tapioca"],
+      "per100g": {
+        "calories": 358,
+        "protein": 0.2,
+        "carbs": 88.7,
+        "fat": 0.0,
+        "fiber": 0.9,
+        "calcium": 16,
+        "iron": 1.6
+      }
+    },
+    {
+      "id": "aveia-em-flocos",
+      "name": "Aveia em flocos",
+      "category": "cereais",
+      "aliases": ["aveia", "aveia em flocos", "oats", "oatmeal"],
+      "per100g": {
+        "calories": 394,
+        "protein": 13.9,
+        "carbs": 66.6,
+        "fat": 8.5,
+        "fiber": 9.1,
+        "calcium": 48,
+        "iron": 4.4,
+        "magnesium": 119,
+        "potassium": 336,
+        "zinc": 2.6,
+        "vitaminB1": 0.55,
+        "saturatedFat": 1.5
+      }
+    },
+    {
+      "id": "granola",
+      "name": "Granola",
+      "category": "cereais",
+      "aliases": ["granola", "granola tradicional"],
+      "per100g": {
+        "calories": 470,
+        "protein": 11.0,
+        "carbs": 67.0,
+        "fat": 19.0,
+        "fiber": 7.5,
+        "iron": 4.0,
+        "magnesium": 80,
+        "sugar": 20.0
+      }
+    },
+    {
+      "id": "iogurte-grego",
+      "name": "Iogurte grego",
+      "category": "laticinios",
+      "aliases": ["iogurte grego", "greek yogurt"],
+      "per100g": {
+        "calories": 97,
+        "protein": 10.0,
+        "carbs": 4.0,
+        "fat": 5.0,
+        "calcium": 100,
+        "saturatedFat": 3.2,
+        "sugar": 4.0
+      }
+    },
+    {
+      "id": "chocolate-amargo-70",
+      "name": "Chocolate amargo 70% cacau",
+      "category": "doces",
+      "aliases": ["chocolate", "chocolate amargo", "dark chocolate", "chocolate 70%"],
+      "per100g": {
+        "calories": 580,
+        "protein": 7.8,
+        "carbs": 45.9,
+        "fat": 41.8,
+        "fiber": 11.0,
+        "iron": 11.9,
+        "magnesium": 228,
+        "potassium": 715,
+        "zinc": 3.3,
+        "saturatedFat": 24.5,
+        "sugar": 24.0
+      }
+    },
+    {
+      "id": "brigadeiro",
+      "name": "Brigadeiro",
+      "category": "doces",
+      "aliases": ["brigadeiro", "brigadeiro de panela"],
+      "per100g": {
+        "calories": 370,
+        "protein": 6.0,
+        "carbs": 60.0,
+        "fat": 12.5,
+        "calcium": 200,
+        "saturatedFat": 7.5,
+        "sugar": 55.0
+      }
+    },
+    {
+      "id": "biscoito-recheado",
+      "name": "Biscoito recheado",
+      "category": "doces",
+      "aliases": ["biscoito", "biscoito recheado", "bolacha recheada", "cookie", "biscoito de chocolate"],
+      "per100g": {
+        "calories": 472,
+        "protein": 5.0,
+        "carbs": 70.0,
+        "fat": 19.0,
+        "sodium": 280,
+        "saturatedFat": 10.0,
+        "sugar": 35.0
+      }
+    },
+    {
+      "id": "acucar-refinado",
+      "name": "Açúcar refinado",
+      "category": "doces",
+      "aliases": ["açúcar", "acucar", "sugar"],
+      "per100g": {
+        "calories": 387,
+        "protein": 0,
+        "carbs": 99.6,
+        "fat": 0,
+        "sugar": 99.6
+      }
+    }
+  ]
+}
