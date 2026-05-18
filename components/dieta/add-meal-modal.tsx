@@ -377,7 +377,12 @@ function PhotoInput({
           <input
             ref={inputRef}
             type="file"
-            accept="image/*"
+            // Restringe ao que a OpenAI vision aceita. Em iOS Safari,
+            // isso força conversão automática de HEIC → JPEG na hora
+            // do upload (workaround pra Lucas 2026-05-18 que recebia
+            // "The string did not match the expected pattern" ao
+            // mandar foto do iPhone — OpenAI não aceita HEIC).
+            accept="image/jpeg,image/png,image/webp"
             capture="environment"
             className="hidden"
             onChange={(e) => {

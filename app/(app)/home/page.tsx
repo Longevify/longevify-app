@@ -15,6 +15,7 @@ import { RecommendationsSection } from "@/components/loja/recommendations-sectio
 import { GoalsSummary } from "@/components/wearables/goals-summary";
 import { PostExamStories } from "@/components/onboarding/post-exam-stories";
 import { ReplayStoriesButton } from "@/components/onboarding/replay-stories-button";
+import { generatePersonalizedInsights } from "@/lib/dados/personalized-insights";
 import { BIOMARKERS, PATIENT, biomarkersStats } from "@/lib/mock-data";
 import { getRecommendedProducts } from "@/lib/product-recommender";
 import { formatDatePtBR } from "@/lib/utils";
@@ -33,11 +34,33 @@ export default async function HomePage() {
     return <NewUserHome firstName={user.firstName} />;
   }
 
+  // Pré-fetch dos insights AI dos top biomarcadores (Lucas 2026-05-18:
+  // "tem que ter sido feito no momento em que você recebeu os dados (...)
+  // o indivíduo não tenha que ficar esperando"). Cache em memória do helper
+  // garante que requests subsequentes ao mesmo paciente são instantâneos.
+  // Pega top 3 piores + top 3 melhores = 6 biomarcadores num único batch.
+  const concernIds = ["ldl", "apob", "vitd", "hba1c", "crp"];
+  const winnerIds = ["hdl", "ferritin", "testo"];
+  const targetBiomarkers = BIOMARKERS.filter(
+    (b) => concernIds.includes(b.id) || winnerIds.includes(b.id),
+  );
+  const insightsResult = await generatePersonalizedInsights(targetBiomarkers, {
+    firstName: PATIENT.firstName,
+    chronologicalAge: PATIENT.chronologicalAge,
+    biologicalAge: PATIENT.biologicalAge,
+    longevifyScore: PATIENT.longevifyScore,
+    sex: PATIENT.sex,
+  });
+  const prefetchedInsights = insightsResult.insights;
+
   return (
     <div className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6 sm:py-10">
       {/* Apresentação Stories pós-exame — só na primeira visita (gerencia
           via localStorage). Inspirado nos stories do Superpower app. */}
-      <PostExamStories patient={PATIENT} />
+      <PostExamStories
+        patient={PATIENT}
+        prefetchedInsights={prefetchedInsights}
+      />
 
       <header className="flex flex-col gap-1 pb-6 sm:pb-8">
         <span className="text-[13px] text-muted">Olá, {user.firstName}</span>
@@ -46,7 +69,10 @@ export default async function HomePage() {
             Sua saúde hoje
           </h1>
           {/* Botão pra rever apresentação — só na conta demo (Lucas) */}
-          <ReplayStoriesButton patient={PATIENT} />
+          <ReplayStoriesButton
+            patient={PATIENT}
+            prefetchedInsights={prefetchedInsights}
+          />
         </div>
       </header>
 
@@ -192,7 +218,7 @@ export default async function HomePage() {
               Próximos 6 meses
             </div>
             <div>• Segunda coleta do ano em ~6 meses (2 coletas/ano)</div>
-            <div>• Check-in com a equipe Longevify em 30 dias</div>
+            <div>• Teleorientação com médico parceiro credenciado em 30 dias</div>
             <div>• Atualização do protocolo após nova coleta</div>
           </Card>
         </div>

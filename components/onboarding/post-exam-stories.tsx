@@ -37,6 +37,12 @@ interface PostExamStoriesProps {
   /** Callback chamado quando o user fecha. Permite ao parent resetar
    *  o forceShow. */
   onClose?: () => void;
+  /** Insights pré-computados server-side (home/page.tsx). Quando
+   *  presente, evita o fetch client-side e mostra análise imediato
+   *  ao abrir as stories. Lucas 2026-05-18: "tem que ter sido feito
+   *  no momento em que você recebeu os dados (...) o indivíduo não
+   *  tenha que ficar esperando." */
+  prefetchedInsights?: Record<string, BiomarkerInsightData>;
 }
 
 interface BiomarkerInsightData {
@@ -517,12 +523,12 @@ const SLIDES: SlideContent[] = [
           </div>
           <div className="relative mt-10 max-w-md story-fade-up">
             <h2 className="text-[22px] font-semibold tracking-tight">
-              Sua idade biológica tá em {patient.biologicalAge}
+              Estimativa de idade biológica: {patient.biologicalAge}
             </h2>
             <p className="mt-2 text-[14px] leading-relaxed text-white/75">
               {younger
-                ? `Beleza pura — você tá ${Math.abs(delta).toFixed(1)} anos mais novo do que sua idade do RG. Os exames mostram um corpo rodando mais jovem do que ele tem de fato.`
-                : `Os exames mostram que seu corpo tá envelhecendo um pouquinho mais rápido que devia. Mas relaxa, é pra isso que a gente tá aqui — bora reverter.`}
+                ? `Beleza pura — pelos seus marcadores, a estimativa fica ${Math.abs(delta).toFixed(1)} anos abaixo da idade cronológica. (Lembrando: idade biológica é uma estimativa estatística baseada em fórmulas validadas como o PhenoAge — não é diagnóstico nem promessa de longevidade.)`
+                : `Pelos marcadores, a estimativa indica envelhecimento ligeiramente acelerado em alguns sistemas. Dá pra trabalhar com hábitos e ajustes pra modular esse ritmo — sono, exercício, dieta, controle metabólico. Idade biológica é estimativa, não sentença.`}
             </p>
           </div>
         </div>
@@ -1662,6 +1668,7 @@ export function PostExamStories({
   storageKey = "longevify-stories-shown-v6",
   forceShow = false,
   onClose,
+  prefetchedInsights,
 }: PostExamStoriesProps) {
   const [open, setOpen] = useState(false);
   const [slideIdx, setSlideIdx] = useState(0);
@@ -1670,11 +1677,13 @@ export function PostExamStories({
   // cinematográfica que termina chamando close() depois de 1900ms.
   const [showingFinale, setShowingFinale] = useState(false);
 
-  // AI-personalized insights por biomarcador. Carrega lazy quando
-  // stories abre (setOpen(true)).
+  // Insights AI-personalized. Inicializa com prefetchedInsights (server-
+  // side pre-fetch — Lucas 2026-05-18 pediu que análise esteja pronta
+  // antes do user abrir as stories pra não esperar). Se prop vazia,
+  // cai pro fetch client-side lazy como fallback.
   const [insights, setInsights] = useState<
     Record<string, BiomarkerInsightData>
-  >({});
+  >(prefetchedInsights ?? {});
   const [insightsLoading, setInsightsLoading] = useState(false);
 
   // Contexto compartilhado pros slides. Memo evita recalcular base; só
@@ -1694,8 +1703,9 @@ export function PostExamStories({
     insightsLoading,
   };
 
-  // Fetch dos insights AI quando stories abre. Pega top 3 concerns +
-  // top 3 winners (= máximo 6 biomarcadores) num único batch GPT-5.
+  // Fallback client-side: se NÃO veio prefetchedInsights (caso edge —
+  // server component pre-fetch falhou ou não foi feito), dispara fetch
+  // quando stories abre. Cenário comum: home page sem pre-fetch.
   useEffect(() => {
     if (!open) return;
     const ids = [
@@ -1703,7 +1713,7 @@ export function PostExamStories({
       ...baseCtx.topWinners.map((b) => b.id),
     ];
     if (ids.length === 0) return;
-    // Já temos insights pra todos? Skip.
+    // Já temos insights pra todos (prefetch OU fetch anterior)? Skip.
     if (ids.every((id) => insights[id])) return;
 
     const controller = new AbortController();

@@ -28,17 +28,25 @@ import {
  */
 
 const MAX_BYTES = 4 * 1024 * 1024; // 4 MB
-const ACCEPTED_MIMES = new Set([
+// Lucas (2026-05-18): "The string did not match the expected pattern" do
+// OpenAI quando foto vem em HEIC do iPhone. OpenAI vision NÃO aceita HEIC/
+// HEIF — só JPEG/PNG/WebP/GIF. O input no client já restringe via
+// accept="image/jpeg,..." (Safari iOS auto-converte HEIC → JPEG na hora
+// do upload quando a accept é restrita). HEIC/HEIF mantidos aqui só pra
+// retornar erro friendly se algo escapar do client.
+const OPENAI_SUPPORTED_MIMES = new Set([
   "image/jpeg",
   "image/jpg",
   "image/png",
   "image/webp",
-  "image/heic",
-  "image/heif",
+  "image/gif",
 ]);
+const REJECTED_MIMES = new Set(["image/heic", "image/heif"]);
 
 export const runtime = "nodejs";
-export const maxDuration = 30; // segundos — fallback pro GPT-5 pode demorar
+// 45s — gpt-4o-mini responde em ~1-2s, mas latência alta de cold start +
+// imagem grande pode subir pra 5-10s. Margem confortável.
+export const maxDuration = 45;
 
 export async function POST(request: Request) {
   let formData: FormData;
@@ -68,9 +76,19 @@ export async function POST(request: Request) {
     );
   }
 
-  if (image.type && !ACCEPTED_MIMES.has(image.type)) {
+  // HEIC/HEIF (formato padrão do iPhone) → mensagem específica
+  if (image.type && REJECTED_MIMES.has(image.type)) {
     return NextResponse.json(
-      { error: `Tipo de imagem não suportado: ${image.type}` },
+      {
+        error:
+          "Foto em HEIC ainda não é suportada. No iPhone, vá em Ajustes → Câmera → Formatos → 'Mais Compatível' (salva em JPEG). Ou tira foto de novo direto pelo botão de câmera do app.",
+      },
+      { status: 415 },
+    );
+  }
+  if (image.type && !OPENAI_SUPPORTED_MIMES.has(image.type)) {
+    return NextResponse.json(
+      { error: `Tipo de imagem não suportado: ${image.type}. Use JPEG, PNG ou WebP.` },
       { status: 415 },
     );
   }
