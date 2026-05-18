@@ -79,7 +79,7 @@ function buildPrompt(
 Perfil:
 ${profile}
 
-Analise os seguintes biomarcadores e, pra CADA UM, gere uma análise HUMANIZADA, PRAGMÁTICA e PERSONALIZADA. Tom: conversa de WhatsApp com um amigo médico. Frases curtas. Sem rebuscamento. Use analogias do dia a dia.
+Analise os seguintes biomarcadores e, pra CADA UM, gere uma análise PERSONALIZADA. Tom: clínico-próximo, sereno, profissional mas acolhedor. Como médico explicando exame numa consulta — não como amigo no WhatsApp, mas também sem rigidez de bula.
 
 ${biomarkerLines}
 
@@ -87,7 +87,7 @@ Retorne SOMENTE um JSON no formato:
 {
   "insights": {
     "<biomarker-id>": {
-      "mainMessage": "1 frase humanizada (max 120 chars) — qual a notícia principal",
+      "mainMessage": "DIAGNÓSTICO RESUMIDO em 2-3 frases (180-280 chars total). Estrutura: (1) qual o status real desse marcador em termos clínicos, (2) o que ele significa pra saúde de longo prazo do paciente, (3) urgência relativa. Não use bullet points — texto corrido. Sem 'Olá!' ou abertura — vá direto no diagnóstico.",
       "whyHappened": "2-3 frases — POR QUE provavelmente esse resultado aconteceu, relacionando com o perfil (idade, score, outros marcadores). Especulação clínica é OK desde que plausível.",
       "whatToDo": ["ação prática 1 (max 80 chars)", "ação prática 2", "ação prática 3"],
       "timeline": "1 frase — em quanto tempo dá pra ver mudança real"
@@ -97,19 +97,20 @@ Retorne SOMENTE um JSON no formato:
 }
 
 Regras IMPORTANTES:
-- mainMessage: começa direto, sem "Sua [biomarker]" — vá direto na mensagem.
+- mainMessage é um RESUMO DIAGNÓSTICO de 2-3 linhas, não um headline. Pense: o que um médico escreveria no laudo se tivesse só 3 linhas pra resumir esse marcador pro paciente entender.
+- mainMessage NÃO começa com "Seu [biomarker]" nem com saudação — comece direto pelo achado clínico.
 - whyHappened: NÃO dê palpite genérico. Use o perfil — idade, score, outros marcadores.
 - whatToDo: ações CONCRETAS. Não "coma mais frutas". Use medidas reais.
 - timeline: realista. Tempo de resposta clínica daquele marcador específico.
-- Em PT-BR. Linguagem do dia a dia. Sem termos técnicos sem explicar.
-- SE valor está ótimo: tom POSITIVO, foque em "como manter".`;
+- Em PT-BR. Linguagem acessível mas tecnicamente correta. Pode usar termos como "risco cardiovascular", "perfil lipídico", "estoque de ferro" — sem precisar traduzir tudo.
+- SE valor está ótimo: tom POSITIVO mas ainda clínico — "perfil favorável, indicativo de [hábito/genética]".`;
 }
 
 /** Fallback estático — pra não travar UI quando AI indisponível/falha. */
 export function staticFallback(biomarker: Biomarker): BiomarkerInsight {
   if (biomarker.status === "optimal") {
     return {
-      mainMessage: `Tá no ponto, segue assim`,
+      mainMessage: `${biomarker.name} em ${biomarker.value} ${biomarker.unit} está dentro da faixa ótima, indicando bom funcionamento desse sistema. Esse resultado costuma refletir consistência de hábitos ao longo do tempo. A prioridade agora é manter o padrão, não intensificar.`,
       whyHappened: `Seu ${biomarker.name} em ${biomarker.value} ${biomarker.unit} está na faixa ótima. Provavelmente é combinação de hábitos consistentes + base genética favorável nesse marcador.`,
       whatToDo: [
         "Mantenha os hábitos atuais — não mude o que está funcionando",
@@ -118,8 +119,10 @@ export function staticFallback(biomarker: Biomarker): BiomarkerInsight {
       timeline: "Próxima coleta em 6 meses — mantenha o padrão.",
     };
   }
+  const outLabel =
+    biomarker.status === "out" ? "fora da faixa ideal" : "abaixo do ótimo";
   return {
-    mainMessage: `${biomarker.name} ${biomarker.status === "out" ? "fora da faixa ideal" : "abaixo do ótimo"}`,
+    mainMessage: `${biomarker.name} em ${biomarker.value} ${biomarker.unit} está ${outLabel} (referência: ${biomarker.referenceLabel}). Marcador modificável — responde bem a ajustes consistentes de estilo de vida e suplementação direcionada. Não é urgência clínica, mas merece intervenção planejada nos próximos 60-90 dias.`,
     whyHappened: `Seu ${biomarker.name} em ${biomarker.value} ${biomarker.unit} está fora do ideal (${biomarker.referenceLabel}). Causas comuns: dieta, sono insuficiente, sedentarismo, ou predisposição genética.`,
     whatToDo: [
       "Suplementação direcionada (a Longevify recomenda no slide seguinte)",
