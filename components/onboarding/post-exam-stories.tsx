@@ -784,7 +784,7 @@ const SLIDES: SlideContent[] = [
               icon={Heart}
               date="O tempo todo"
               title="Dr. Lon no celular"
-              detail="IA médica + equipe humana 24h entre as coletas"
+              detail="Assistente IA pra dúvidas educacionais + médico parceiro credenciado em teleorientação periódica"
               delay={600}
             />
           </div>
@@ -1185,37 +1185,73 @@ function BundleSlide({
             <span className="h-px flex-1 bg-white/10" />
           </div>
 
-          {/* Lista de produtos individuais com botões próprios. */}
-          <div className="mt-4 flex flex-col gap-2.5 text-left">
+          {/* Lista de produtos individuais com cards melhorados.
+              Lucas (2026-05-17): "melhore o design do card de compra do
+              suplemento". Cada card agora tem:
+              - Ícone de cápsula colorido por status (visual hierarchy)
+              - Badge "Pra: <razão curta>" mostrando o problema atacado
+              - Preço cheio + faixa de subscrição com badge "10% off"
+              - Botões maiores, com hover state mais óbvio
+              - Animação de adicionado (ring verde pulse) */}
+          <div className="mt-4 flex flex-col gap-3 text-left">
             {recommendations.map((r, i) => {
               const isAdded = addedIds.has(r.product.id) || bulkAdded;
               const subPrice = Math.round(r.product.priceBRL * 0.9);
+              // Pega o primeiro biomarcador como "Pra: X" — mais
+              // específico que a razão completa.
+              const primaryConcern = r.matchedBiomarkers[0];
+              const targetLabel = primaryConcern
+                ? `Pra ${primaryConcern.name}`
+                : "Recomendado pra você";
               return (
                 <div
                   key={r.product.id}
-                  className="story-pop overflow-hidden rounded-2xl border border-white/15 bg-white/[0.06] backdrop-blur-md"
+                  className={cn(
+                    "story-pop overflow-hidden rounded-2xl border bg-white/[0.07] backdrop-blur-md transition-all",
+                    isAdded
+                      ? "border-emerald-400/50 ring-1 ring-emerald-400/30"
+                      : "border-white/15 hover:border-white/25 hover:bg-white/[0.10]",
+                  )}
                   style={{ animationDelay: `${500 + i * 100}ms` }}
                 >
-                  <div className="flex items-start gap-3 px-3.5 py-3">
-                    <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-500/20 text-[11px] font-bold tabular-nums text-emerald-200">
-                      {i + 1}
+                  {/* Cabeçalho do card — ícone + info + preço */}
+                  <div className="flex items-start gap-3 px-4 pt-3.5 pb-3">
+                    {/* Ícone de cápsula colorido */}
+                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-emerald-400/30 to-emerald-600/20 ring-1 ring-emerald-400/30">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        className="h-5 w-5 text-emerald-300"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                      >
+                        {/* Capsula simples — Pill icon manual pra não importar
+                            mais lucide icons (já tem muitos imports). */}
+                        <path d="M10.5 20.5l10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7z" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M8.5 8.5l7 7" strokeLinecap="round" />
+                      </svg>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <span className="truncate text-[13px] font-semibold text-white">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="text-[14px] font-semibold leading-tight text-white">
                           {r.product.name}
-                        </span>
-                        <span className="shrink-0 text-[11px] tabular-nums text-white/65">
-                          R$ {r.product.priceBRL}
-                        </span>
+                        </h3>
                       </div>
-                      <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-white/55">
-                        {r.reason}
-                      </p>
+                      {/* Badge "Pra: X" */}
+                      <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-200 ring-1 ring-emerald-400/20">
+                        {targetLabel}
+                      </div>
                     </div>
                   </div>
-                  {/* Botões individuais */}
-                  <div className="grid grid-cols-2 gap-px bg-white/5">
+
+                  {/* Razão clínica — agora sem line-clamp tão agressivo */}
+                  <p className="px-4 pb-3 text-[11.5px] leading-relaxed text-white/65">
+                    {r.reason}
+                  </p>
+
+                  {/* Botões — Comprar (à esquerda, preço destaque) +
+                      Assinar (à direita, com badge "10% off"). */}
+                  <div className="grid grid-cols-2 gap-0 border-t border-white/10">
                     <button
                       type="button"
                       onClick={(e) => {
@@ -1224,13 +1260,24 @@ function BundleSlide({
                       }}
                       disabled={isAdded}
                       className={cn(
-                        "py-2 text-[12px] font-semibold transition",
+                        "group flex flex-col items-center gap-0.5 py-2.5 transition-colors",
                         isAdded
                           ? "bg-white/5 text-white/40"
-                          : "bg-white/10 text-white hover:bg-white/20",
+                          : "bg-white/[0.04] text-white hover:bg-white/[0.10]",
                       )}
                     >
-                      {isAdded ? "✓" : "Comprar"}
+                      {isAdded ? (
+                        <span className="text-[13px] font-semibold">✓ Adicionado</span>
+                      ) : (
+                        <>
+                          <span className="text-[10.5px] uppercase tracking-wide text-white/55 group-hover:text-white/75">
+                            Comprar
+                          </span>
+                          <span className="text-[14px] font-semibold tabular-nums">
+                            R$ {r.product.priceBRL}
+                          </span>
+                        </>
+                      )}
                     </button>
                     <button
                       type="button"
@@ -1240,13 +1287,27 @@ function BundleSlide({
                       }}
                       disabled={isAdded}
                       className={cn(
-                        "py-2 text-[12px] font-semibold transition",
+                        "group relative flex flex-col items-center gap-0.5 border-l border-white/10 py-2.5 transition-colors",
                         isAdded
-                          ? "bg-emerald-500/15 text-emerald-300/40"
-                          : "bg-emerald-500/25 text-emerald-100 hover:bg-emerald-500/35",
+                          ? "bg-emerald-500/10 text-emerald-300/40"
+                          : "bg-gradient-to-br from-emerald-500/30 to-emerald-600/20 text-emerald-100 hover:from-emerald-500/40 hover:to-emerald-600/30",
                       )}
                     >
-                      Assinar R$ {subPrice}/mês
+                      {/* Badge "-10%" no canto */}
+                      {!isAdded && (
+                        <span className="absolute right-1.5 top-1 rounded-full bg-emerald-300 px-1.5 py-px text-[9px] font-bold text-emerald-900">
+                          −10%
+                        </span>
+                      )}
+                      <span className="text-[10.5px] uppercase tracking-wide text-emerald-200/80 group-hover:text-emerald-100">
+                        Assinar
+                      </span>
+                      <span className="text-[14px] font-semibold tabular-nums">
+                        R$ {subPrice}
+                        <span className="ml-0.5 text-[10px] font-normal text-emerald-200/65">
+                          /mês
+                        </span>
+                      </span>
                     </button>
                   </div>
                 </div>
