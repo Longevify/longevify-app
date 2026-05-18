@@ -83,7 +83,15 @@ export function CartDrawer() {
           isOpen ? "translate-x-0" : "translate-x-full",
         )}
       >
-        <header className="flex items-center justify-between border-b border-border px-5 py-4">
+        {/* Header com padding-top que respeita o safe-area-inset-top
+            (Dynamic Island/notch do iPhone). Lucas 2026-05-17 reportou
+            que "X" e infos ficavam coladas no topo do telefone, sem
+            espaço pra clicar. Usa max(env, 1rem) pra garantir mínimo
+            mesmo em browsers que não suportam env(). */}
+        <header
+          className="flex items-center justify-between border-b border-border px-5 pb-4"
+          style={{ paddingTop: "max(env(safe-area-inset-top), 1rem)" }}
+        >
           <div>
             <div className="text-[11px] uppercase tracking-[0.14em] text-muted">
               Carrinho
@@ -98,9 +106,9 @@ export function CartDrawer() {
             type="button"
             onClick={closeCart}
             aria-label="Fechar carrinho"
-            className="grid h-9 w-9 place-items-center rounded-full text-muted hover:bg-black/5 hover:text-ink"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-muted hover:bg-black/5 hover:text-ink"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </button>
         </header>
 
@@ -114,7 +122,7 @@ export function CartDrawer() {
                 Carrinho vazio
               </div>
               <p className="mt-1 text-[13px] text-muted">
-                Comece pela curadoria da nossa equipe médica.
+                Comece pela curadoria de suplementos com base em evidência.
               </p>
             </div>
             <Link href="/loja" onClick={closeCart}>
@@ -205,7 +213,15 @@ export function CartDrawer() {
               })}
             </ul>
 
-            <footer className="border-t border-border bg-brand-50/40 px-5 py-4">
+            <footer
+              className="border-t border-border bg-brand-50/40 px-5 pt-4"
+              style={{
+                // safe-area-inset-bottom: cobre o Home indicator do iPhone
+                // pra que o CTA "Finalizar pedido" não fique colado no
+                // gesture bar.
+                paddingBottom: "max(env(safe-area-inset-bottom), 1rem)",
+              }}
+            >
               <dl className="space-y-1.5 text-[13px]">
                 {recurringCount > 0 ? (
                   <>
