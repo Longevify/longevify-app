@@ -20,7 +20,13 @@
 import type { FoodItem, Nutrients } from "./types";
 
 const GEMINI_MODEL = "gemini-2.5-flash";
-const OPENAI_MODEL = "gpt-5";
+// gpt-5 estava dando Vercel timeout (>30s) — provavelmente reasoning interno
+// pesado. gpt-4o-mini é vision-capable, ~1-2s, ~$0.0001/foto. Vale mais a
+// pena pra reconhecimento de comida (não é tarefa que precisa raciocínio
+// profundo, é apenas identificação visual). Reativar gpt-5 quando OpenAI
+// adicionar streaming pra responses de vision e Vercel suportar maxDuration
+// mais alto no plano atual.
+const OPENAI_MODEL = "gpt-4o-mini";
 const ANTHROPIC_MODEL = "claude-sonnet-4-6";
 // Moonshot vision: `kimi-latest` retornava "404 Not found the model kimi-latest"
 // nos logs. O nome canônico do modelo vision é moonshot-v1-{8k,32k,128k}-vision-preview

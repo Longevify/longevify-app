@@ -5,6 +5,13 @@ import { PlayCircle } from "lucide-react";
 import { PostExamStories } from "@/components/onboarding/post-exam-stories";
 import type { Patient } from "@/lib/mock-data";
 
+interface PrefetchedInsight {
+  mainMessage: string;
+  whyHappened: string;
+  whatToDo: string[];
+  timeline: string;
+}
+
 /**
  * Wrapper que mostra um botão "Rever apresentação" + a presentação em si.
  * Usado SÓ na home demo (Lucas pediu pra ele rever a apresentação inicial
@@ -12,8 +19,18 @@ import type { Patient } from "@/lib/mock-data";
  *
  * State `replay` controla o forceShow do PostExamStories. Quando user
  * clica no botão → replay=true → stories abrem. Quando fecha → replay=false.
+ *
+ * `prefetchedInsights` vem do home/page.tsx (server component) com
+ * análises AI já calculadas — assim quando o user clica em "Rever
+ * apresentação", os insights aparecem instantâneo, sem loading.
  */
-export function ReplayStoriesButton({ patient }: { patient: Patient }) {
+export function ReplayStoriesButton({
+  patient,
+  prefetchedInsights,
+}: {
+  patient: Patient;
+  prefetchedInsights?: Record<string, PrefetchedInsight>;
+}) {
   const [replay, setReplay] = useState(false);
 
   return (
@@ -32,6 +49,7 @@ export function ReplayStoriesButton({ patient }: { patient: Patient }) {
           patient={patient}
           forceShow
           onClose={() => setReplay(false)}
+          prefetchedInsights={prefetchedInsights}
         />
       )}
     </>
