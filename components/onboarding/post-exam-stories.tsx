@@ -1195,9 +1195,10 @@ function BiomarkerDeepDiveSlide({
 
   return (
     <div className={cn("flex h-full w-full", theme.cardBg)}>
-      {/* z-20 → acima das tap zones do shell (z-10) pra scroll funcionar
-          em mobile. Mesmo fix do BundleSlide. */}
-      <div className="relative z-20 flex-1 overflow-y-auto overscroll-contain px-5 pt-[88px] pb-[120px]">
+      {/* Scroll vertical do conteúdo. As tap zones do shell têm
+          `touch-action: pan-y` agora, então o scroll vertical é
+          delegado pra esse container mesmo sob as zonas de tap. */}
+      <div className="relative flex-1 overflow-y-auto overscroll-contain px-5 pt-[88px] pb-[120px]">
         <div className="mx-auto w-full max-w-md text-left">
           <div
             className={cn(
@@ -1408,12 +1409,11 @@ function BundleSlide({
         />
       </div>
 
-      {/* Container scrollable — z-20 PRA FICAR ACIMA das tap zones
-          (z-10) do shell de stories. Lucas (2026-05-18) reportou que
-          "o scroll não ta funcionando" — as tap zones laterais de
-          12% interceptavam o touch antes do scroll. Com z-20 aqui, o
-          scroll captura todos os toques na área do conteúdo. */}
-      <div className="relative z-20 flex-1 overflow-y-auto overscroll-contain px-5 pt-[88px] pb-[120px]">
+      {/* Container scrollable. As tap zones do shell têm
+          `touch-action: pan-y`, então o scroll vertical funciona
+          mesmo nas áreas laterais de 12% (browser delega scroll
+          pro container e mantém click pra tap). */}
+      <div className="relative flex-1 overflow-y-auto overscroll-contain px-5 pt-[88px] pb-[120px]">
         <div className="mx-auto w-full max-w-md story-card-in text-center">
           <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-300 ring-1 ring-emerald-400/30">
             <Sparkles className="h-3 w-3" />
@@ -2066,8 +2066,15 @@ export function PostExamStories({
 
       `}</style>
 
-      {/* Tap zones nas BORDAS (10% cada). Middle fica livre pros elementos
-          interativos (chips, actions). */}
+      {/* Tap zones nas BORDAS (12% cada). Middle fica livre pros elementos
+          interativos (chips, actions).
+
+          touchAction: pan-y → o browser sabe que essa área AINDA permite
+          scroll vertical. Tap (sem movimento) dispara o onClick; gesto
+          de scroll com dedo é delegado pro container scrollable atrás.
+          Sem isso, em mobile o tap zone capturava o touch inteiro e
+          quebrava o scroll do BundleSlide e BiomarkerDeepDiveSlide
+          (Lucas 2026-05-18). */}
       <button
         type="button"
         aria-label="Anterior"
@@ -2075,6 +2082,7 @@ export function PostExamStories({
           e.stopPropagation();
           back();
         }}
+        style={{ touchAction: "pan-y" }}
         className="absolute inset-y-0 left-0 z-10 w-[12%]"
       />
       <button
@@ -2084,6 +2092,7 @@ export function PostExamStories({
           e.stopPropagation();
           advance();
         }}
+        style={{ touchAction: "pan-y" }}
         className="absolute inset-y-0 right-0 z-10 w-[12%]"
       />
 
