@@ -33,26 +33,35 @@ export function AddMealModal({ open, onClose }: AddMealModalProps) {
   const [totalNutrients, setTotalNutrients] = useState<Nutrients | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Estado do save (POST /api/dieta/meals). */
+  const [saving, setSaving] = useState(false);
+  const [savedOk, setSavedOk] = useState(false);
 
-  // Reset on close
-  useEffect(() => {
-    if (!open) {
-      setItems([]);
-      setTotalNutrients(null);
-      setError(null);
-      setLoading(false);
-    }
-  }, [open]);
+  /**
+   * Reset + close wrapper. Antes esse reset estava num useEffect que
+   * dependia de `open` virar false — o linter ficou bravo (setState
+   * dentro de effect = cascading renders). Agora reset roda só no
+   * handler que de fato fecha o modal.
+   */
+  const handleClose = useCallback(() => {
+    setItems([]);
+    setTotalNutrients(null);
+    setError(null);
+    setLoading(false);
+    setSaving(false);
+    setSavedOk(false);
+    onClose();
+  }, [onClose]);
 
   // ESC fecha
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") handleClose();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open, handleClose]);
 
   const removeItem = useCallback((id: string) => {
     setItems((prev) => {
@@ -64,14 +73,52 @@ export function AddMealModal({ open, onClose }: AddMealModalProps) {
     });
   }, []);
 
-  const handleSave = useCallback(() => {
-    // TODO: POST /api/dieta/meals quando endpoint estiver pronto.
-    // Por enquanto fecha o modal (mock save).
-    alert(
-      `Refeição "${MEAL_TYPE_LABEL[mealType]}" salva! ${items.length} items, ${fmt(totalNutrients?.calories ?? 0)} kcal.`,
-    );
-    onClose();
-  }, [items.length, mealType, onClose, totalNutrients]);
+  /**
+   * Salva a refeição via POST /api/dieta/meals.
+   *
+   * Lucas (2026-05-18): "a análise está acertando, porém não estão sendo
+   * salvos esses dados novos (não precisa salvar as fotos tiradas)".
+   * Antes era um mock que dava alert(). Agora persiste no Supabase
+   * (tabela meal_entries com RLS).
+   */
+  const handleSave = useCallback(async () => {
+    if (!items.length || !totalNutrients) return;
+    setSaving(true);
+    setError(null);
+
+    // input_method = source do primeiro item (todos vêm da mesma origem).
+    const inputMethod = items[0]?.source ?? "manual";
+
+    try {
+      const res = await fetch("/api/dieta/meals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          meal_type: mealType,
+          input_method: inputMethod,
+          items,
+          total_nutrients: totalNutrients,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.ok === false) {
+        throw new Error(
+          data?.error ?? `Erro ao salvar refeição (HTTP ${res.status})`,
+        );
+      }
+      setSavedOk(true);
+      // Fecha após breve flash de "salvo" → UX mais clara que alert
+      setTimeout(() => {
+        handleClose();
+      }, 800);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Erro inesperado ao salvar",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }, [handleClose, items, mealType, totalNutrients]);
 
   if (!open) return null;
 
@@ -79,7 +126,7 @@ export function AddMealModal({ open, onClose }: AddMealModalProps) {
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={handleClose}
       />
       <div
         className={cn(
@@ -95,7 +142,7 @@ export function AddMealModal({ open, onClose }: AddMealModalProps) {
           </h2>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="grid h-8 w-8 place-items-center rounded-full bg-zinc-100 text-zinc-500 transition hover:bg-zinc-200"
             aria-label="Fechar"
           >
@@ -262,10 +309,30 @@ export function AddMealModal({ open, onClose }: AddMealModalProps) {
                 <button
                   type="button"
                   onClick={handleSave}
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 py-3 text-[14px] font-semibold text-white transition hover:bg-brand-800"
+                  disabled={saving || savedOk}
+                  className={cn(
+                    "mt-4 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-[14px] font-semibold text-white transition",
+                    savedOk
+                      ? "bg-emerald-600"
+                      : "bg-brand-700 hover:bg-brand-800 disabled:opacity-60",
+                  )}
                 >
-                  <Check className="h-4 w-4" />
-                  Salvar refeição
+                  {saving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : savedOk ? (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Salvo!
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Salvar refeição
+                    </>
+                  )}
                 </button>
               </div>
             </section>
