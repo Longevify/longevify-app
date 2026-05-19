@@ -13,6 +13,8 @@ import {
   REGULARITY_LABEL,
   REPRODUCTIVE_STATUS_LABEL,
 } from "@/lib/menstrual/types";
+import { saveProfile } from "@/lib/menstrual/client-store";
+import { useCurrentUser } from "@/lib/auth/user-context";
 
 /**
  * Wizard de onboarding pra ciclo menstrual.
@@ -45,6 +47,7 @@ interface Props {
 }
 
 export function MenstrualOnboardingWizard({ onComplete, onCancel }: Props) {
+  const user = useCurrentUser();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,10 +70,8 @@ export function MenstrualOnboardingWizard({ onComplete, onCancel }: Props) {
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch("/api/menstrual/profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const result = await saveProfile(
+        {
           tracking_enabled: true,
           last_period_start: state.lastPeriodStart,
           avg_cycle_days: state.avgCycleDays,
@@ -79,11 +80,11 @@ export function MenstrualOnboardingWizard({ onComplete, onCancel }: Props) {
           contraceptive_kind: state.contraceptiveKind,
           reproductive_status: state.reproductiveStatus,
           mark_onboarded: true,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || data?.ok === false) {
-        throw new Error(data?.error ?? `HTTP ${res.status}`);
+        },
+        user.isDemo,
+      );
+      if (!result.ok) {
+        throw new Error(result.error ?? "Erro ao salvar");
       }
       onComplete();
     } catch (err) {

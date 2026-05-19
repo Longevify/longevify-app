@@ -22,8 +22,12 @@ const MODEL_PATHS: Record<PatientSex, string> = {
   female: "/avatars/mannequin/female.glb",
 };
 
-useGLTF.preload(MODEL_PATHS.male);
-useGLTF.preload(MODEL_PATHS.female);
+// NÃO faz preload no top-level. Lucas (2026-05-19): "o manequin ta
+// demorando para carregar". Diagnóstico: useGLTF.preload no top-level
+// disparava DOWNLOAD dos 2 GLBs (~3.2 MB total) assim que o módulo era
+// avaliado — mesmo na home onde o mannequin não aparece. useGLTF dentro
+// do Avatar já fetcha sob demanda quando o Canvas monta, e só pra o
+// sexo do paciente atual.
 
 // ─── Mapping órgão → região 3D no corpo (coords em espaço modelo) ──────────
 //
