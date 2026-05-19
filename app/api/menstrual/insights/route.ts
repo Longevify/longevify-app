@@ -49,49 +49,69 @@ const FALLBACK_INSIGHTS: Record<string, InsightCard[]> = {
   menstrual: [
     {
       kind: "phase",
-      title: "Período menstrual em curso",
-      body: "Energia e disposição naturalmente mais baixas. Priorize sono, ferro (carnes magras, lentilha, beterraba) e movimento leve. Cólica é normal mas intensa demais merece avaliação.",
+      title: "Energia mais baixa é normal agora",
+      body: "Seu corpo está gastando recursos pra menstruar. Priorize sono e movimento leve — não é hora de treino pesado.",
+    },
+    {
+      kind: "pattern",
+      title: "Registre fluxo e sintomas",
+      body: "Quanto mais dias você registrar, melhor a análise nos próximos ciclos. Comece pelo fluxo de hoje.",
     },
     {
       kind: "tip",
-      title: "Cólica e fluxo intenso",
-      body: "Magnésio (300-400mg/dia) e ômega-3 reduzem inflamação. Calor local ajuda na hora. Se o fluxo dura >7 dias ou inunda absorvente em <2h, registre e converse com seu médico.",
+      title: "Cólica forte? Magnésio ajuda",
+      body: "Magnésio 300-400mg/dia reduz a cólica em muitas mulheres. Calor local também alivia. Fluxo que dura mais de 7 dias merece avaliação médica.",
     },
   ],
   follicular: [
     {
       kind: "phase",
-      title: "Fase folicular — energia em alta",
-      body: "Estrogênio subindo. Bom momento pra treinos intensos, foco em trabalhos cognitivos exigentes e socialização. Aproveita a janela.",
+      title: "Energia em alta — aproveita",
+      body: "Estrogênio subindo dá foco mental melhor, treino rende mais e o humor tende a estar lá em cima. Boa janela pra projetos exigentes.",
+    },
+    {
+      kind: "pattern",
+      title: "Hora de testar limites",
+      body: "Recuperação muscular fica mais rápida nessa fase. Vale tentar PRs (recordes pessoais) ou treinos mais longos.",
     },
     {
       kind: "tip",
-      title: "Maximize essa fase",
-      body: "Priorize exercícios de força e cardio de alta intensidade. Proteína 1.6g/kg ajuda na recuperação muscular acelerada que sua fisiologia permite agora.",
+      title: "Proteína proporcional ao peso",
+      body: "1.6g de proteína por kg ajuda músculo a aproveitar esse momento. Carne, ovo, peixe, whey — escolha o que cabe no dia.",
     },
   ],
   ovulation: [
     {
       kind: "phase",
-      title: "Janela ovulatória",
-      body: "Pico fértil. Aumento leve de libido e sensação de bem-estar comum. Se está tentando engravidar, esses são os dias mais férteis. Se não, atenção redobrada com contracepção.",
+      title: "Janela fértil",
+      body: "Pico de fertilidade. Libido tende a subir e energia continua alta. Atenção redobrada com contracepção se não está tentando engravidar.",
+    },
+    {
+      kind: "pattern",
+      title: "Sinais que valem registrar",
+      body: "Muco cervical transparente e elástico (parece clara de ovo) é o marcador mais confiável de ovulação. Dor leve num dos lados também é comum.",
     },
     {
       kind: "tip",
-      title: "Sinais da ovulação",
-      body: "Muco cervical fica transparente/elástico (clara de ovo). Temperatura basal sobe ~0.3°C após. Algumas mulheres sentem dor leve em um dos lados (Mittelschmerz).",
+      title: "Aproveite o pico de energia",
+      body: "Mesma lógica da folicular: treinos intensos rendem bem. Adicione exercícios que envolvem coordenação — cérebro fica mais responsivo.",
     },
   ],
   luteal: [
     {
       kind: "phase",
-      title: "Fase lútea — preparação",
-      body: "Progesterona em alta. Mudanças de humor, retenção, sensibilidade nos seios, fome aumentada são comuns. Cravings por doce/sal vêm da queda de serotonina.",
+      title: "Hora de desacelerar",
+      body: "Progesterona alta deixa o corpo mais cansado. Cravings, retenção e mood oscilando são esperados. Não é fraqueza — é fisiologia.",
+    },
+    {
+      kind: "pattern",
+      title: "TPM mapeada vira previsão",
+      body: "Registrar mood e energia nessa fase ajuda a prever quando os sintomas começam no próximo ciclo. Conhecer o padrão já alivia metade.",
     },
     {
       kind: "tip",
-      title: "Como atravessar bem",
-      body: "Diminua intensidade dos treinos, priorize sono (queda de energia é fisiológica). Magnésio + B6 amenizam TPM. Chocolate amargo > açúcar refinado pra cravings.",
+      title: "Magnésio + B6 ajudam na TPM",
+      body: "Combinação clássica e evidence-based. Chocolate amargo (>70%) é melhor que doce pra cravings. Diminua intensidade dos treinos.",
     },
   ],
 };
@@ -139,15 +159,23 @@ Retorne SOMENTE JSON com 3 cards:
   ]
 }
 
-Regras:
-- title curto (max 50 chars)
-- body 2-3 frases (180-260 chars), tom clínico-próximo, acolhedor
-- "phase" = o que a fase atual significa fisiologicamente, com ação prática
-- "pattern" = padrão real observado nos registros (sintoma recorrente, fluxo, energia, mood); se não tem dados suficientes, sugere registrar pra desbloquear análise
-- "tip" = ação concreta (suplemento com dose, hábito, sinal de alarme); evidência-based
-- PT-BR sem clichê "para mulheres"; sem disclaimer genérico
+Regras de escrita (CRÍTICAS — Lucas pediu "texto que seja fácil de ler"):
+- **title**: 3-7 palavras, direto, sem rebuscamento. Ex: "Energia alta hoje" ou "Sono mais frágil é esperado".
+- **body**: 2 frases CURTAS (140-220 chars total). Cada frase com no máximo 15 palavras. Linguagem cotidiana, sem jargão técnico sem explicar. Estilo de mensagem de WhatsApp, não bula de remédio.
+  - Ex bom: "Energia tende a estar mais baixa nessa fase. Vale priorizar sono e treinos leves nessa semana."
+  - Ex ruim: "A elevação dos níveis de progesterona durante a fase lútea provoca diversos sintomas TPM relacionados à modulação serotoninérgica."
+- Cada card foca em UM tópico só, não 3.
+
+Tipos:
+- "phase" = o que a fase atual significa NA PRÁTICA pro corpo (energia, humor, sono), com 1 ação concreta
+- "pattern" = padrão REAL observado nos registros recentes; se ≤2 entries, sugere registrar mais dias pra desbloquear análise
+- "tip" = 1 ação concreta evidence-based (dose de suplemento, hábito específico, OU sinal de alarme pra procurar médico)
+
+Outras regras:
+- PT-BR, sem clichê "para mulheres", sem disclaimer genérico ("consulte seu médico" em toda frase)
 - NÃO prescreva medicamento controlado nem ajuste de contraceptivo
-- Se reproductive_status for "pregnant"/"postpartum"/"menopause"/"perimenopause", adapta o tom`;
+- Se reproductive_status for "pregnant"/"postpartum"/"menopause"/"perimenopause", adapta o tom
+- Sem listas dentro do body — texto corrido sempre`;
 }
 
 export async function POST(request: Request) {
