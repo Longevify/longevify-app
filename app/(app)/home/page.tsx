@@ -15,7 +15,6 @@ import { RecommendationsSection } from "@/components/loja/recommendations-sectio
 import { GoalsSummary } from "@/components/wearables/goals-summary";
 import { PostExamStories } from "@/components/onboarding/post-exam-stories";
 import { ReplayStoriesButton } from "@/components/onboarding/replay-stories-button";
-import { generatePersonalizedInsights } from "@/lib/dados/personalized-insights";
 import { BIOMARKERS, PATIENT, biomarkersStats } from "@/lib/mock-data";
 import { getRecommendedProducts } from "@/lib/product-recommender";
 import { formatDatePtBR } from "@/lib/utils";
@@ -34,33 +33,23 @@ export default async function HomePage() {
     return <NewUserHome firstName={user.firstName} />;
   }
 
-  // Pré-fetch dos insights AI dos top biomarcadores (Lucas 2026-05-18:
-  // "tem que ter sido feito no momento em que você recebeu os dados (...)
-  // o indivíduo não tenha que ficar esperando"). Cache em memória do helper
-  // garante que requests subsequentes ao mesmo paciente são instantâneos.
-  // Pega top 3 piores + top 3 melhores = 6 biomarcadores num único batch.
-  const concernIds = ["ldl", "apob", "vitd", "hba1c", "crp"];
-  const winnerIds = ["hdl", "ferritin", "testo"];
-  const targetBiomarkers = BIOMARKERS.filter(
-    (b) => concernIds.includes(b.id) || winnerIds.includes(b.id),
-  );
-  const insightsResult = await generatePersonalizedInsights(targetBiomarkers, {
-    firstName: PATIENT.firstName,
-    chronologicalAge: PATIENT.chronologicalAge,
-    biologicalAge: PATIENT.biologicalAge,
-    longevifyScore: PATIENT.longevifyScore,
-    sex: PATIENT.sex,
-  });
-  const prefetchedInsights = insightsResult.insights;
+  // Lucas (2026-05-19): "a aba home ta demorando muito para carregar".
+  // Antes a home BLOQUEAVA no render do server component esperando
+  // generatePersonalizedInsights() — chamada OpenAI síncrona que custava
+  // 3-10s em cold start. Pior: cache em memória do Vercel é por instância,
+  // então cada cold start pagava o custo de novo.
+  //
+  // Solução: stories busca insights client-side via /api/dados/personalized-insights
+  // (já implementado como "fallback"). Home renderiza instantâneo SEMPRE
+  // (RSC normal); quando user abre stories (~1% das visitas — só primeira
+  // vez ou via ReplayStoriesButton), "Dr. Lon analisando..." aparece nos
+  // slides enquanto carrega.
 
   return (
     <div className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6 sm:py-10">
       {/* Apresentação Stories pós-exame — só na primeira visita (gerencia
           via localStorage). Inspirado nos stories do Superpower app. */}
-      <PostExamStories
-        patient={PATIENT}
-        prefetchedInsights={prefetchedInsights}
-      />
+      <PostExamStories patient={PATIENT} />
 
       <header className="flex flex-col gap-1 pb-6 sm:pb-8">
         <span className="text-[13px] text-muted">Olá, {user.firstName}</span>
@@ -69,10 +58,7 @@ export default async function HomePage() {
             Sua saúde hoje
           </h1>
           {/* Botão pra rever apresentação — só na conta demo (Lucas) */}
-          <ReplayStoriesButton
-            patient={PATIENT}
-            prefetchedInsights={prefetchedInsights}
-          />
+          <ReplayStoriesButton patient={PATIENT} />
         </div>
       </header>
 
