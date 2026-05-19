@@ -24,6 +24,12 @@ export interface ConciergeExtras {
 
   /** Snapshot dos wearables (últimos 7 dias agregados). */
   wearablesSummary: string | null;
+
+  /** Contexto de ciclo menstrual (fase atual + sintomas recentes). null
+   *  pra users que não onboarded ou trackam desativado. Importante:
+   *  humor/energia/sono/libido OSCILAM pelo ciclo, então essa info muda
+   *  como o Concierge deve interpretar dados subjetivos recentes. */
+  menstrualSummary: string | null;
 }
 
 const EMPTY: ConciergeExtras = {
@@ -32,6 +38,7 @@ const EMPTY: ConciergeExtras = {
   intakeSummary: null,
   labUploadsSummary: null,
   wearablesSummary: null,
+  menstrualSummary: null,
 };
 
 /**
@@ -104,7 +111,7 @@ export async function loadConciergeContext(): Promise<{
   // header e RLS bloqueia tudo silenciosamente (gotData=false).
   const supabase = await createSupabaseWithJwt(accessToken);
 
-  const [profileRes, intakeRes, labsRes, dailyRes, dadosResolved] =
+  const [profileRes, intakeRes, labsRes, dailyRes, dadosResolved, menstrualRes, menstrualEntriesRes] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -135,12 +142,29 @@ export async function loadConciergeContext(): Promise<{
         .order("date", { ascending: false })
         .limit(7),
       loadDadosForUser({ userId, isDemo: false }),
+      supabase
+        .from("menstrual_profile")
+        .select(
+          "tracking_enabled, last_period_start, avg_cycle_days, avg_period_days, cycle_regularity, contraceptive_kind, reproductive_status, onboarded_at",
+        )
+        .eq("patient_id", userId)
+        .maybeSingle(),
+      supabase
+        .from("menstrual_entries")
+        .select("entry_date, flow, symptoms, mood, energy, libido, sleep_quality")
+        .eq("patient_id", userId)
+        .order("entry_date", { ascending: false })
+        .limit(14),
     ]);
 
   const profileSummary = formatProfile(profileRes.data);
   const intakeSummary = formatIntake(intakeRes.data);
   const labUploadsSummary = formatLabUploads(labsRes.data ?? []);
   const wearablesSummary = formatWearables(dailyRes.data ?? []);
+  const menstrualSummary = formatMenstrualContext(
+    menstrualRes.data ?? null,
+    menstrualEntriesRes.data ?? [],
+  );
   const preferredName = extractPreferredName(intakeRes.data);
 
   // Sobrescreve nome/idade do PATIENT mock pelos dados REAIS do profile
@@ -183,6 +207,7 @@ export async function loadConciergeContext(): Promise<{
       intakeSummary,
       labUploadsSummary,
       wearablesSummary,
+      menstrualSummary,
     },
     isDemo: false,
     hasExamData,
@@ -288,6 +313,70 @@ function formatLabUploads(rows: Array<Record<string, unknown>>): string | null {
     const fn = String(r.file_name);
     lines.push(`- ${date}${kind}${lab}: ${fn}`);
   }
+  return lines.join("\n");
+}
+
+function formatMenstrualContext(
+  profile: Record<string, unknown> | null,
+  entries: Array<Record<string, unknown>>,
+): string | null {
+  if (!profile) return null;
+  if (!profile.tracking_enabled) return null;
+  if (!profile.last_period_start || !profile.onboarded_at) return null;
+
+  // Calcular fase atual reusando lógica de cycle.ts (sem importar pra
+  // evitar circular dep — duplicamos cálculo simples).
+  const lastStart = String(profile.last_period_start);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const [ly, lm, ld] = lastStart.split("-").map(Number);
+  let cycleStart = new Date(ly, lm - 1, ld, 0, 0, 0, 0);
+  const avgCycle = Number(profile.avg_cycle_days) || 28;
+  const avgPeriod = Number(profile.avg_period_days) || 5;
+  const dayMs = 24 * 60 * 60 * 1000;
+  let cycleDay = Math.round((today.getTime() - cycleStart.getTime()) / dayMs) + 1;
+  while (cycleDay > avgCycle) {
+    cycleStart = new Date(cycleStart.getTime() + avgCycle * dayMs);
+    cycleDay = Math.round((today.getTime() - cycleStart.getTime()) / dayMs) + 1;
+  }
+  const ovulationDay = avgCycle - 14;
+  let phase: string;
+  if (cycleDay <= avgPeriod) phase = "menstrual";
+  else if (cycleDay < ovulationDay - 1) phase = "folicular";
+  else if (cycleDay <= ovulationDay + 1) phase = "ovulação";
+  else phase = "lútea";
+
+  const daysToNext = Math.max(0, avgCycle - cycleDay);
+  const lines: string[] = [];
+  lines.push(
+    `- Fase do ciclo: ${phase} (dia ${cycleDay} de ${avgCycle}, próximo período em ~${daysToNext}d)`,
+  );
+
+  if (profile.reproductive_status && profile.reproductive_status !== "regular") {
+    lines.push(`- Status reprodutivo: ${profile.reproductive_status}`);
+  }
+  if (profile.contraceptive_kind && profile.contraceptive_kind !== "none") {
+    lines.push(`- Contraceptivo: ${profile.contraceptive_kind}`);
+  }
+
+  // Sintomas mais frequentes nas últimas 2 semanas
+  const symCount = new Map<string, number>();
+  for (const e of entries) {
+    const sym = Array.isArray(e.symptoms) ? (e.symptoms as string[]) : [];
+    for (const s of sym) symCount.set(s, (symCount.get(s) ?? 0) + 1);
+  }
+  const top = Array.from(symCount.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
+  if (top.length > 0) {
+    lines.push(
+      `- Sintomas recentes (14d): ${top.map(([k, c]) => `${k} ×${c}`).join(", ")}`,
+    );
+  }
+
+  lines.push(
+    "  (humor/energia/sono/libido oscilam pelo ciclo — considere essa fase ao interpretar sintomas subjetivos)",
+  );
   return lines.join("\n");
 }
 
