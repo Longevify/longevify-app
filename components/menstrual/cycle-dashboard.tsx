@@ -11,13 +11,13 @@ import type {
 import { PHASE_COLOR, PHASE_LABEL } from "@/lib/menstrual/types";
 import {
   addDays,
-  describePhase,
   formatYmd,
   getCyclePhaseInfo,
   predictPhaseForDate,
   startOfDay,
 } from "@/lib/menstrual/cycle";
 import { DayEntrySheet } from "./day-entry-sheet";
+import { CycleInsights } from "./cycle-insights";
 
 /**
  * Dashboard principal do ciclo menstrual.
@@ -66,31 +66,38 @@ export function CycleDashboard({ profile, initialEntries }: Props) {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-b from-rose-50/40 via-white to-white pb-32">
+    <div className="min-h-[100dvh] bg-gradient-to-b from-rose-50/40 via-white to-white pb-16 sm:pb-24">
       {/* Header insights */}
       <PhaseHeader info={phaseInfo} />
 
       {/* Quick action: registrar hoje */}
-      <div className="px-5 mt-4">
+      <div className="px-5 mt-3">
         <button
           type="button"
           onClick={() => setSelectedDate(formatYmd(today))}
-          className="flex w-full items-center justify-between rounded-2xl bg-zinc-900 px-5 py-4 text-left text-white shadow-lg shadow-zinc-900/15 transition hover:bg-zinc-800"
+          className="flex w-full items-center justify-between rounded-xl bg-zinc-900 px-4 py-3 text-left text-white shadow-md shadow-zinc-900/10 transition hover:bg-zinc-800"
         >
           <div>
-            <div className="text-[13px] text-white/60">Hoje</div>
-            <div className="text-[15px] font-semibold">
+            <div className="text-[11px] uppercase tracking-wide text-white/60">Hoje</div>
+            <div className="text-[13.5px] font-semibold leading-tight">
               {entriesByDate.has(formatYmd(today))
-                ? "Atualizar registro do dia"
-                : "Registrar como você está se sentindo"}
+                ? "Atualizar registro"
+                : "Registrar como está se sentindo"}
             </div>
           </div>
-          <Plus className="h-5 w-5" />
+          <Plus className="h-5 w-5 shrink-0" />
         </button>
       </div>
 
+      {/* Insights AI personalizados — Lucas 2026-05-19 */}
+      <CycleInsights
+        profile={profile}
+        entries={entries}
+        phaseInfo={phaseInfo}
+      />
+
       {/* Calendário */}
-      <div className="mt-6 px-5">
+      <div className="mt-5 px-5">
         <CalendarHeader
           viewMonth={viewMonth}
           onPrev={() =>
@@ -145,31 +152,26 @@ function PhaseHeader({
 }) {
   const colors = PHASE_COLOR[info.phase];
   return (
-    <div className="px-5 pt-[max(env(safe-area-inset-top),20px)] pb-1">
-      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+    <div className="px-5 pt-[max(env(safe-area-inset-top),16px)] pb-1">
+      <div className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
         <Sparkles className="h-3 w-3" />
         Seu ciclo hoje
       </div>
-      <h1 className="mt-2 text-[28px] font-semibold leading-tight tracking-tight text-zinc-900">
+      <h1 className="mt-1.5 text-[24px] font-semibold leading-tight tracking-tight text-zinc-900">
         Fase{" "}
         <span style={{ color: colors.text }}>{PHASE_LABEL[info.phase]}</span>
       </h1>
-      <div className="mt-1.5 flex items-baseline gap-4 text-[12.5px] text-zinc-600">
+      <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-[12px] text-zinc-600">
         <span>
           Dia <strong className="text-zinc-900">{info.cycleDay}</strong> de{" "}
           {info.cycleLength}
         </span>
         {info.daysUntilNextPeriod > 0 && (
           <span>
-            Próximo período em{" "}
-            <strong className="text-zinc-900">{info.daysUntilNextPeriod}</strong>{" "}
-            dias
+            Próximo em <strong className="text-zinc-900">{info.daysUntilNextPeriod}</strong>d
           </span>
         )}
       </div>
-      <p className="mt-3 max-w-md text-[13px] leading-relaxed text-zinc-600">
-        {describePhase(info.phase)}
-      </p>
     </div>
   );
 }
@@ -247,17 +249,21 @@ function CalendarGrid({
   }
 
   const weekdays = ["D", "S", "T", "Q", "Q", "S", "S"];
+  // Lucas (2026-05-19): "ta muito grande os dias, faça algo que não
+  // precisa fazer scroll para ver o calendário todo". Cells fixas em
+  // altura (~36px mobile / ~44px desktop) — calendário mensal completo
+  // cabe em ~280px sem scroll.
   return (
-    <div className="rounded-3xl bg-white p-3 ring-1 ring-zinc-200">
-      <div className="mb-2 grid grid-cols-7 gap-1 text-center text-[10.5px] font-semibold uppercase tracking-wider text-zinc-400">
+    <div className="rounded-2xl bg-white p-2 ring-1 ring-zinc-200">
+      <div className="mb-1 grid grid-cols-7 gap-0.5 text-center text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
         {weekdays.map((d, i) => (
           <div key={i}>{d}</div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-0.5">
         {cells.map((cell, idx) => {
           if (!cell.date || !cell.ymd) {
-            return <div key={idx} className="aspect-square" />;
+            return <div key={idx} className="h-9 sm:h-11" />;
           }
           const isToday = formatYmd(today) === cell.ymd;
           const isFuture = cell.date > today;
@@ -273,10 +279,9 @@ function CalendarGrid({
               type="button"
               onClick={() => onDayClick(cell.ymd!)}
               className={cn(
-                "relative aspect-square rounded-xl text-center transition",
+                "relative h-9 sm:h-11 rounded-lg text-center transition",
                 "flex flex-col items-center justify-center",
-                isToday && "ring-2",
-                isFuture && "opacity-60",
+                isFuture && "opacity-55",
               )}
               style={{
                 backgroundColor: phase === "unknown" ? "#fafafa" : colors.bg,
@@ -285,28 +290,30 @@ function CalendarGrid({
             >
               <span
                 className={cn(
-                  "text-[13px] font-semibold tabular-nums",
+                  "text-[11.5px] sm:text-[13px] font-semibold tabular-nums leading-none",
                   isToday ? "text-zinc-900" : "text-zinc-700",
                 )}
                 style={{ color: phase !== "unknown" ? colors.text : undefined }}
               >
                 {cell.date.getDate()}
               </span>
-              {/* Indicadores */}
-              <div className="absolute bottom-1 flex gap-0.5">
-                {hasFlow && (
-                  <span
-                    className="h-1 w-1 rounded-full"
-                    style={{ backgroundColor: PHASE_COLOR.menstrual.ring }}
-                  />
-                )}
-                {symptomCount > 0 && (
-                  <span
-                    className="h-1 w-1 rounded-full bg-zinc-500"
-                    aria-label={`${symptomCount} sintomas`}
-                  />
-                )}
-              </div>
+              {/* Indicadores — menores pra caber em cells compactas */}
+              {(hasFlow || symptomCount > 0) && (
+                <div className="mt-0.5 flex gap-0.5">
+                  {hasFlow && (
+                    <span
+                      className="h-[3px] w-[3px] rounded-full"
+                      style={{ backgroundColor: PHASE_COLOR.menstrual.ring }}
+                    />
+                  )}
+                  {symptomCount > 0 && (
+                    <span
+                      className="h-[3px] w-[3px] rounded-full bg-zinc-500"
+                      aria-label={`${symptomCount} sintomas`}
+                    />
+                  )}
+                </div>
+              )}
             </button>
           );
         })}
