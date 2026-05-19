@@ -1,4 +1,5 @@
 import Link from "next/link";
+import dynamicImport from "next/dynamic";
 import {
   ArrowRight,
   Calendar,
@@ -13,14 +14,37 @@ import { ScoreCard } from "@/components/dados/score-card";
 import { BioAgeCard } from "@/components/dados/bio-age-card";
 import { RecommendationsSection } from "@/components/loja/recommendations-section";
 import { GoalsSummary } from "@/components/wearables/goals-summary";
-import { PostExamStories } from "@/components/onboarding/post-exam-stories";
-import { ReplayStoriesButton } from "@/components/onboarding/replay-stories-button";
 import { BIOMARKERS, PATIENT, biomarkersStats } from "@/lib/mock-data";
 import { getRecommendedProducts } from "@/lib/product-recommender";
 import { formatDatePtBR } from "@/lib/utils";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getUserBookings } from "@/lib/scheduling/bookings";
 import { BookingCard } from "@/components/scheduling/booking-card";
+
+// Lucas (2026-05-19): home ainda demorava após remover o pre-fetch de
+// insights. Achei o gargalo real — PostExamStories tem 2.2k linhas +
+// Three.js (animação do mannequin) + várias libs auxiliares. Esse
+// bundle JS gigante era baixado na home SEMPRE, mesmo quando o user
+// não ia abrir as stories (99% dos casos — só primeira visita).
+//
+// `next/dynamic` cria chunk separado pro bundle dessas stories. Como
+// SC não suporta ssr:false em next/dynamic, deixamos default — Next
+// ainda code-splita e baixa lazy, só não pula o render server-side
+// (que é mínimo, já que ambos são "use client" e gateados por
+// localStorage no useEffect — render server vira essencialmente nada).
+const PostExamStories = dynamicImport(
+  () =>
+    import("@/components/onboarding/post-exam-stories").then(
+      (m) => m.PostExamStories,
+    ),
+);
+const ReplayStoriesButton = dynamicImport(
+  () =>
+    import("@/components/onboarding/replay-stories-button").then(
+      (m) => m.ReplayStoriesButton,
+    ),
+  { loading: () => null },
+);
 
 export default async function HomePage() {
   const user = await getCurrentUser();
