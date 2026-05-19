@@ -6,7 +6,6 @@ import { Footer } from "@/components/app/footer";
 import { DrLonFloating } from "@/components/app/dr-lon-floating";
 import { UserProvider } from "@/lib/auth/user-context";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { IdentifyUser } from "@/lib/analytics/identify-user";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -52,15 +51,6 @@ export default async function AppLayout({
       <div className="hidden sm:contents">
         <DrLonFloating />
       </div>
-
-      {/* Identifica o user no PostHog. Demo users ficam anônimos. */}
-      <IdentifyUser
-        userId={user.isDemo ? null : user.id}
-        email={user.email}
-        firstName={user.firstName}
-        biologicalAge={user.chronologicalAge}
-        hasIntake={Boolean(user.intakeCompletedAt)}
-      />
     </UserProvider>
   );
 }
