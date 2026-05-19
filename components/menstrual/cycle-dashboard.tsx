@@ -89,14 +89,8 @@ export function CycleDashboard({ profile, initialEntries }: Props) {
         </button>
       </div>
 
-      {/* Insights AI personalizados — Lucas 2026-05-19 */}
-      <CycleInsights
-        profile={profile}
-        entries={entries}
-        phaseInfo={phaseInfo}
-      />
-
-      {/* Calendário */}
+      {/* Calendário (Lucas 2026-05-19: insights/diagnóstico fica EMBAIXO
+          do calendário pra dar prioridade visual ao calendário). */}
       <div className="mt-5 px-5">
         <CalendarHeader
           viewMonth={viewMonth}
@@ -120,6 +114,14 @@ export function CycleDashboard({ profile, initialEntries }: Props) {
         />
         <CalendarLegend />
       </div>
+
+      {/* Análise AI personalizada — Lucas 2026-05-19 pediu pra ficar
+          embaixo do calendário, mais bonita e legível. */}
+      <CycleInsights
+        profile={profile}
+        entries={entries}
+        phaseInfo={phaseInfo}
+      />
 
       {/* Stats / sintomas recorrentes */}
       {entries.length > 0 && (

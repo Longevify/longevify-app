@@ -32,25 +32,34 @@ interface InsightCard {
 
 const ICON_BY_KIND: Record<
   InsightCard["kind"],
-  { Icon: typeof Activity; ring: string; bg: string; text: string }
+  {
+    Icon: typeof Activity;
+    label: string;
+    accent: string; // strip lateral
+    iconBg: string;
+    iconText: string;
+  }
 > = {
   phase: {
     Icon: Activity,
-    ring: "ring-rose-200",
-    bg: "bg-rose-50",
-    text: "text-rose-700",
+    label: "Fase atual",
+    accent: "bg-rose-400",
+    iconBg: "bg-rose-100",
+    iconText: "text-rose-700",
   },
   pattern: {
     Icon: BookOpen,
-    ring: "ring-amber-200",
-    bg: "bg-amber-50",
-    text: "text-amber-700",
+    label: "Padrão observado",
+    accent: "bg-amber-400",
+    iconBg: "bg-amber-100",
+    iconText: "text-amber-700",
   },
   tip: {
     Icon: Lightbulb,
-    ring: "ring-emerald-200",
-    bg: "bg-emerald-50",
-    text: "text-emerald-700",
+    label: "Recomendação",
+    accent: "bg-emerald-400",
+    iconBg: "bg-emerald-100",
+    iconText: "text-emerald-700",
   },
 };
 
@@ -150,55 +159,85 @@ export function CycleInsights({ profile, entries, phaseInfo }: Props) {
 
   if (loading && !insights) {
     return (
-      <div className="mt-5 px-5">
-        <div className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-[12.5px] text-zinc-500">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          Analisando seu ciclo...
+      <section className="mt-8 px-5">
+        <SectionHeader />
+        <div className="mt-3 flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-4 text-[13px] text-zinc-500">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Preparando sua análise...
         </div>
-      </div>
+      </section>
     );
   }
 
   if (!insights || insights.length === 0) return null;
 
   return (
-    <section className="mt-5 px-5">
-      <h3 className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
-        Análise personalizada
-      </h3>
-      <div className="flex flex-col gap-2">
+    <section className="mt-8 px-5">
+      <SectionHeader />
+      <div className="mt-3 flex flex-col gap-3">
         {insights.map((i, idx) => {
           const meta = ICON_BY_KIND[i.kind];
           const Icon = meta.Icon;
           return (
-            <div
+            <article
               key={idx}
               className={cn(
-                "flex items-start gap-3 rounded-2xl bg-white p-3.5 ring-1",
-                meta.ring,
+                "relative overflow-hidden rounded-2xl bg-white pl-4 pr-4 py-4 sm:py-5",
+                "shadow-[0_2px_8px_-2px_rgba(0,0,0,0.04)] ring-1 ring-zinc-200/70",
               )}
             >
-              <div
+              {/* Strip lateral colorido — sinal forte da categoria */}
+              <span
                 className={cn(
-                  "grid h-9 w-9 shrink-0 place-items-center rounded-xl",
-                  meta.bg,
-                  meta.text,
+                  "absolute inset-y-0 left-0 w-1",
+                  meta.accent,
                 )}
-              >
-                <Icon className="h-4 w-4" strokeWidth={2.2} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-[13px] font-semibold leading-snug text-zinc-900">
-                  {i.title}
-                </div>
-                <p className="mt-1 text-[12.5px] leading-relaxed text-zinc-600">
-                  {i.body}
-                </p>
-              </div>
-            </div>
+                aria-hidden
+              />
+              {/* Header: ícone + label categoria */}
+              <header className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    "grid h-7 w-7 shrink-0 place-items-center rounded-lg",
+                    meta.iconBg,
+                    meta.iconText,
+                  )}
+                >
+                  <Icon className="h-4 w-4" strokeWidth={2.2} />
+                </span>
+                <span
+                  className={cn(
+                    "text-[10.5px] font-semibold uppercase tracking-[0.14em]",
+                    meta.iconText,
+                  )}
+                >
+                  {meta.label}
+                </span>
+              </header>
+              {/* Conteúdo */}
+              <h4 className="mt-2.5 text-[15px] font-semibold leading-snug tracking-tight text-zinc-900">
+                {i.title}
+              </h4>
+              <p className="mt-1.5 text-[13.5px] leading-[1.55] text-zinc-600">
+                {i.body}
+              </p>
+            </article>
           );
         })}
       </div>
     </section>
+  );
+}
+
+function SectionHeader() {
+  return (
+    <div className="flex items-baseline justify-between">
+      <h3 className="text-[15px] font-semibold tracking-tight text-zinc-900">
+        Análise personalizada
+      </h3>
+      <span className="text-[10.5px] font-medium uppercase tracking-wider text-zinc-400">
+        Pra você
+      </span>
+    </div>
   );
 }
