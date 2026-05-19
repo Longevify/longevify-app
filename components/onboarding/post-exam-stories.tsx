@@ -1142,7 +1142,25 @@ function BiomarkerDeepDiveSlide({
   total: number;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const expandedRef = useRef<HTMLDivElement | null>(null);
   const isOptimal = variant === "winner";
+
+  // Quando user clica "Saber mais", scrolla pro conteúdo expandido
+  // automaticamente — sem isso o user vê os textos cortados pelo botão
+  // Continuar fixo e fica perdido (Lucas 2026-05-18: "não consigo dar
+  // scroll nesse 'story' para ver o restante do texto").
+  useEffect(() => {
+    if (expanded && expandedRef.current) {
+      // Pequeno delay pra esperar o accordion terminar de expandir
+      const t = setTimeout(() => {
+        expandedRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+        });
+      }, 350);
+      return () => clearTimeout(t);
+    }
+  }, [expanded]);
 
   // Cores por variant
   const theme = isOptimal
@@ -1197,8 +1215,16 @@ function BiomarkerDeepDiveSlide({
     <div className={cn("flex h-full w-full", theme.cardBg)}>
       {/* Scroll vertical do conteúdo. As tap zones do shell têm
           `touch-action: pan-y` agora, então o scroll vertical é
-          delegado pra esse container mesmo sob as zonas de tap. */}
-      <div className="relative flex-1 overflow-y-auto overscroll-contain px-5 pt-[88px] pb-[120px]">
+          delegado pra esse container mesmo sob as zonas de tap.
+          pb=200px cobre: botão Continuar (~52px) + safe-area-inset-bottom
+          (~32px iPhone) + folga pro accordion expandido não ficar
+          cortado quando user clica "Saber mais" (Lucas 2026-05-18). */}
+      <div
+        className="relative flex-1 overflow-y-auto overscroll-contain px-5 pt-[88px]"
+        style={{
+          paddingBottom: "max(calc(env(safe-area-inset-bottom) + 160px), 200px)",
+        }}
+      >
         <div className="mx-auto w-full max-w-md text-left">
           <div
             className={cn(
@@ -1304,6 +1330,7 @@ function BiomarkerDeepDiveSlide({
               </button>
 
               <div
+                ref={expandedRef}
                 className={cn(
                   "grid transition-[grid-template-rows] duration-300 ease-out",
                   expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
@@ -1412,8 +1439,16 @@ function BundleSlide({
       {/* Container scrollable. As tap zones do shell têm
           `touch-action: pan-y`, então o scroll vertical funciona
           mesmo nas áreas laterais de 12% (browser delega scroll
-          pro container e mantém click pra tap). */}
-      <div className="relative flex-1 overflow-y-auto overscroll-contain px-5 pt-[88px] pb-[120px]">
+          pro container e mantém click pra tap).
+          pb=200px+safe-area garante que ProductMiniCards expandidos
+          pelo "Saber mais" não ficam cortados pelo botão Continuar
+          fixo (Lucas 2026-05-18). */}
+      <div
+        className="relative flex-1 overflow-y-auto overscroll-contain px-5 pt-[88px]"
+        style={{
+          paddingBottom: "max(calc(env(safe-area-inset-bottom) + 160px), 200px)",
+        }}
+      >
         <div className="mx-auto w-full max-w-md story-card-in text-center">
           <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-300 ring-1 ring-emerald-400/30">
             <Sparkles className="h-3 w-3" />
@@ -1565,11 +1600,28 @@ function ProductMiniCard({
   delayMs: number;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const cardRef = useRef<HTMLDivElement | null>(null);
   const subPrice = Math.round(product.priceBRL * 0.9);
   const primaryBiomarker = matchedBiomarkers[0];
 
+  // Auto-scroll quando expand pra mostrar o card inteiro (Lucas
+  // 2026-05-18: "não consigo dar scroll nesse story para ver o
+  // restante do texto").
+  useEffect(() => {
+    if (expanded && cardRef.current) {
+      const t = setTimeout(() => {
+        cardRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+        });
+      }, 350);
+      return () => clearTimeout(t);
+    }
+  }, [expanded]);
+
   return (
     <div
+      ref={cardRef}
       className={cn(
         "story-pop overflow-hidden rounded-2xl bg-white transition-all",
         "shadow-[0_8px_24px_-12px_rgba(0,0,0,0.4)]",
@@ -1657,8 +1709,11 @@ function ProductMiniCard({
         </div>
       </div>
 
-      {/* Botões — Comprar (cinza claro) + Assinar (verde) */}
-      <div className="grid grid-cols-2 gap-0 border-t border-zinc-100">
+      {/* Botões — Comprar (cinza escuro, contraste claro com card branco)
+          + Assinar (verde brand). Lucas 2026-05-18: "o card do produto
+          individual deveria ter uma maior diferença de cores entre o
+          botão comprar e o plano de fundo do card do produto". */}
+      <div className="grid grid-cols-2 gap-0 border-t border-zinc-200">
         <button
           type="button"
           onClick={(e) => {
@@ -1667,10 +1722,10 @@ function ProductMiniCard({
           }}
           disabled={isAdded}
           className={cn(
-            "py-2 text-[12.5px] font-semibold transition-colors",
+            "py-2.5 text-[12.5px] font-semibold transition-colors",
             isAdded
-              ? "bg-zinc-50 text-zinc-400"
-              : "bg-white text-zinc-800 hover:bg-zinc-50",
+              ? "bg-zinc-100 text-zinc-400"
+              : "bg-zinc-900 text-white hover:bg-zinc-800",
           )}
         >
           {isAdded ? "✓ Adicionado" : `Comprar R$ ${product.priceBRL}`}
@@ -1683,7 +1738,7 @@ function ProductMiniCard({
           }}
           disabled={isAdded}
           className={cn(
-            "relative border-l border-zinc-100 py-2 text-[12.5px] font-semibold transition-colors",
+            "relative border-l border-zinc-100 py-2.5 text-[12.5px] font-semibold transition-colors",
             isAdded
               ? "bg-emerald-50 text-emerald-400"
               : "bg-gradient-to-br from-brand-600 to-brand-800 text-white hover:from-brand-700 hover:to-brand-900",
