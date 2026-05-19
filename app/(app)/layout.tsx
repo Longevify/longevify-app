@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { TopNav } from "@/components/app/top-nav";
+import { BottomNav } from "@/components/app/bottom-nav";
 import { Footer } from "@/components/app/footer";
 import { DrLonFloating } from "@/components/app/dr-lon-floating";
 import { UserProvider } from "@/lib/auth/user-context";
@@ -33,14 +34,23 @@ export default async function AppLayout({
     <UserProvider user={user}>
       <div className="flex min-h-screen flex-col">
         <TopNav />
-        <main className="flex-1">{children}</main>
+        {/* Reserva espaço no fim do scroll pra BottomNav (h-14 + safe-area
+            do iPhone) só em mobile. Em desktop não tem BottomNav. */}
+        <main className="flex-1 pb-[calc(env(safe-area-inset-bottom)+72px)] sm:pb-0">
+          {children}
+        </main>
         <Footer />
       </div>
 
-      {/* Dr. Lon mini chat flutuante — visível em todas as abas do app
-          autenticado. Click pra expandir conversa rápida, ou botão pra
-          continuar no /concierge full screen. */}
-      <DrLonFloating />
+      {/* BottomNav — só visível em mobile, fixo na bottom com ícones
+          (Lucas 2026-05-19: "colocar icones para Cada aba, não quero texto"). */}
+      <BottomNav />
+
+      {/* Dr. Lon mini chat flutuante — visível só em desktop. Em mobile
+          o user usa a aba "Concierge" da bottom nav. */}
+      <div className="hidden sm:contents">
+        <DrLonFloating />
+      </div>
     </UserProvider>
   );
 }

@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import { Menu, ShoppingBag, X } from "lucide-react";
+import { useState } from "react";
+import { ShoppingBag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,22 @@ import { CartTrigger } from "@/components/cart/cart-trigger";
 import { ProfileMenu } from "@/components/app/profile-menu";
 import { InviteModal } from "@/components/app/invite-modal";
 import { useCurrentUser } from "@/lib/auth/user-context";
+
+/**
+ * Top nav do app autenticado.
+ *
+ * Lucas (2026-05-19): "no app (mobile version), o ideal seria colocar
+ * as abas embaixo como se fosse um app normal de telefone".
+ *
+ * Por isso:
+ *   - Desktop (sm+): nav inline cobre toda a navegação (Home, Dados,
+ *     Protocolo, Dieta, Ciclo, Loja, Concierge)
+ *   - Mobile (< sm): apenas logo + cart + profile. A navegação
+ *     principal vive no BottomNav (componente separado, fixo na bottom)
+ *
+ * Removido: hamburger menu + dropdown que existia em mobile — agora a
+ * navegação está sempre visível na bottom nav, sem precisar abrir menu.
+ */
 
 const NAV = [
   { href: "/home", label: "Home" },
@@ -24,14 +40,8 @@ const NAV = [
 
 export function TopNav() {
   const pathname = usePathname();
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const user = useCurrentUser();
-
-  // Fecha hamburger ao navegar
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
 
   return (
     <header
@@ -44,25 +54,7 @@ export function TopNav() {
         paddingTop: "env(safe-area-inset-top)",
       }}
     >
-      <div className="mx-auto flex h-16 w-full max-w-[1280px] items-center gap-3 px-4 sm:gap-8 sm:px-6">
-        {/* Hamburger — só mobile (< sm). Touch target 44x44 (Apple HIG)
-            pra garantir que dá pra tocar com o polegar perto da Dynamic
-            Island sem errar — botão de 36px ficava perto demais do safe
-            area e o usuário relatou "muito altos, não dá pra clicar". */}
-        <button
-          type="button"
-          onClick={() => setMobileOpen((v) => !v)}
-          aria-label={mobileOpen ? "Fechar menu" : "Abrir menu"}
-          aria-expanded={mobileOpen}
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-ink hover:bg-black/5 sm:hidden"
-        >
-          {mobileOpen ? (
-            <X className="h-5 w-5" />
-          ) : (
-            <Menu className="h-5 w-5" />
-          )}
-        </button>
-
+      <div className="mx-auto flex h-14 w-full max-w-[1280px] items-center gap-3 px-4 sm:h-16 sm:gap-8 sm:px-6">
         <Link
           href="/home"
           aria-label="Longevify"
@@ -71,7 +63,7 @@ export function TopNav() {
           <Logo />
         </Link>
 
-        {/* Nav inline — só desktop (sm+) */}
+        {/* Nav inline — só desktop (sm+). Em mobile vive na BottomNav. */}
         <nav className="hidden flex-1 items-center gap-1 sm:flex">
           {NAV.map((item) => {
             const active =
@@ -109,7 +101,7 @@ export function TopNav() {
               </span>
             }
           />
-          {/* "Convidar" só mostra em desktop — em mobile o user acessa via menu */}
+          {/* "Convidar" só mostra em desktop — em mobile o user acessa via profile */}
           <Button
             variant="primary"
             size="md"
@@ -121,48 +113,6 @@ export function TopNav() {
           <ProfileMenu />
         </div>
       </div>
-
-      {/* Mobile dropdown menu — slide down quando hamburger aberto */}
-      {mobileOpen ? (
-        <nav
-          className="border-t border-border/70 bg-white sm:hidden"
-          aria-label="Menu mobile"
-        >
-          <div className="mx-auto flex max-w-[1280px] flex-col gap-1 px-4 py-3">
-            {NAV.map((item) => {
-              const active =
-                pathname === item.href || pathname.startsWith(item.href + "/");
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "rounded-xl px-4 py-3 text-[15px] font-medium",
-                    active
-                      ? "bg-brand-900 text-white"
-                      : "text-ink hover:bg-brand-50/40",
-                  )}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-            <div className="mt-2 border-t border-border/70 pt-3">
-              <Button
-                variant="primary"
-                size="md"
-                className="w-full"
-                onClick={() => {
-                  setInviteOpen(true);
-                  setMobileOpen(false);
-                }}
-              >
-                Convidar
-              </Button>
-            </div>
-          </div>
-        </nav>
-      ) : null}
 
       <InviteModal
         open={inviteOpen}
