@@ -91,6 +91,16 @@ export function getCyclePhaseInfo(
     cycleDay = diffDays(cycleStart, todayStart) + 1;
   }
 
+  // Lucas (2026-05-19): "os dados dos dias anteriores ta tudo marcado
+  // como menstrual". Pra datas ANTES de lastPeriodStart, diffDays
+  // retorna 0 ou negativo → satisfaz `cycleDay <= periodLength` →
+  // virava menstrual erradamente. Recua ciclos completos até a data
+  // cair em um ciclo passado real (assumindo avgCycleDays constante).
+  while (cycleDay <= 0) {
+    cycleStart = addDays(cycleStart, -profile.avgCycleDays);
+    cycleDay = diffDays(cycleStart, todayStart) + 1;
+  }
+
   const cycleLength = profile.avgCycleDays;
   const periodLength = profile.avgPeriodDays;
   // Fase lútea é a mais previsível (~14 dias antes do próximo período).
