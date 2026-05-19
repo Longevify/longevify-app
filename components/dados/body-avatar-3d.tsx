@@ -358,5 +358,8 @@ function HumanModel({
   );
 }
 
-useGLTF.preload(MODEL_PATHS.male);
-useGLTF.preload(MODEL_PATHS.female);
+// NÃO preload no top-level (Lucas 2026-05-19: "o manequin ta demorando
+// para carregar"). VH_M_Skin.glb tem 5.7 MB e VH_F_Skin.glb tem 3.1 MB
+// — preload no module-eval baixava 8.8 MB de modelos por toda visita,
+// mesmo quando o avatar não aparece. useGLTF dentro do componente
+// continua fetchando sob demanda quando o Canvas monta.

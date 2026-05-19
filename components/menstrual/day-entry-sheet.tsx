@@ -14,6 +14,8 @@ import {
   PHASE_LABEL,
   SYMPTOM_CATALOG,
 } from "@/lib/menstrual/types";
+import { saveEntry } from "@/lib/menstrual/client-store";
+import { useCurrentUser } from "@/lib/auth/user-context";
 
 /**
  * Bottom sheet pra registrar/editar entry de um dia específico.
@@ -49,6 +51,7 @@ export function DayEntrySheet({
   onClose,
   onSaved,
 }: Props) {
+  const user = useCurrentUser();
   const [flow, setFlow] = useState<FlowLevel | null>(existingEntry?.flow ?? null);
   const [symptoms, setSymptoms] = useState<SymptomKey[]>(
     existingEntry?.symptoms ?? [],
@@ -87,10 +90,8 @@ export function DayEntrySheet({
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch("/api/menstrual/entries", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const result = await saveEntry(
+        {
           entry_date: date,
           flow,
           symptoms,
@@ -99,23 +100,13 @@ export function DayEntrySheet({
           libido,
           sleep_quality: sleep,
           notes: notes.trim() || null,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || data?.ok === false) {
-        throw new Error(data?.error ?? `HTTP ${res.status}`);
+        },
+        user.isDemo,
+      );
+      if (!result.ok || !result.entry) {
+        throw new Error(result.error ?? "Erro ao salvar");
       }
-      onSaved({
-        id: data.entry.id,
-        entryDate: data.entry.entry_date,
-        flow: data.entry.flow,
-        symptoms: data.entry.symptoms ?? [],
-        mood: data.entry.mood,
-        energy: data.entry.energy,
-        libido: data.entry.libido,
-        sleepQuality: data.entry.sleep_quality,
-        notes: data.entry.notes,
-      });
+      onSaved(result.entry);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao salvar");
     } finally {

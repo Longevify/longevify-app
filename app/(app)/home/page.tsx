@@ -1,4 +1,5 @@
 import Link from "next/link";
+import dynamicImport from "next/dynamic";
 import {
   ArrowRight,
   Calendar,
@@ -13,9 +14,25 @@ import { ScoreCard } from "@/components/dados/score-card";
 import { BioAgeCard } from "@/components/dados/bio-age-card";
 import { RecommendationsSection } from "@/components/loja/recommendations-section";
 import { GoalsSummary } from "@/components/wearables/goals-summary";
-import { PostExamStories } from "@/components/onboarding/post-exam-stories";
-import { ReplayStoriesButton } from "@/components/onboarding/replay-stories-button";
 import { BIOMARKERS, PATIENT, biomarkersStats } from "@/lib/mock-data";
+
+// Lucas (2026-05-19): "ainda ta demorando".
+// PostExamStories tem 2.2k linhas + Three.js + várias libs. Era baixado
+// no bundle inicial da home, mesmo quando user não ia abrir as stories
+// (99% das visitas — só primeira vez ou via Replay button).
+// next/dynamic → chunk separado, lazy-load.
+const PostExamStories = dynamicImport(() =>
+  import("@/components/onboarding/post-exam-stories").then(
+    (m) => m.PostExamStories,
+  ),
+);
+const ReplayStoriesButton = dynamicImport(
+  () =>
+    import("@/components/onboarding/replay-stories-button").then(
+      (m) => m.ReplayStoriesButton,
+    ),
+  { loading: () => null },
+);
 import { getRecommendedProducts } from "@/lib/product-recommender";
 import { formatDatePtBR } from "@/lib/utils";
 import { getCurrentUser } from "@/lib/auth/current-user";
