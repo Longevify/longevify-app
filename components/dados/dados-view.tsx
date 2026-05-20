@@ -37,6 +37,17 @@ const GRADE_COLORS: Record<CategoryGrade, string> = {
   D: "#E85D5D", // status-out
 };
 
+// Mapping STATUS clínico real → cor — mesma paleta dos grades acima.
+// Lucas (2026-05-20): "as cores das categorias tem que mudar, conforme
+// as cores no corpo mudam." Antes a sidebar usava grade A/B/C/D
+// hardcoded no mock; agora reflete o status REAL do órgão computado
+// pelos biomarcadores do paciente.
+const STATUS_COLORS: Record<"optimal" | "normal" | "out", string> = {
+  optimal: "#0E7B45",
+  normal: "#E6B845",
+  out: "#E85D5D",
+};
+
 interface DadosViewProps {
   patient: Patient;
   biomarkers: Biomarker[];
@@ -74,13 +85,6 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
     return biomarkers.filter((b) => b.categoryId === categoryId);
   }, [categoryId, biomarkers]);
 
-  // Cor de destaque no avatar baseada no grade da categoria selecionada.
-  // Default verde A se categoria sem grade (ex: "all" sem dados).
-  const activeColor = useMemo(() => {
-    const cat = CATEGORIES.find((c) => c.id === categoryId);
-    return GRADE_COLORS[cat?.grade ?? "A"];
-  }, [categoryId]);
-
   // Mapping órgão → status clínico real (a partir das organBioAges/Scores).
   // Usado no modo "Todos" pra colorir cada região com cor de status.
   // organ.organ vem como "Coração"/"Pulmões"/etc — converte pro ID interno.
@@ -101,6 +105,27 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
     }
     return map;
   }, [patient.organBioAges]);
+
+  // Cor da categoria ATIVA: deriva do status REAL do órgão (via
+  // organStatuses), não mais do grade estático do mock CATEGORIES.
+  // Lucas (2026-05-20): "as cores das categorias tem que mudar, conforme
+  // as cores no corpo mudam." Pra "all" (resumo) usa o pior status —
+  // se algum órgão está fora, sinaliza vermelho.
+  const activeColor = useMemo(() => {
+    if (categoryId === "all") {
+      // Pior status entre todos os órgãos → cor de alerta agregada
+      const statuses = Object.values(organStatuses);
+      if (statuses.includes("out")) return STATUS_COLORS.out;
+      if (statuses.includes("normal")) return STATUS_COLORS.normal;
+      return STATUS_COLORS.optimal;
+    }
+    // Categoria específica de órgão: cor pelo status REAL daquele órgão.
+    // Fallback no grade do mock se status não existir (ex: dados parciais).
+    const status = organStatuses[categoryId];
+    if (status) return STATUS_COLORS[status];
+    const cat = CATEGORIES.find((c) => c.id === categoryId);
+    return GRADE_COLORS[cat?.grade ?? "A"];
+  }, [categoryId, organStatuses]);
 
   // Toggle de sexo (só visível no demo) — pra Lucas comparar male/female
   const renderSexToggle = () => (
@@ -183,6 +208,7 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
             categories={visibleCategories}
             activeId={categoryId}
             onChange={setCategoryId}
+            organStatuses={organStatuses}
             compact
           />
           <div className="flex flex-col items-center gap-2">
@@ -270,6 +296,7 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
             categories={visibleCategories}
             activeId={categoryId}
             onChange={setCategoryId}
+            organStatuses={organStatuses}
           />
         </aside>
 
