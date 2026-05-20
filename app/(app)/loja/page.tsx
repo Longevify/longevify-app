@@ -9,11 +9,28 @@ import {
 import { RecommendationsSection } from "@/components/loja/recommendations-section";
 import { CategoryFilter } from "@/components/loja/category-filter";
 import { ProductCard } from "@/components/loja/product-card";
+import { loadDadosForUser } from "@/lib/dados/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 
-export default function LojaPage() {
+export const dynamic = "force-dynamic";
+
+export default async function LojaPage() {
+  // Lucas (2026-05-20): "a recomendação de produtos tem que mudar com base
+  // nisso". Carrega biomarcadores reais quando autenticado pra recomendar
+  // suplementos baseados nas deficiências/riscos do paciente.
+  const user = await getCurrentUser();
+  const dados = await loadDadosForUser({
+    userId: user.id,
+    isDemo: user.isDemo,
+  });
+
+  // Fallback pra BIOMARKERS mock quando paciente real não tem exames
+  // ainda (deixa user explorar a loja com recomendações genéricas).
+  const biomarkersForRecs = dados.biomarkers.length > 0 ? dados.biomarkers : BIOMARKERS;
+
   // Recomendações principais: APENAS suplementos de intervenção
   // (sem painéis diagnósticos — esses ficam na seção "Aprofunde diagnóstico").
-  const recommendations = getRecommendedProducts(BIOMARKERS, 4);
+  const recommendations = getRecommendedProducts(biomarkersForRecs, 4);
 
   // Painéis diagnósticos — extras, não tratamento.
   const exams = getDiagnosticExams();
@@ -26,8 +43,10 @@ export default function LojaPage() {
           Loja
         </h1>
         <p className="mt-2 max-w-2xl text-[15px] text-muted">
-          Suplementação curada pela equipe Longevify, com base em evidência e
-          integrada aos seus biomarcadores.
+          Curadoria de suplementos com base em evidência, integrada aos seus
+          biomarcadores. Use como ponto de partida — confirme com seu médico
+          se for usar continuamente ou se você tem condição crônica ou faz uso
+          de medicação contínua.
         </p>
       </header>
 
