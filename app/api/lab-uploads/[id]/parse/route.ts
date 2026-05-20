@@ -37,6 +37,11 @@ interface ParsedBiomarker {
   unit: string;
   /** Nome original como aparece no exame (pra audit). */
   original_label?: string;
+  /** Unidade original do laudo (se houve conversão pra unidade do catálogo). */
+  original_unit?: string;
+  /** Opus sinaliza inconsistência clínica (ex: Friedewald não bate). UI
+   *  pode mostrar badge "revisar". */
+  suspicious?: boolean;
 }
 
 interface ParsedExam {
@@ -215,32 +220,55 @@ export async function POST(
     );
   }
 
-  const prompt = `Você é um sistema de extração de biomarcadores de exames laboratoriais brasileiros.
+  const prompt = `Você é um sistema clínico de extração de biomarcadores de exames laboratoriais brasileiros. Decisões médicas serão tomadas em cima do JSON que você retornar — precisão importa MAIS que cobertura.
 
-Sua tarefa: extrair TODOS os biomarcadores quantitativos do documento anexado e retornar em JSON.
+Sua tarefa: extrair TODOS os biomarcadores quantitativos do documento anexado, mapeando pra um catálogo controlado, e retornar JSON validado.
 
 CATÁLOGO DE BIOMARCADORES CONHECIDOS (id | nome canônico | unidade esperada):
 ${catalogLines}
 
-REGRAS:
-- Identifique cada biomarcador do exame e mapeie pro \`id\` do catálogo acima.
-- Se um biomarcador do exame não estiver no catálogo, OMITA — não invente IDs.
-- Use o nome PT-BR ou EN — o catálogo cobre os comuns (LDL, HDL, ApoB, Vitamina D, Hemoglobina, etc.)
-- Converta unidades quando necessário (se o exame usar mg/dL e catálogo usar mmol/L, faça a conversão).
-- Se o valor estiver fora do esperado (ex: "0,5" pra Vit D), assuma vírgula = decimal brasileiro.
-- Identifique a data de coleta (taken_at em YYYY-MM-DD) e nome do laboratório (lab).
-- Se a data não estiver clara, retorne null.
+REGRAS DE EXTRAÇÃO
 
-Retorne SOMENTE JSON neste schema:
+1. **Mapeamento**: identifique cada biomarcador do laudo e mapeie pro \`id\` do catálogo acima.
+   - O nome no laudo pode estar em PT-BR ou EN, abreviado (ex: "VHS" = "Eritrossedimentação"), ou em sigla (ex: "HbA1c" = "Hemoglobina glicada").
+   - Se um biomarcador do laudo NÃO existe no catálogo, OMITA — NUNCA invente IDs.
+
+2. **Decimais brasileiros**: vírgula é separador decimal. "0,5" = 0.5. Reconverta antes de retornar o número.
+
+3. **Unidades**: se o laudo usa unidade diferente da do catálogo, faça a conversão e retorne na unidade do catálogo. Conversões comuns:
+   - Colesterol mg/dL ↔ mmol/L (÷38.67)
+   - Glicose mg/dL ↔ mmol/L (÷18)
+   - Vit D ng/mL ↔ nmol/L (×2.5)
+   - Vit B12 pg/mL ↔ pmol/L (÷1.357)
+   - Ferritina ng/mL = µg/L (idênticos)
+   Inclua \`original_label\` E \`original_unit\` se a unidade do laudo for diferente — pra audit.
+
+4. **Validação cruzada** (alerta clínico, NÃO bloqueia extração):
+   - LDL aproximado pela fórmula de Friedewald: LDL ≈ Total − HDL − Triglicérides/5. Se laudo informa LDL+HDL+TG+Total e a fórmula NÃO bate (delta > 10 mg/dL), inclua \`suspicious: true\` no item LDL.
+   - Hemoglobina × Hematócrito ≈ 1:3 (sangue normal). Se ratio estiver muito fora, flag suspicious nos dois.
+   - Plaquetas: valores < 50.000 ou > 1.000.000 são raros, requerem dupla checagem visual no PDF antes de retornar.
+
+5. **Metadados**:
+   - \`taken_at\`: data DA COLETA (não data de emissão/impressão do laudo). Formato YYYY-MM-DD. Se ambíguo, retorne null.
+   - \`lab\`: nome do laboratório. Pode estar no header ou rodapé. Ex: "Fleury Medicina e Saúde", "DASA", "Sabin", "Hermes Pardini". Use o nome curto comum.
+
+6. **Não invente**: se o valor está cortado/ilegível ou o PDF tem só um range sem valor numérico do paciente, omita o biomarcador inteiro. Não preencha com média da população.
+
+Retorne SOMENTE JSON neste schema (zero comentários):
 {
   "taken_at": "YYYY-MM-DD" | null,
   "lab": "string" | null,
   "biomarkers": [
-    { "id": "ldl", "value": 103.5, "unit": "mg/dL", "original_label": "LDL Colesterol" }
+    {
+      "id": "ldl",
+      "value": 103.5,
+      "unit": "mg/dL",
+      "original_label": "Colesterol LDL",
+      "original_unit": "mg/dL",
+      "suspicious": false
+    }
   ]
-}
-
-NÃO inclua comentários no JSON. NÃO inclua biomarcadores fora do catálogo. Retorne apenas o objeto.`;
+}`;
 
   let parsed: ParsedExam;
   try {
@@ -276,8 +304,21 @@ NÃO inclua comentários no JSON. NÃO inclua biomarcadores fora do catálogo. R
           { type: "text" as const, text: prompt },
         ];
 
+    // Lucas (2026-05-20): Opus 4.7 escolhido pra extração de exames.
+    // Volume: ~4 exames/ano/user. Receita: R$600-1.000/user/ano.
+    //
+    // Custo: ~R$8/user/ano (0.8-1.3% da receita). Ainda < 1.5%, saudável.
+    //
+    // Ganho de acurácia ~4-5pp em tabelas complexas e detecção de
+    // inconsistências (ex: LDL não-batendo com Friedewald) compensa
+    // muito o custo extra — em saúde, erro custa mais que R$6,50/user
+    // de diferença pra Sonnet (suporte, retrabalho, churn, risco
+    // médico-legal).
+    //
+    // REVISITAR pra cascade Sonnet→Opus se escalar > 50k users/ano —
+    // aí diferença vira R$290k/ano material.
     const response = await client.messages.create({
-      model: "claude-sonnet-4-5",
+      model: "claude-opus-4-7",
       max_tokens: 4096,
       messages: [{ role: "user", content }],
     });
