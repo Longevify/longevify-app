@@ -15,6 +15,7 @@ import {
 } from "@/lib/dieta/meal-storage";
 import type { Nutrients } from "@/lib/dieta/types";
 import { DietaClient } from "./dieta-client";
+import { getCurrentUser } from "@/lib/auth/current-user";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -26,6 +27,13 @@ export const revalidate = 0;
  * não registrou nada — assim a demo continua bonita pra contas zeradas.
  */
 export default async function DietaPage() {
+  const user = await getCurrentUser();
+
+  // Lucas (2026-05-20): "para um usuário novo, a aba de dieta tem que
+  // estar vazia." Antes paciente real sem refeições caía no mock do João.
+  // Agora: só DEMO usa mock; user real sem refeições vê estado vazio
+  // (zerado), pronto pra adicionar a primeira refeição.
+
   // Tenta puxar dados reais do user logado em paralelo
   const [realTodayMeals, realWeeklyTrend] = await Promise.all([
     fetchUserMealsToday(),
@@ -36,17 +44,51 @@ export default async function DietaPage() {
   const hasRealWeekly =
     realWeeklyTrend?.some((d) => d.nutrients.calories > 0) ?? false;
 
-  const todayMeals = hasRealToday ? realTodayMeals! : getTodayMeals();
+  // Demo (João): usa mock pra demonstrar UX cheia.
+  // User real: usa SÓ dados reais; sem refeições → vazio.
+  const useMockFallback = user.isDemo;
+
+  const emptyDayNutrients: Nutrients = {
+    calories: 0,
+    protein: 0,
+    carbs: 0,
+    fat: 0,
+  };
+
+  const todayMeals = hasRealToday
+    ? realTodayMeals!
+    : useMockFallback
+      ? getTodayMeals()
+      : [];
   const todayTotals: Nutrients = hasRealToday
     ? sumMealNutrients(realTodayMeals!)
-    : getDailyTotals(0);
+    : useMockFallback
+      ? getDailyTotals(0)
+      : emptyDayNutrients;
   const targets = getDailyTarget();
 
-  const weeklyTrend = hasRealWeekly ? realWeeklyTrend! : getWeeklyTrend();
+  const emptyWeeklyTrend = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - i));
+    return {
+      date: d.toISOString().slice(0, 10),
+      nutrients: { ...emptyDayNutrients },
+    };
+  });
+
+  const weeklyTrend = hasRealWeekly
+    ? realWeeklyTrend!
+    : useMockFallback
+      ? getWeeklyTrend()
+      : emptyWeeklyTrend;
   const weeklyAvg: Nutrients = hasRealWeekly
     ? avgWeeklyNutrients(realWeeklyTrend!)
-    : getWeeklyAverage();
-  const insights = getDeficitInsights(weeklyAvg);
+    : useMockFallback
+      ? getWeeklyAverage()
+      : emptyDayNutrients;
+  const insights = useMockFallback || hasRealWeekly
+    ? getDeficitInsights(weeklyAvg)
+    : []; // user novo: sem insights ainda
 
   return (
     <DietaClient

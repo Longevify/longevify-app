@@ -32,8 +32,11 @@ export function BioAgeCard({
         ? `${Math.abs(diff)} anos mais jovem`
         : `${Math.abs(diff)} anos mais velho`;
 
-  const min = 20;
-  const max = 60;
+  // Lucas (2026-05-20): "a barra de idade biológica deve ir de 0 a 100".
+  // Range completo da vida pra contextualizar visualmente — 20-60 antes
+  // amplificava demais diferenças pequenas.
+  const min = 0;
+  const max = 100;
   const pct = ((biologicalAge - min) / (max - min)) * 100;
   const chronoPct = ((chronologicalAge - min) / (max - min)) * 100;
 

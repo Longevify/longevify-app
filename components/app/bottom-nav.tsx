@@ -51,6 +51,19 @@ export function BottomNav() {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
 
+  // Lucas (2026-05-20): "o widget flutuante do Dr Lon deve desaparecer,
+  // enquanto aba 'mais' do footer do app estiver aberta." Comunicação
+  // entre BottomNav e DrLonFloating via custom event — ambos são client
+  // components, sem precisar de context provider.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(
+      new CustomEvent("longevify:bottom-sheet-toggle", {
+        detail: { open: moreOpen },
+      }),
+    );
+  }, [moreOpen]);
+
   // Active state das abas secundárias (pra destacar o ícone "Mais" quando
   // a rota atual é uma das do sheet)
   const inMoreSection = MORE_TABS.some(
