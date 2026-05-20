@@ -16,6 +16,53 @@ import {
   computeOrganScores,
 } from "./compute";
 
+/**
+ * Mapeia category_id CLÍNICA do DB (lipidico, hepatico, renal, etc.)
+ * pra organ_id que a UI usa (heart, lungs, liver, etc.).
+ *
+ * Lucas (2026-05-20): "biomarcadores tem que estar linkados aos orgaos
+ * e categorias. Ao clicar no orgão, precisa aparecer os biomarcadores
+ * vinculados."
+ *
+ * O DB usa categorias clínicas (lipidico, hemograma, hepático…), mas a
+ * UI filtra por órgão (heart, lungs, liver…). Aqui converte uma na
+ * outra. IDs do front em `CATEGORIES` no mock-data.ts.
+ */
+const CLINICAL_TO_ORGAN: Record<string, string> = {
+  // Cardiovascular
+  lipidico: "heart",
+  cardiac: "heart",
+  cardiovascular: "heart",
+  inflamacao: "heart", // PCR/VHS impactam mais coração
+  // Hepático
+  hepatico: "liver",
+  hepatic: "liver",
+  // Renal + eletrólitos (filtrados pelos rins)
+  renal: "kidneys",
+  eletrolitos: "kidneys",
+  // Glicemia + metabolismo → pâncreas
+  glicemico: "pancreas",
+  metabolic: "pancreas",
+  // Tireoide + neuro-hormonal → cérebro (eixo HPT, cognição)
+  tireoide: "brain",
+  thyroid: "brain",
+  hormonios: "brain",
+  hormonal: "brain",
+  // Nutrientes/vitaminas absorção → intestino
+  vitaminas: "intestine",
+  nutrients: "intestine",
+  minerais: "intestine",
+  // Hemograma → coração (eritrócitos servem oxigenação cardio-respiratória)
+  hemograma: "heart",
+  // Imune/outros → coração (proxy inflamação sistêmica)
+  immune: "heart",
+  outros: "heart",
+};
+
+function clinicalToOrgan(clinicalId: string): string {
+  return CLINICAL_TO_ORGAN[clinicalId] ?? "heart";
+}
+
 export interface DadosData {
   patient: Patient;
   biomarkers: Biomarker[];
@@ -135,7 +182,12 @@ export async function loadDadosForUser(opts: {
       id,
       name: row.name as string,
       category: row.category_label as string,
-      categoryId: row.category_id as string,
+      // categoryId vira o ID DO ÓRGÃO no app (heart/lungs/liver/etc.) —
+      // bate com a sidebar de /dados e o mannequin 3D. O `category_id`
+      // bruto do DB (que é clínico: lipidico, hepatico…) fica preservado
+      // em `category` (label). Lucas 2026-05-20: "biomarcadores tem que
+      // estar linkados aos orgaos".
+      categoryId: clinicalToOrgan(row.category_id as string),
       unit: row.unit as string,
       value: latest?.value ?? 0,
       status: latest?.status ?? "normal",

@@ -10,11 +10,20 @@ import { BiomarkerBigChart } from "@/components/dados/biomarker-big-chart";
 import { ImproveCard } from "@/components/dados/improve-card";
 import { RangePosition } from "@/components/dados/range-position";
 import { RelatedBiomarkers } from "@/components/dados/related-biomarkers";
+import { loadDadosForUser } from "@/lib/dados/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 
-export function generateStaticParams() {
-  return BIOMARKERS.map((b) => ({ biomarkerId: b.id }));
-}
+export const dynamic = "force-dynamic";
 
+/**
+ * Página de detalhe de UM biomarcador. Lucas (2026-05-20):
+ * "ao clicar no biomarcador, aparecem os dados da conta demo e não os
+ * meus." Antes essa página usava só `BIOMARKERS` mock — ignorava
+ * completamente os exames anexados pelo paciente.
+ *
+ * Agora carrega os biomarkers REAIS via loadDadosForUser; fallback no
+ * mock somente quando o user não tem exames (demo + empty state).
+ */
 export default async function BiomarkerDetailPage({
   params,
 }: {
@@ -22,7 +31,20 @@ export default async function BiomarkerDetailPage({
 }) {
   const { biomarkerId } = await params;
 
-  const biomarker = BIOMARKERS.find((b) => b.id === biomarkerId);
+  const user = await getCurrentUser();
+  const dados = await loadDadosForUser({
+    userId: user.id,
+    isDemo: user.isDemo,
+  });
+
+  // Prioridade: biomarker REAL do paciente. Fallback no mock (somente se
+  // user não tem exames OU se o id solicitado existe só no catálogo mock
+  // estendido — alguns marcadores demo do João têm IDs que ainda não
+  // entraram no catálogo real do DB).
+  const fromReal = dados.biomarkers.find((b) => b.id === biomarkerId);
+  const fromMock = BIOMARKERS.find((b) => b.id === biomarkerId);
+  const biomarker = fromReal ?? fromMock;
+
   const knowledge = getBiomarkerKnowledge(biomarkerId);
 
   if (!biomarker || !knowledge) {
@@ -32,9 +54,14 @@ export default async function BiomarkerDetailPage({
   const lastPoint = biomarker.history[biomarker.history.length - 1];
   const lastDate = lastPoint ? lastPoint.date : null;
 
+  // Related: tenta resolver pelo conjunto REAL primeiro, depois mock
   const related = knowledge.relatedBiomarkerIds
-    .map((id) => BIOMARKERS.find((b) => b.id === id))
-    .filter((b): b is (typeof BIOMARKERS)[number] => Boolean(b));
+    .map(
+      (id) =>
+        dados.biomarkers.find((b) => b.id === id) ??
+        BIOMARKERS.find((b) => b.id === id),
+    )
+    .filter((b): b is NonNullable<typeof b> => Boolean(b));
 
   return (
     <div className="mx-auto w-full max-w-[1280px] px-6 py-8">
