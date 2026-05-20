@@ -234,16 +234,21 @@ export const BIOMARKERS: Biomarker[] = [
     // Rins ativam vitamina D via 1α-hidroxilase → CYP27B1.
     category: "Rins",
     categoryId: "kidneys",
-    unit: "ng/dL",
+    // Unidade correta: ng/mL (não ng/dL — esta última é unidade de hormônios
+    // esteroides como testosterona). 25(OH)D no Brasil/Endocrine Society é
+    // sempre reportada em ng/mL ou nmol/L. 1 ng/mL = 2.5 nmol/L.
+    unit: "ng/mL",
     value: 42.3,
     status: "normal",
-    // Endocrine Society: 50–80 ótimo, 30–50 suficiente, <30 deficiente, >100 toxicidade.
-    optimalRange: [50, 80],
-    normalRange: [30, 50],
-    referenceLabel: "30 – 80",
+    // Endocrine Society 2011 + SBEM 2018: ≥30 ng/mL "suficiente"; literatura
+    // de longevidade mira 40–60 (sem evidência forte para >60). Toxicidade
+    // documentada >100. Mantemos optimal 40–60 (longevity) e normal 30–100.
+    optimalRange: [40, 60],
+    normalRange: [30, 100],
+    referenceLabel: "40 – 60",
     history: gen(28, 42),
     description:
-      "Essencial para saúde óssea, função imune e regulação hormonal.",
+      "Hormônio esteroide produzido na pele com luz UVB. Importante para osso, função imune e regulação hormonal.",
   },
   {
     id: "ferritin",
@@ -251,15 +256,19 @@ export const BIOMARKERS: Biomarker[] = [
     // Fígado é o principal reservatório de ferro corporal (~30%).
     category: "Fígado",
     categoryId: "liver",
-    unit: "ng/dL",
+    // Unidade correta: ng/mL (equivalente numérico a µg/L). Laboratórios BR
+    // (Fleury, Einstein, DASA) reportam em ng/mL. ng/dL está errado.
+    unit: "ng/mL",
     value: 88,
     status: "optimal",
-    // Mayo Clinic (homens): 50–150 ótimo, 30–300 normal, fora <30 ou >300.
+    // Mayo Clinic + UpToDate (homens adultos): 24–336 referência laboratorial
+    // padrão. Longevity-style mira 50–150 (não maximizar — ferritina é também
+    // reagente de fase aguda, e sobrecarga acelera oxidação).
     optimalRange: [50, 150],
     normalRange: [30, 300],
     referenceLabel: "30 – 300",
     history: gen(62, 88),
-    description: "Reserva de ferro corporal. Níveis baixos sugerem deficiência.",
+    description: "Proteína de estoque de ferro. Baixa = deficiência funcional; muito alta pode indicar inflamação ou sobrecarga.",
   },
   {
     id: "hdl",
@@ -279,20 +288,24 @@ export const BIOMARKERS: Biomarker[] = [
   {
     id: "hba1c",
     name: "Hemoglobina Glicada (A1c)",
-    // Pâncreas regula glicemia via insulina; HbA1c reflete reserva
-    // funcional pancreática nos últimos 2-3 meses.
+    // HbA1c reflete CONTROLE GLICÊMICO (média de glicose nos últimos 2-3
+    // meses), não "reserva pancreática" — reserva funcional do pâncreas
+    // mede-se com peptídeo C. Categorizamos em "Pâncreas" pela conexão
+    // clínica com regulação glicêmica, mas é simplificação de UI.
     category: "Pâncreas",
     categoryId: "pancreas",
     unit: "%",
     value: 5.1,
     status: "optimal",
-    // ADA 2024: <5.4 ótimo, 5.4–5.7 pré-diabetes inicial, ≥5.7 fora.
+    // ADA/SBD: <5.7 normal, 5.7–6.4 pré-DM, ≥6.5 DM. Longevity (Attia, etc.)
+    // mira <5.4 como alvo funcional — onde curvas de risco CV/mortalidade
+    // começam a subir.
     optimalRange: [0, 5.4],
     normalRange: [5.4, 5.7],
     referenceLabel: "< 5.4",
     history: gen(5.4, 5.1),
     description:
-      "Média da glicemia nos últimos 2-3 meses. Indicador-chave de risco metabólico.",
+      "Reflete o controle glicêmico médio dos últimos 2–3 meses. Marcador-chave de risco metabólico, cardiovascular e cognitivo.",
   },
   {
     id: "tsh",
@@ -368,4 +381,16 @@ export function biomarkersStats() {
   const normal = BIOMARKERS.filter((b) => b.status === "normal").length + 20;
   const out = BIOMARKERS.filter((b) => b.status === "out").length + 4;
   return { total, optimal, normal, out };
+}
+
+/** Versão pra biomarcadores reais (sem extras hardcoded do mock).
+ *  Lucas 2026-05-20: home + outras telas precisam refletir stats reais
+ *  quando paciente tem exames. */
+export function biomarkersStatsFor(biomarkers: Biomarker[]) {
+  return {
+    total: biomarkers.length,
+    optimal: biomarkers.filter((b) => b.status === "optimal").length,
+    normal: biomarkers.filter((b) => b.status === "normal").length,
+    out: biomarkers.filter((b) => b.status === "out").length,
+  };
 }

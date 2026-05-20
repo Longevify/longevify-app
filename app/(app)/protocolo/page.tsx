@@ -3,17 +3,33 @@ import {
   generateProtocolTasks,
   generateWorkingOnGoals,
 } from "@/lib/protocolo/tasks";
+import { loadDadosForUser } from "@/lib/dados/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { ProtocoloClient } from "./protocolo-client";
 
-export default function ProtocoloPage() {
-  // Gera tasks e goals dinamicamente dos biomarcadores do paciente.
-  // O protocolo agora atua como médico: deficiência de Vit D → recomenda
-  // Vit D; LDL alto → Ômega 3; etc. (lógica em `lib/protocolo/tasks.ts`).
+export const dynamic = "force-dynamic";
+
+export default async function ProtocoloPage() {
+  // Lucas (2026-05-20): "os protocolos tem que mudar". Carrega biomarcadores
+  // REAIS do paciente quando autenticado — protocolo gerado se baseia
+  // neles (deficiência de Vit D → sugere suplemento; LDL alto → Ômega-3).
   //
-  // TODO: quando virar dado real, ler biomarkers via getDadosForPatient
-  // do server (lib/dados/server.ts). Por enquanto BIOMARKERS mock.
-  const tasks = generateProtocolTasks(BIOMARKERS);
-  const workingOn = generateWorkingOnGoals(BIOMARKERS);
+  // Toda recomendação tem qualificadores de segurança (uso contínuo,
+  // condição crônica, medicação concomitante → confirmar com médico).
+  // Lógica em `lib/protocolo/tasks.ts`.
+  const user = await getCurrentUser();
+  const dados = await loadDadosForUser({
+    userId: user.id,
+    isDemo: user.isDemo,
+  });
+
+  // Sem exames reais ainda → cai no mock pra demonstrar o protocolo
+  // estilo. Quando paciente tiver upload de exame, mudará pros dados
+  // dele automaticamente.
+  const biomarkers = dados.biomarkers.length > 0 ? dados.biomarkers : BIOMARKERS;
+
+  const tasks = generateProtocolTasks(biomarkers);
+  const workingOn = generateWorkingOnGoals(biomarkers);
 
   return <ProtocoloClient tasks={tasks} workingOn={workingOn} />;
 }

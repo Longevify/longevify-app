@@ -14,7 +14,8 @@ import { ScoreCard } from "@/components/dados/score-card";
 import { BioAgeCard } from "@/components/dados/bio-age-card";
 import { RecommendationsSection } from "@/components/loja/recommendations-section";
 import { GoalsSummary } from "@/components/wearables/goals-summary";
-import { BIOMARKERS, PATIENT, biomarkersStats } from "@/lib/mock-data";
+import { BIOMARKERS, PATIENT, biomarkersStats, biomarkersStatsFor } from "@/lib/mock-data";
+import { loadDadosForUser } from "@/lib/dados/server";
 
 // Lucas (2026-05-19): "ainda ta demorando".
 // PostExamStories tem 2.2k linhas + Three.js + várias libs. Era baixado
@@ -41,32 +42,36 @@ import { BookingCard } from "@/components/scheduling/booking-card";
 
 export default async function HomePage() {
   const user = await getCurrentUser();
-  const recommendations = getRecommendedProducts(BIOMARKERS, 3);
-  const stats = biomarkersStats();
 
-  // Demo user (mock) ou admin demo: vê o painel completo com dados do João.
-  // Usuário real autenticado: vê empty state até ter o primeiro exame lançado.
-  if (!user.isDemo) {
+  // Lucas (2026-05-20): "tudo tem que mudar com base nessas informações".
+  // Carrega dados REAIS do paciente quando autenticado. Mock só pra demo.
+  const dados = await loadDadosForUser({
+    userId: user.id,
+    isDemo: user.isDemo,
+  });
+
+  // 3 estados possíveis:
+  //   - Demo (mock João Silva) → painel demonstrativo
+  //   - User real COM exames → painel personalizado com dados reais
+  //   - User real SEM exames → empty state (NewUserHome) pra incentivar
+  //     primeira coleta
+  if (!user.isDemo && !dados.hasExams) {
     return <NewUserHome firstName={user.firstName} />;
   }
 
-  // Lucas (2026-05-19): "a aba home ta demorando muito para carregar".
-  // Antes a home BLOQUEAVA no render do server component esperando
-  // generatePersonalizedInsights() — chamada OpenAI síncrona que custava
-  // 3-10s em cold start. Pior: cache em memória do Vercel é por instância,
-  // então cada cold start pagava o custo de novo.
-  //
-  // Solução: stories busca insights client-side via /api/dados/personalized-insights
-  // (já implementado como "fallback"). Home renderiza instantâneo SEMPRE
-  // (RSC normal); quando user abre stories (~1% das visitas — só primeira
-  // vez ou via ReplayStoriesButton), "Dr. Lon analisando..." aparece nos
-  // slides enquanto carrega.
+  const patient = dados.patient;
+  const biomarkers = dados.biomarkers;
+  const recommendations = getRecommendedProducts(
+    biomarkers.length > 0 ? biomarkers : BIOMARKERS,
+    3,
+  );
+  const stats = biomarkers.length > 0 ? biomarkersStatsFor(biomarkers) : biomarkersStats();
 
   return (
     <div className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6 sm:py-10">
       {/* Apresentação Stories pós-exame — só na primeira visita (gerencia
           via localStorage). Inspirado nos stories do Superpower app. */}
-      <PostExamStories patient={PATIENT} />
+      <PostExamStories patient={patient} />
 
       <header className="flex flex-col gap-1 pb-6 sm:pb-8">
         <span className="text-[13px] text-muted">Olá, {user.firstName}</span>
@@ -75,7 +80,7 @@ export default async function HomePage() {
             Sua saúde hoje
           </h1>
           {/* Botão pra rever apresentação — só na conta demo (Lucas) */}
-          <ReplayStoriesButton patient={PATIENT} />
+          <ReplayStoriesButton patient={patient} />
         </div>
       </header>
 
@@ -95,16 +100,16 @@ export default async function HomePage() {
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <ScoreCard
-            score={PATIENT.longevifyScore}
-            status={PATIENT.scoreStatus}
-            scoreHistory={PATIENT.scoreHistory}
-            organScores={PATIENT.organScores}
+            score={patient.longevifyScore}
+            status={patient.scoreStatus}
+            scoreHistory={patient.scoreHistory}
+            organScores={patient.organScores}
           />
           <BioAgeCard
-            biologicalAge={PATIENT.biologicalAge}
-            chronologicalAge={PATIENT.chronologicalAge}
-            biologicalAgeHistory={PATIENT.biologicalAgeHistory}
-            organBioAges={PATIENT.organBioAges}
+            biologicalAge={patient.biologicalAge}
+            chronologicalAge={patient.chronologicalAge}
+            biologicalAgeHistory={patient.biologicalAgeHistory}
+            organBioAges={patient.organBioAges}
           />
         </div>
 
@@ -112,7 +117,7 @@ export default async function HomePage() {
         <Card className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2 text-[13px] text-muted">
             <span className="font-medium text-ink">{stats.total} biomarcadores</span>
-            no último painel · {formatDatePtBR(PATIENT.latestExamDate)}
+            no último painel · {formatDatePtBR(patient.latestExamDate)}
           </div>
           <div className="flex items-center gap-4 text-[13px]">
             <SummaryStat
@@ -208,7 +213,7 @@ export default async function HomePage() {
                 Coleta Longevify — Painel Completo
               </div>
               <div className="text-[13px] text-muted">
-                Realizada em {formatDatePtBR(PATIENT.latestExamDate)} · 12:00
+                Realizada em {formatDatePtBR(patient.latestExamDate)} · 12:00
               </div>
             </div>
             <Button variant="outline" size="sm">
