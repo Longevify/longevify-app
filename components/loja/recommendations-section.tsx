@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Repeat, ShoppingCart, Sparkles } from "lucide-react";
-import { useMemo } from "react";
+import { ArrowRight, ChevronDown, Repeat, ShoppingCart, Sparkles } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/loja/product-card";
 import { useCart } from "@/lib/cart/store";
@@ -173,6 +173,10 @@ function RecommendedCard({
 }: RecommendedCardProps) {
   const { addItem, openCart } = useCart();
   const product = recommendation.product;
+  // Lucas (2026-05-20): "na loja, tem que ter esse mesmo botão de saiba
+  // mais na aba de recomendados, explicando porque estamos recomendando
+  // tal produto."
+  const [expanded, setExpanded] = useState(false);
 
   function handleAdd(recurring: boolean) {
     addItem(productId, { recurring });
@@ -193,6 +197,35 @@ function RecommendedCard({
         size="compact"
         highlight
       />
+
+      {/* Botão "Saber mais" — expande pra mostrar razão completa contextualizada */}
+      {reason && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          className="inline-flex items-center gap-1 self-start text-[11.5px] font-semibold text-brand-700 transition hover:text-brand-800"
+        >
+          {expanded ? "Fechar" : "Saber mais"}
+          <ChevronDown
+            className={cn(
+              "h-3 w-3 transition-transform",
+              expanded && "rotate-180",
+            )}
+            strokeWidth={2.5}
+          />
+        </button>
+      )}
+
+      {expanded && reason && (
+        <div className="rounded-xl border border-brand-100 bg-brand-50/60 px-3 py-2.5 text-[12px] leading-relaxed text-zinc-700">
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-brand-700">
+            Por que recomendamos
+          </div>
+          {reason}
+        </div>
+      )}
+
       <div className="flex gap-2">
         <Button
           size="sm"

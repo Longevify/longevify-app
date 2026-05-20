@@ -65,7 +65,22 @@ export function DrLonFloating() {
   const [messages, setMessages] = useState<ChatMessage[]>([INITIAL_GREETING]);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
+  // Lucas (2026-05-20): "o widget flutuante do Dr Lon deve desaparecer,
+  // enquanto aba 'mais' do footer do app estiver aberta." Escuta o
+  // custom event que BottomNav emite quando MoreSheet abre/fecha.
+  const [hiddenByBottomSheet, setHiddenByBottomSheet] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { open?: boolean };
+      setHiddenByBottomSheet(Boolean(detail?.open));
+    };
+    window.addEventListener("longevify:bottom-sheet-toggle", handler);
+    return () =>
+      window.removeEventListener("longevify:bottom-sheet-toggle", handler);
+  }, []);
 
   // Auto-scroll quando nova mensagem chega
   useEffect(() => {
@@ -98,6 +113,10 @@ export function DrLonFloating() {
       setThinking(false);
     }, 700);
   }, []);
+
+  // Esconde completamente quando o sheet "Mais" do bottom-nav está aberto
+  // — evita sobreposição visual em mobile.
+  if (hiddenByBottomSheet) return null;
 
   // Fechado: pill flutuante
   if (!open) {
