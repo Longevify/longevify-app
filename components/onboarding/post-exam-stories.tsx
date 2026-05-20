@@ -2004,10 +2004,16 @@ export function PostExamStories({
         </div>
       )}
 
-      {/* Slide content — key={slideIdx} força remount + entrance animations */}
+      {/* Slide content — key={slideIdx} força remount + entrance animations.
+          Lucas (2026-05-19): "o scroll nos stories de recomendação de
+          produtos no onboarding não está funcionando ainda". O wrapper
+          tinha items-center/justify-center que travava o flex-1 do scroll
+          container interno do BundleSlide. Agora overflow-hidden simples
+          — cada slide controla seu próprio centramento (os de tela cheia
+          já têm items-center dentro deles). */}
       <div
         key={slideIdx}
-        className="story-slide-shell relative flex flex-1 items-center justify-center"
+        className="story-slide-shell relative flex flex-1 flex-col overflow-hidden"
       >
         {Slide.render(ctx)}
       </div>
