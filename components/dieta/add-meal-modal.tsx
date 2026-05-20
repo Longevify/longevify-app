@@ -9,11 +9,43 @@ import {
   Loader2,
   Check,
   Trash2,
+  Pencil,
+  Plus,
 } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import type { FoodItem, MealType, Nutrients } from "@/lib/dieta/types";
 import { MEAL_TYPE_ICON, MEAL_TYPE_LABEL } from "@/lib/dieta/types";
+
+/**
+ * Lucas (2026-05-20): "Ao tirar uma foto de uma refeição, caso o modelo
+ * tenha errado na análise de qualquer coisa, coloque opções para
+ * adicionar alimentos, mudar a porção da refeição/alimento/unidades de
+ * alimento." → edição inline (lápis abre form com nome/quantidade/unidade)
+ * + botão "Adicionar item" que faz lookup via /api/dieta/parse-text e
+ * cai pra item zerado se não reconhecer. Nutrientes reescalam
+ * proporcionalmente quando user muda a quantidade.
+ */
+
+/** Reescala todos os nutrientes pelo fator dado (newQty / oldQty). */
+function scaleNutrients(nutrients: Nutrients, factor: number): Nutrients {
+  const result = { ...nutrients };
+  for (const key of Object.keys(result) as (keyof Nutrients)[]) {
+    const val = result[key];
+    if (typeof val === "number") {
+      result[key] = val * factor;
+    }
+  }
+  return result;
+}
+
+const UNIT_OPTIONS: { value: FoodItem["unit"]; label: string }[] = [
+  { value: "g", label: "g" },
+  { value: "ml", label: "ml" },
+  { value: "unit", label: "unidade" },
+  { value: "tbsp", label: "colher" },
+  { value: "cup", label: "xícara" },
+];
 
 type Tab = "photo" | "text" | "barcode";
 
@@ -72,6 +104,123 @@ export function AddMealModal({ open, onClose }: AddMealModalProps) {
       return next;
     });
   }, []);
+
+  /**
+   * Atualiza um item existente. Se o usuário muda a QUANTIDADE, a gente
+   * reescala os nutrientes proporcionalmente (linear — funciona pra
+   * gramatura; pra unit/colher/xícara é heurístico mas é o melhor
+   * possível sem unit conversion completa).
+   *
+   * Se o usuário muda só o NOME ou a UNIDADE, mantemos nutrientes —
+   * trocar arroz por farofa via edit não vai mudar kcal automaticamente.
+   * Pra trocar de fato o alimento, o usuário deve deletar e adicionar
+   * de novo (que aí faz lookup no parse-text).
+   */
+  const updateItem = useCallback(
+    (
+      id: string,
+      patch: {
+        name?: string;
+        quantity?: number;
+        unit?: FoodItem["unit"];
+      },
+    ) => {
+      setItems((prev) => {
+        const next = prev.map((item) => {
+          if (item.id !== id) return item;
+          let nutrients = item.nutrients;
+          if (
+            typeof patch.quantity === "number" &&
+            patch.quantity !== item.quantity &&
+            item.quantity > 0
+          ) {
+            const factor = patch.quantity / item.quantity;
+            nutrients = scaleNutrients(item.nutrients, factor);
+          }
+          return {
+            ...item,
+            ...patch,
+            nutrients,
+          };
+        });
+        setTotalNutrients(sumLocal(next));
+        return next;
+      });
+    },
+    [],
+  );
+
+  /**
+   * Adiciona um item manual. Tenta resolver nutrientes via
+   * /api/dieta/parse-text (keyword DB). Se não reconhecer:
+   *   - `opts.force === false` (default): NÃO adiciona, devolve
+   *     `{ added: false, recognized: false }` pro form mostrar warning.
+   *   - `opts.force === true`: adiciona com kcal=0 (usuário aceitou).
+   *
+   * Esse "two-step" evita ghost items zerados aparecerem no list quando
+   * o user só queria experimentar uma busca.
+   */
+  const addManualItem = useCallback(
+    async (
+      name: string,
+      quantity: number,
+      unit: FoodItem["unit"],
+      opts: { force?: boolean } = {},
+    ): Promise<{ added: boolean; recognized: boolean }> => {
+      let nutrients: Nutrients = {
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+      };
+      let recognized = false;
+      // Lookup só faz sentido pra unidades de massa/volume — "1 unidade"
+      // gera ambiguidade pro keyword parser.
+      try {
+        const lookupText =
+          unit === "g" || unit === "ml"
+            ? `${name} ${quantity}${unit}`
+            : name;
+        const res = await fetch("/api/dieta/parse-text", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: lookupText }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const first = data?.items?.[0];
+          if (first?.nutrients) {
+            nutrients = first.nutrients;
+            recognized = true;
+          }
+        }
+      } catch {
+        // Sem rede / 500 → segue com nutrientes zerados.
+      }
+
+      if (!recognized && !opts.force) {
+        return { added: false, recognized: false };
+      }
+
+      const newItem: FoodItem = {
+        id: `manual-${Date.now()}`,
+        name: name.trim(),
+        quantity,
+        unit,
+        nutrients,
+        source: "manual",
+      };
+      setItems((prev) => {
+        const next = [...prev, newItem];
+        setTotalNutrients(sumLocal(next));
+        return next;
+      });
+      return { added: true, recognized };
+    },
+    [],
+  );
+
+  const [addingManual, setAddingManual] = useState(false);
 
   /**
    * Salva a refeição via POST /api/dieta/meals.
@@ -223,31 +372,34 @@ export function AddMealModal({ open, onClose }: AddMealModalProps) {
               </h3>
               <ul className="flex flex-col gap-1.5">
                 {items.map((item) => (
-                  <li
+                  <EditableFoodItemRow
                     key={item.id}
-                    className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-[13px] font-medium text-zinc-900">
-                        {item.name}
-                      </div>
-                      <div className="text-[11px] text-zinc-500">
-                        {fmt(item.quantity)}
-                        {item.unit} · {fmt(item.nutrients.calories)} kcal · P{" "}
-                        {fmt(item.nutrients.protein, 1)}g
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeItem(item.id)}
-                      aria-label="Remover"
-                      className="grid h-7 w-7 place-items-center rounded-full text-zinc-400 transition hover:bg-rose-50 hover:text-rose-600"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </li>
+                    item={item}
+                    onUpdate={(patch) => updateItem(item.id, patch)}
+                    onRemove={() => removeItem(item.id)}
+                  />
                 ))}
+                {addingManual && (
+                  <AddManualItemForm
+                    onAdd={addManualItem}
+                    onCancel={() => setAddingManual(false)}
+                    onDone={() => setAddingManual(false)}
+                  />
+                )}
               </ul>
+
+              {/* Botão "+ Adicionar item manualmente" — pra quando o AI
+                  errou ou esqueceu de algo */}
+              {!addingManual && (
+                <button
+                  type="button"
+                  onClick={() => setAddingManual(true)}
+                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-brand-300 bg-brand-50/40 px-3 py-2.5 text-[12px] font-semibold text-brand-700 transition hover:border-brand-500 hover:bg-brand-50"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Adicionar item manualmente
+                </button>
+              )}
 
               {/* Totais */}
               {totalNutrients && (
@@ -642,5 +794,354 @@ function BarcodeInput({
         — cobertura BR ~80% dos produtos industrializados.
       </p>
     </div>
+  );
+}
+
+// ─── EditableFoodItemRow ───────────────────────────────────────────────────
+//
+// Linha de item com modo "leitura" e modo "edição inline". Cada row
+// gerencia seu próprio rascunho — o pai só fica sabendo via onUpdate
+// quando user clica "Salvar".
+
+interface EditableFoodItemRowProps {
+  item: FoodItem;
+  onUpdate: (patch: {
+    name?: string;
+    quantity?: number;
+    unit?: FoodItem["unit"];
+  }) => void;
+  onRemove: () => void;
+}
+
+function EditableFoodItemRow({
+  item,
+  onUpdate,
+  onRemove,
+}: EditableFoodItemRowProps) {
+  const [expanded, setExpanded] = useState(false);
+  const [draftName, setDraftName] = useState(item.name);
+  const [draftQty, setDraftQty] = useState(String(item.quantity));
+  const [draftUnit, setDraftUnit] = useState<FoodItem["unit"]>(item.unit);
+
+  // Resincroniza drafts quando item externamente muda (ex: outro lugar
+  // edita o mesmo item — improvável, mas mantém o componente honesto).
+  useEffect(() => {
+    if (!expanded) {
+      setDraftName(item.name);
+      setDraftQty(String(item.quantity));
+      setDraftUnit(item.unit);
+    }
+  }, [item.name, item.quantity, item.unit, expanded]);
+
+  function commit() {
+    const qty = parseFloat(draftQty.replace(",", "."));
+    if (Number.isNaN(qty) || qty <= 0) return;
+    const trimmedName = draftName.trim() || item.name;
+    onUpdate({
+      name: trimmedName,
+      quantity: qty,
+      unit: draftUnit,
+    });
+    setExpanded(false);
+  }
+
+  function cancel() {
+    setDraftName(item.name);
+    setDraftQty(String(item.quantity));
+    setDraftUnit(item.unit);
+    setExpanded(false);
+  }
+
+  if (!expanded) {
+    return (
+      <li className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2">
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[13px] font-medium text-zinc-900">
+            {item.name}
+          </div>
+          <div className="text-[11px] text-zinc-500">
+            {fmt(item.quantity)}
+            {item.unit} · {fmt(item.nutrients.calories)} kcal · P{" "}
+            {fmt(item.nutrients.protein, 1)}g
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          aria-label="Editar"
+          className="grid h-7 w-7 place-items-center rounded-full text-zinc-400 transition hover:bg-brand-50 hover:text-brand-700"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label="Remover"
+          className="grid h-7 w-7 place-items-center rounded-full text-zinc-400 transition hover:bg-rose-50 hover:text-rose-600"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </li>
+    );
+  }
+
+  const qtyChanged = parseFloat(draftQty.replace(",", ".")) !== item.quantity;
+
+  return (
+    <li className="rounded-xl border border-brand-300 bg-brand-50/40 px-3 py-3">
+      <div className="mb-2 flex items-center gap-2">
+        <input
+          type="text"
+          value={draftName}
+          onChange={(e) => setDraftName(e.target.value)}
+          placeholder="Nome do alimento"
+          className="min-w-0 flex-1 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-[13px] font-medium text-zinc-900 placeholder:text-zinc-400 focus:border-brand-400 focus:outline-none"
+        />
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label="Remover item"
+          className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-zinc-400 transition hover:bg-rose-50 hover:text-rose-600"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <label className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+            Quantidade
+          </label>
+          <input
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="any"
+            value={draftQty}
+            onChange={(e) => setDraftQty(e.target.value)}
+            className="mt-0.5 w-full rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-[13px] tabular-nums text-zinc-900 focus:border-brand-400 focus:outline-none"
+          />
+        </div>
+        <div className="w-[112px]">
+          <label className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+            Unidade
+          </label>
+          <select
+            value={draftUnit}
+            onChange={(e) =>
+              setDraftUnit(e.target.value as FoodItem["unit"])
+            }
+            className="mt-0.5 w-full rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-[13px] text-zinc-900 focus:border-brand-400 focus:outline-none"
+          >
+            {UNIT_OPTIONS.map((u) => (
+              <option key={u.value} value={u.value}>
+                {u.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <p className="mt-2 text-[10.5px] leading-relaxed text-zinc-500">
+        {qtyChanged
+          ? "💡 Os nutrientes serão reescalados proporcionalmente."
+          : "Trocar o nome não muda os nutrientes automaticamente — pra trocar de alimento, remova e adicione de novo."}
+      </p>
+      <div className="mt-2.5 flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={cancel}
+          className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-[12px] font-medium text-zinc-600 transition hover:bg-zinc-50"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          onClick={commit}
+          className="rounded-lg bg-brand-700 px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-brand-800"
+        >
+          Salvar
+        </button>
+      </div>
+    </li>
+  );
+}
+
+// ─── AddManualItemForm ─────────────────────────────────────────────────────
+//
+// Form inline pra adicionar item manual. Tenta resolver nutrientes via
+// /api/dieta/parse-text (keyword DB). Mostra feedback se não reconheceu —
+// nesse caso o item é criado zerado e o usuário sabe que pode editar
+// quantidade pra escalar (não vai escalar nada, claro, pois 0 * fator = 0
+// — mas a UX fica honesta).
+
+interface AddManualItemFormProps {
+  onAdd: (
+    name: string,
+    quantity: number,
+    unit: FoodItem["unit"],
+    opts?: { force?: boolean },
+  ) => Promise<{ added: boolean; recognized: boolean }>;
+  onCancel: () => void;
+  onDone: () => void;
+}
+
+function AddManualItemForm({ onAdd, onCancel, onDone }: AddManualItemFormProps) {
+  const [name, setName] = useState("");
+  const [quantity, setQuantity] = useState("100");
+  const [unit, setUnit] = useState<FoodItem["unit"]>("g");
+  const [submitting, setSubmitting] = useState(false);
+  const [notRecognized, setNotRecognized] = useState(false);
+
+  async function submit() {
+    const qty = parseFloat(quantity.replace(",", "."));
+    if (!name.trim() || Number.isNaN(qty) || qty <= 0) return;
+    setSubmitting(true);
+    setNotRecognized(false);
+    try {
+      const result = await onAdd(name.trim(), qty, unit);
+      if (result.added) {
+        onDone();
+      } else {
+        // Não reconhecido — pedimos ao usuário se quer adicionar mesmo
+        // assim (sem nutrientes) ou tentar com outro nome.
+        setNotRecognized(true);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function addAnyway() {
+    const qty = parseFloat(quantity.replace(",", "."));
+    if (!name.trim() || Number.isNaN(qty) || qty <= 0) return;
+    setSubmitting(true);
+    try {
+      await onAdd(name.trim(), qty, unit, { force: true });
+      onDone();
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <li className="rounded-xl border border-brand-300 border-dashed bg-brand-50/40 px-3 py-3">
+      <div className="mb-2 flex items-center justify-between">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-brand-700">
+          Adicionar item
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          aria-label="Cancelar"
+          className="grid h-6 w-6 place-items-center rounded-full text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      </div>
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => {
+          setName(e.target.value);
+          if (notRecognized) setNotRecognized(false);
+        }}
+        placeholder="Ex: Filé de frango grelhado"
+        autoFocus
+        className="w-full rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-[13px] text-zinc-900 placeholder:text-zinc-400 focus:border-brand-400 focus:outline-none"
+      />
+      <div className="mt-2 flex gap-2">
+        <div className="flex-1">
+          <label className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+            Quantidade
+          </label>
+          <input
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="any"
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+            className="mt-0.5 w-full rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-[13px] tabular-nums text-zinc-900 focus:border-brand-400 focus:outline-none"
+          />
+        </div>
+        <div className="w-[112px]">
+          <label className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+            Unidade
+          </label>
+          <select
+            value={unit}
+            onChange={(e) => setUnit(e.target.value as FoodItem["unit"])}
+            className="mt-0.5 w-full rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-[13px] text-zinc-900 focus:border-brand-400 focus:outline-none"
+          >
+            {UNIT_OPTIONS.map((u) => (
+              <option key={u.value} value={u.value}>
+                {u.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      {notRecognized ? (
+        <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] leading-relaxed text-amber-800">
+          ⚠️ Não conseguimos identificar os nutrientes desse item. Tente
+          outro nome ou adicione mesmo assim (com kcal = 0).
+        </p>
+      ) : (
+        <p className="mt-2 text-[10.5px] leading-relaxed text-zinc-500">
+          Tentamos preencher os nutrientes automaticamente a partir do
+          nome (base TACO/USDA).
+        </p>
+      )}
+      <div className="mt-2.5 flex flex-wrap justify-end gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-[12px] font-medium text-zinc-600 transition hover:bg-zinc-50"
+        >
+          Cancelar
+        </button>
+        {notRecognized ? (
+          <>
+            <button
+              type="button"
+              onClick={addAnyway}
+              disabled={submitting}
+              className="flex items-center gap-1.5 rounded-lg border border-amber-400 bg-white px-3 py-1.5 text-[12px] font-semibold text-amber-700 transition hover:bg-amber-50 disabled:opacity-50"
+            >
+              {submitting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : null}
+              Adicionar mesmo assim
+            </button>
+            <button
+              type="button"
+              onClick={submit}
+              disabled={!name.trim() || submitting}
+              className="flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-brand-800 disabled:opacity-50"
+            >
+              {submitting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Plus className="h-3.5 w-3.5" />
+              )}
+              Tentar de novo
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!name.trim() || submitting}
+            className="flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-brand-800 disabled:opacity-50"
+          >
+            {submitting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Plus className="h-3.5 w-3.5" />
+            )}
+            Adicionar
+          </button>
+        )}
+      </div>
+    </li>
   );
 }
