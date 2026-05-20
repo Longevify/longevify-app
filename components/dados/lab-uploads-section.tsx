@@ -16,6 +16,7 @@ import { toast } from "@/lib/toast";
 import {
   deleteLabUpload,
   getLabUploadSignedUrl,
+  reparseLabUpload,
   updateLabUpload,
   uploadLabFile,
 } from "@/app/(app)/dados/lab-actions";
@@ -384,9 +385,7 @@ function UploadRow({
             {upload.labName ? <span>· {upload.labName}</span> : null}
             {upload.examKind ? <span>· {upload.examKind}</span> : null}
             <span>· {formatBytes(upload.sizeBytes)}</span>
-            {upload.status !== "uploaded" ? (
-              <span>· {upload.status}</span>
-            ) : null}
+            <ParseStatusBadge upload={upload} />
           </div>
         )}
       </div>
@@ -428,6 +427,82 @@ function UploadRow({
       </div>
     </li>
   );
+}
+
+/**
+ * Badge de status do parse AI + botão "Reprocessar" quando falha ou
+ * fica travado em "uploaded". Lucas (2026-05-19): "quando eu anexei
+ * meu exame de sangue antigo, os dados não entraram no sistema
+ * automaticamente". Status flow:
+ *   uploaded   → ainda não disparou parse (trigger auto manda agora)
+ *   processing → AI analisando — mostra spinner
+ *   parsed     → biomarcadores extraídos com sucesso (mostra badge verde)
+ *   failed     → erro no parse — mostra botão "Tentar de novo"
+ */
+function ParseStatusBadge({ upload }: { upload: LabUpload }) {
+  const [pending, startReparse] = useTransition();
+
+  const handleReparse = () => {
+    startReparse(async () => {
+      const r = await reparseLabUpload(upload.id);
+      if (r.ok) {
+        toast.success({
+          title: "Exame processado",
+          description: `${r.data?.biomarkers_extracted ?? 0} biomarcadores extraídos.`,
+        });
+      } else {
+        toast.error({ title: "Erro ao processar", description: r.error });
+      }
+    });
+  };
+
+  if (pending) {
+    return (
+      <span className="inline-flex items-center gap-1 text-amber-700">
+        · Processando...
+      </span>
+    );
+  }
+
+  switch (upload.status) {
+    case "parsed":
+      return (
+        <span className="inline-flex items-center gap-1 text-emerald-700">
+          · Analisado ✓
+        </span>
+      );
+    case "processing":
+      return (
+        <span className="inline-flex items-center gap-1 text-amber-700">
+          · Analisando…
+        </span>
+      );
+    case "failed":
+      return (
+        <>
+          <span className="text-rose-700">· Erro no parse</span>
+          <button
+            type="button"
+            onClick={handleReparse}
+            className="text-[11.5px] font-semibold text-brand-700 underline-offset-2 hover:underline"
+          >
+            Tentar de novo
+          </button>
+        </>
+      );
+    case "uploaded":
+      return (
+        <button
+          type="button"
+          onClick={handleReparse}
+          className="text-[11.5px] font-semibold text-brand-700 underline-offset-2 hover:underline"
+        >
+          · Analisar com AI
+        </button>
+      );
+    default:
+      return null;
+  }
 }
 
 function Field({
