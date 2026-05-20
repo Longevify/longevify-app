@@ -95,7 +95,12 @@ export function MenstrualOnboardingWizard({ onComplete, onCancel }: Props) {
   };
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-gradient-to-b from-rose-50 via-white to-amber-50">
+    // fixed inset-0 z-[60] → cobre o bottom nav (z-30) e o DrLonFloating
+    // (z-50). Sem isso, o botão Continuar fixo no rodapé do wizard fica
+    // atrás do bottom-nav no mobile (Lucas 2026-05-19: "o botão de
+    // continuar no onboarding na aba tracking do ciclo está meio bugado
+    // (não está aprecendo) no mobile version").
+    <div className="fixed inset-0 z-[60] flex flex-col overflow-y-auto bg-gradient-to-b from-rose-50 via-white to-amber-50">
       {/* Header com progresso */}
       <div className="flex items-center gap-3 px-5 pt-[max(env(safe-area-inset-top),16px)] pb-3">
         {step > 0 ? (
@@ -177,8 +182,8 @@ export function MenstrualOnboardingWizard({ onComplete, onCancel }: Props) {
         )}
       </div>
 
-      {/* Footer CTA */}
-      <div className="fixed inset-x-0 bottom-0 z-10 bg-gradient-to-t from-white via-white to-transparent px-5 pb-[max(env(safe-area-inset-bottom),24px)] pt-6">
+      {/* Footer CTA — z-[70] pra ficar ACIMA do shell wizard (z-60) */}
+      <div className="fixed inset-x-0 bottom-0 z-[70] bg-gradient-to-t from-white via-white to-transparent px-5 pb-[max(env(safe-area-inset-bottom),24px)] pt-6">
         {error && (
           <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[12px] text-rose-700">
             {error}

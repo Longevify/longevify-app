@@ -46,11 +46,11 @@ export default async function AppLayout({
           (Lucas 2026-05-19: "colocar icones para Cada aba, não quero texto"). */}
       <BottomNav />
 
-      {/* Dr. Lon mini chat flutuante — visível só em desktop. Em mobile
-          o user usa a aba "Concierge" da bottom nav. */}
-      <div className="hidden sm:contents">
-        <DrLonFloating />
-      </div>
+      {/* Dr. Lon mini chat flutuante — visível em desktop E mobile
+          (Lucas 2026-05-19: "preciso que a aba do Dr Lon apareça no
+          mobile version também"). Em mobile o botão se posiciona
+          acima do bottom-nav (ver dr-lon-floating.tsx). */}
+      <DrLonFloating />
     </UserProvider>
   );
 }

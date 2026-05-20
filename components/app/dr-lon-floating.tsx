@@ -19,7 +19,7 @@ const INITIAL_GREETING: ChatMessage = {
   id: "greeting",
   role: "assistant",
   text:
-    "Oi! Sou o Dr. Lon, sua IA médica Longevify. Posso explicar qualquer biomarcador, sugerir intervenções e conectar com sua equipe humana. Como posso ajudar?",
+    "Oi! Sou o Dr. Lon — assistente de IA da Longevify. Não sou médico humano, sou uma inteligência artificial para te ajudar a entender seus dados de longevidade (não substituo consulta médica). Pergunta o que quiser sobre seus biomarcadores ou hábitos.",
 };
 
 // ─── Sugestões rápidas ──────────────────────────────────────────────────────
@@ -42,12 +42,12 @@ function generateFakeResponse(question: string): string {
     return "Seu LDL está em 103 mg/dL (faixa ótima <100). Ômega 3, redução de gordura saturada e 30g de fibra/dia normalizam em 8–12 semanas. Posso te conectar com a nutricionista?";
   }
   if (q.includes("vit") && q.includes("d")) {
-    return "Sua Vit D em 42 ng/dL é insuficiente (ideal 50+). Suplementação de 2.000 UI/dia + 10 min de sol matinal resolvem em ~8 semanas.";
+    return "Sua Vit D em 42 ng/mL está suficiente (Endocrine Society ≥30) mas abaixo da faixa longevity-style (40–60). Suplementação de 2.000 UI/dia + exposição solar moderada costuma elevar 5–10 ng/mL em ~8 semanas. Reavalia o nível antes de subir dose. (Lembrando: sou IA — confirma com seu médico.)";
   }
   if (q.includes("próximo") || q.includes("protocolo")) {
     return "Te recomendo focar nessas 3 ações primeiro: 1) Ômega 3 com almoço (LDL), 2) Vit D no café (D), 3) 30 min de Zona 2 (HDL). Quer detalhar alguma?";
   }
-  return "Boa pergunta. Pra dar uma resposta completa, abre o Concierge — lá consigo trazer mais contexto dos seus dados e da equipe médica.";
+  return "Boa pergunta. Pra dar uma resposta completa, abre o Concierge — lá consigo trazer mais contexto dos seus dados. (Lembrando: sou IA — pra decisão clínica concreta, fale com seu médico.)";
 }
 
 // ─── Componente flutuante ───────────────────────────────────────────────────
@@ -105,7 +105,12 @@ export function DrLonFloating() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-40 inline-flex items-center gap-2 rounded-full bg-gradient-to-br from-brand-700 to-brand-800 px-4 py-3 text-[13px] font-semibold text-white shadow-xl shadow-brand-900/30 transition hover:scale-105 hover:shadow-2xl"
+        // Em mobile, fica acima do bottom-nav (h-14 + safe-area).
+        // Em desktop (sm+), bottom-6 normal.
+        style={{
+          bottom: "calc(env(safe-area-inset-bottom) + 72px)",
+        }}
+        className="fixed right-4 z-40 inline-flex items-center gap-2 rounded-full bg-gradient-to-br from-brand-700 to-brand-800 px-4 py-3 text-[13px] font-semibold text-white shadow-xl shadow-brand-900/30 transition hover:scale-105 hover:shadow-2xl sm:!bottom-6 sm:right-6"
         aria-label="Abrir chat com Dr. Lon"
       >
         <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/15 ring-2 ring-white/30">
@@ -116,9 +121,15 @@ export function DrLonFloating() {
     );
   }
 
-  // Aberto: painel chat (320x450 desktop, full-width bottom mobile)
+  // Aberto: painel chat (320x450 desktop, full-width bottom mobile).
+  // Em mobile, sobe pra cima do bottom-nav (h-14 + safe-area).
   return (
-    <div className="fixed bottom-0 right-0 z-40 w-full p-4 sm:bottom-6 sm:right-6 sm:w-[360px] sm:p-0">
+    <div
+      className="fixed inset-x-0 z-40 w-full p-4 sm:inset-x-auto sm:right-6 sm:w-[360px] sm:p-0"
+      style={{
+        bottom: "calc(env(safe-area-inset-bottom) + 64px)",
+      }}
+    >
       <div
         className={cn(
           "flex h-[480px] flex-col overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-2xl",
@@ -135,7 +146,7 @@ export function DrLonFloating() {
               <div className="text-[13px] font-semibold leading-tight">
                 Dr. Lon
               </div>
-              <div className="text-[10.5px] text-white/70">Online · IA médica</div>
+              <div className="text-[10.5px] text-white/70">Assistente de IA · não substitui consulta médica</div>
             </div>
           </div>
           <button
