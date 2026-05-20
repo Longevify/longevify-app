@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight, MessageCircle } from "lucide-react";
 import { BIOMARKERS } from "@/lib/mock-data";
-import { getBiomarkerKnowledge } from "@/lib/biomarker-knowledge";
+import { getBiomarkerKnowledge, type BiomarkerKnowledge } from "@/lib/biomarker-knowledge";
 import { formatDatePtBR } from "@/lib/utils";
 import { StatusBadge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -45,10 +45,40 @@ export default async function BiomarkerDetailPage({
   const fromMock = BIOMARKERS.find((b) => b.id === biomarkerId);
   const biomarker = fromReal ?? fromMock;
 
-  const knowledge = getBiomarkerKnowledge(biomarkerId);
+  // Layer 1: catálogo local curado. Se falhar, gera via AI (Opus 4.7) —
+  // Lucas (2026-05-20): "todos os biomarcadores terão que ter páginas
+  // analisáveis no app. Se for a primeira vez que viu o biomarcador, você
+  // cria uma aba nova, com base em tudo que você achar sobre na internet."
+  let knowledge = getBiomarkerKnowledge(biomarkerId);
 
-  if (!biomarker || !knowledge) {
+  if (!biomarker) {
     notFound();
+  }
+
+  if (!knowledge) {
+    knowledge = await fetchKnowledgeFromAI(biomarkerId, biomarker.name, biomarker.unit, biomarker.category);
+  }
+
+  if (!knowledge) {
+    // AI também falhou — last resort minimal knowledge pra não quebrar UX
+    knowledge = {
+      id: biomarkerId,
+      whatItIs: `${biomarker.name} é um biomarcador medido em ${biomarker.unit}. Informações detalhadas ainda estão sendo curadas pelo nosso time clínico.`,
+      whyItMatters:
+        "Este marcador faz parte do seu painel laboratorial. Pra análise específica, converse com o Dr. Lon ou seu médico.",
+      factors: ["Dieta", "Estilo de vida", "Genética", "Idade", "Sexo biológico", "Medicações em uso"],
+      improve: {
+        rotina: ["Acompanhe periodicamente nos seus exames"],
+        alimentacao: ["Dieta equilibrada com alimentos in natura"],
+        suplementacao: ["Suplementação direcionada apenas sob orientação médica"],
+        exercicio: ["150 min/semana de atividade física moderada"],
+        sono: ["7-9h de sono de qualidade"],
+      },
+      relatedBiomarkerIds: [],
+      rangeContext: `Faixa de referência: ${biomarker.referenceLabel} ${biomarker.unit}. Confirme interpretação com seu médico.`,
+      disclaimer:
+        "Conteúdo educacional genérico. Pra interpretação personalizada, consulte seu médico.",
+    };
   }
 
   const lastPoint = biomarker.history[biomarker.history.length - 1];
@@ -236,4 +266,44 @@ export default async function BiomarkerDetailPage({
       </div>
     </div>
   );
+}
+
+/**
+ * Lucas (2026-05-20): "se for a primeira vez que viu o biomarcador, você
+ * cria uma aba nova, com base em tudo que você achar sobre na internet."
+ *
+ * Chama /api/biomarker-knowledge/[id] que usa Claude Opus 4.7 pra gerar
+ * conteúdo educacional. Cache em memória do server faz que biomarcadores
+ * gerados antes não paguem AI de novo.
+ */
+async function fetchKnowledgeFromAI(
+  id: string,
+  name: string,
+  unit: string,
+  category: string,
+): Promise<BiomarkerKnowledge | null> {
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL ??
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ??
+    "http://localhost:3000";
+
+  try {
+    const url = new URL(`${baseUrl}/api/biomarker-knowledge/${encodeURIComponent(id)}`);
+    url.searchParams.set("name", name);
+    url.searchParams.set("unit", unit);
+    url.searchParams.set("category", category);
+
+    const res = await fetch(url.toString(), {
+      method: "GET",
+      signal: AbortSignal.timeout(25_000),
+      // RSC fetch sem cache — endpoint já cacheia em memória do server
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { ok: boolean; knowledge?: BiomarkerKnowledge };
+    return data.ok ? (data.knowledge ?? null) : null;
+  } catch (err) {
+    console.warn("[biomarker-knowledge fetch]", err);
+    return null;
+  }
 }

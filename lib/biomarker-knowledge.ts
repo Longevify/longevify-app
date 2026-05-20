@@ -47,7 +47,7 @@ export const BIOMARKER_KNOWLEDGE: Record<string, BiomarkerKnowledge> = {
       ],
       suplementacao: [
         "Psyllium: 10g/dia reduz LDL em ~7%",
-        "Berberina: 500mg 2–3x/dia pode reduzir LDL em 15–20%",
+        "Berberina: 500mg 2–3x/dia pode reduzir LDL em ~10–25% (meta-análise Lan et al., J Ethnopharmacol 2015) — atenção: interage com CYP3A4 (ciclosporina, antifúngicos azólicos, alguns ARVs). Confirme com seu médico antes de combinar com estatina ou medicação contínua",
         "Ômega-3 (EPA/DHA): 2g/dia — efeito modesto no LDL, mas melhora ApoB",
         "Levedura vermelha do arroz só sob orientação médica — risco de miopatia",
       ],
@@ -58,12 +58,12 @@ export const BIOMARKER_KNOWLEDGE: Record<string, BiomarkerKnowledge> = {
       ],
       sono: [
         "7–9h por noite — privação crônica piora o perfil lipídico",
-        "Trate apneia do sono se houver ronco alto ou pausas respiratórias",
+        "Suspeita de apneia do sono (ronco alto + pausas respiratórias presenciadas + sonolência diurna ou STOP-BANG ≥3) → confirme com polissonografia ou poligrafia portátil; SAOS não tratada piora perfil lipídico e cardiovascular",
       ],
     },
     relatedBiomarkerIds: ["apob", "hdl", "hba1c"],
     rangeContext:
-      "Referência tradicional é abaixo de 100 mg/dL, mas evidências recentes (linhas de raciocínio da ESC 2019 e protocolos de longevidade) favorecem alvos mais agressivos: abaixo de 70 para adultos com fatores de risco e abaixo de 55 em prevenção secundária.",
+      "Diretrizes oficiais variam por risco: SBC/AHA usam <100 para baixo risco e <70 em alto risco; ESC 2019 vai mais agressivo (<55 em muito alto risco, <40 em recorrência). Para protocolos de longevidade em adultos sem evento prévio, <70 é alvo razoável quando combinado com ApoB baixa — sempre individualizar conforme idade, histórico familiar e calcium score.",
   },
 
   apob: {
@@ -87,7 +87,7 @@ export const BIOMARKER_KNOWLEDGE: Record<string, BiomarkerKnowledge> = {
         "Monitore junto com LDL a cada 6 meses",
       ],
       alimentacao: [
-        "Reduza carboidratos refinados e açúcares adicionados a menos de 25g/dia",
+        "Reduza açúcares adicionados — a OMS recomenda <10% das calorias totais (≈50g em dieta de 2000 kcal) e idealmente <5% (≈25g) para benefício máximo cardiometabólico",
         "Priorize gorduras monoinsaturadas: azeite, abacate, oleaginosas",
         "Aumente fibra solúvel — aveia, feijão, chia, linhaça",
         "Minimize álcool — a via hepática sobrepõe síntese de VLDL",
@@ -140,9 +140,9 @@ export const BIOMARKER_KNOWLEDGE: Record<string, BiomarkerKnowledge> = {
         "Leite e iogurte fortificados em algumas marcas",
       ],
       suplementacao: [
-        "Vitamina D3 (colecalciferol) 2000–5000 UI/dia é seguro para a maioria dos adultos",
+        "Vitamina D3 (colecalciferol) 1.000–4.000 UI/dia é a faixa de manutenção segura recomendada pela Endocrine Society e SBEM 2018 sem monitoramento. Doses acima (5.000+ UI/dia) podem ser necessárias para repor deficiência mas devem ser tituladas por dosagem sérica de 25(OH)D — risco de hipercalcemia em uso crônico sem monitorar",
         "Tome junto com refeição que contenha gordura para melhor absorção",
-        "Associe vitamina K2 (MK-7) 100–200 mcg/dia para direcionar cálcio ao osso, não à artéria",
+        "Considere vitamina K2 (MK-7) 100–200 mcg/dia — alguns estudos observacionais sugerem benefício no direcionamento de cálcio ao osso (Rotterdam Study, NEJM-PURE), mas RCTs com desfecho duro ainda são limitados",
         "Magnésio suficiente (300–400mg/dia) é cofator para ativação da vitamina D",
       ],
       exercicio: [
@@ -150,7 +150,7 @@ export const BIOMARKER_KNOWLEDGE: Record<string, BiomarkerKnowledge> = {
         "Treino de força preserva densidade óssea — sinergia com vitamina D",
       ],
       sono: [
-        "Baixa vitamina D está associada a pior qualidade do sono — o tratamento melhora arquitetura REM",
+        "Estudos observacionais associam baixa 25(OH)D a pior qualidade do sono; RCTs com reposição são poucos e de efeito modesto — o sono melhora mais com higiene de sono e tratamento de SAOS do que com suplementação isolada de vitamina D",
         "Tome o suplemento pela manhã — doses noturnas podem atrapalhar a melatonina",
       ],
     },
@@ -203,7 +203,7 @@ export const BIOMARKER_KNOWLEDGE: Record<string, BiomarkerKnowledge> = {
     },
     relatedBiomarkerIds: ["crp", "vitd"],
     rangeContext:
-      "Faixa padrão vai de 30 a 300 ng/mL. Para longevidade e energia ótima, mire entre 70–150 em mulheres em idade fértil e 80–200 em homens. Abaixo de 50 já pode causar sintomas mesmo com hemoglobina normal.",
+      "Faixa de referência laboratorial padrão (Mayo Clinic): ♂ 24–336 ng/mL, ♀ 11–307 ng/mL. Em populações específicas o ponto de corte clínico para deficiência funcional pode ser maior — atletas de endurance e mulheres em idade fértil costumam funcionar melhor com ferritina ≥50 ng/mL (sintomas como fadiga, queda de cabelo, brain fog aparecem mesmo com hemoglobina normal quando ferritina <30–50). Para longevidade, mirar 50–150 ng/mL é razoável; valores muito altos (>300 ♂ ou >200 ♀ sem causa óbvia) devem ser investigados — hemocromatose, MASLD, síndrome metabólica.",
     disclaimer:
       "Ferritina pode estar falsamente elevada em estados inflamatórios. Se o valor estiver acima da faixa, dose também PCR e saturação de transferrina antes de concluir sobrecarga.",
   },
@@ -211,7 +211,7 @@ export const BIOMARKER_KNOWLEDGE: Record<string, BiomarkerKnowledge> = {
   hdl: {
     id: "hdl",
     whatItIs:
-      "O HDL é a lipoproteína que recolhe colesterol dos tecidos e o devolve ao fígado — o 'transporte reverso'. Historicamente chamado de 'colesterol bom', mas hoje sabemos que a função das partículas importa mais que o número absoluto.",
+      "O HDL participa do chamado 'transporte reverso de colesterol', captando colesterol dos tecidos e devolvendo ao fígado. Historicamente chamado de 'colesterol bom', mas evidência recente mostra que o número absoluto isolado é menos preditivo que se imaginava — a capacidade funcional do HDL (efflux capacity, medida em pesquisa) e a soma de fatores cardiometabólicos importam mais.",
     whyItMatters:
       "HDL baixo é marcador de resistência à insulina, sedentarismo e inflamação — e associa-se a maior risco cardiovascular. Porém, elevar HDL artificialmente com medicamentos não reduziu eventos em ensaios clínicos. O HDL é sentinela de um estilo de vida saudável, não alvo terapêutico direto.",
     factors: [
@@ -231,14 +231,14 @@ export const BIOMARKER_KNOWLEDGE: Record<string, BiomarkerKnowledge> = {
       ],
       alimentacao: [
         "Azeite extravirgem 2–4 colheres/dia — sinergia mediterrânea com HDL",
-        "Castanhas e nozes: 30g/dia elevam HDL funcional",
+        "Castanhas e nozes 30g/dia: associados a redução de mortalidade cardiovascular (Bao et al., NEJM 2013) e melhora modesta no perfil lipídico — efeito sobre HDL é pequeno mas o efeito cardioprotetor agregado é consistente",
         "Peixes gordos 2–3x/semana",
         "Reduza carboidratos refinados — triglicérides altos reduzem HDL",
       ],
       suplementacao: [
-        "Ômega-3: 2–4g/dia tem efeito modesto",
-        "Niacina prescrita só em casos específicos, sob acompanhamento médico",
-        "Antioxidantes da dieta são preferíveis a suplementos isolados",
+        "Ômega-3 EPA/DHA 2–4g/dia: efeito modesto no HDL, mas reduz triglicérides",
+        "Niacina foi historicamente usada pra elevar HDL — descontinuada como estratégia cardiovascular após AIM-HIGH (2011) e HPS2-THRIVE (2014) mostrarem que não reduz eventos e adiciona toxicidade. Não busque elevar HDL com niacina.",
+        "Antioxidantes da dieta (azeite, frutas vermelhas, vegetais) são preferíveis a suplementos isolados",
       ],
       exercicio: [
         "Zona 2 ≥150 min/semana — melhor alavanca para elevar HDL",
@@ -260,7 +260,7 @@ export const BIOMARKER_KNOWLEDGE: Record<string, BiomarkerKnowledge> = {
     whatItIs:
       "A hemoglobina glicada reflete a média de glicose no sangue nos últimos 2–3 meses. Quando a glicose circula, ela se liga à hemoglobina de forma irreversível — quanto maior a exposição, maior a fração glicada.",
     whyItMatters:
-      "HbA1c é o termômetro do metabolismo da glicose e um dos mais fortes preditores de envelhecimento acelerado. Cada décimo de ponto acima de 5,5% aumenta risco cardiovascular, declínio cognitivo, câncer e todas as causas de mortalidade. Para longevidade, o alvo é abaixo de 5,4% — mantendo a resistência à insulina longe de pé.",
+      "HbA1c é um dos mais fortes preditores contínuos de envelhecimento acelerado: a curva de risco cardiovascular, declínio cognitivo, câncer e mortalidade global sobe progressivamente acima de ~5,5%, com aceleração clara a partir de pré-diabetes. Para longevidade, o alvo funcional é abaixo de 5,4% — mantendo a resistência à insulina sob controle.",
     factors: [
       "Ingestão de carboidratos refinados e açúcares",
       "Sedentarismo — músculo em repouso não absorve glicose",
@@ -280,7 +280,7 @@ export const BIOMARKER_KNOWLEDGE: Record<string, BiomarkerKnowledge> = {
         "Ordem dos alimentos: fibras e proteína antes de carboidratos reduz picos em 30–50%",
         "Prefira carboidratos integrais: arroz integral, quinoa, batata-doce",
         "Elimine bebidas açucaradas e sucos",
-        "Vinagre antes de refeição rica em carboidrato reduz picos em 20%",
+        "Vinagre (1–2 colheres de sopa diluídas) antes de refeição rica em carboidrato pode atenuar o pico glicêmico — efeito modesto, mas inofensivo e barato",
       ],
       suplementacao: [
         "Berberina 500mg 2–3x/dia — efeito semelhante à metformina na HbA1c",
@@ -332,10 +332,10 @@ export const BIOMARKER_KNOWLEDGE: Record<string, BiomarkerKnowledge> = {
         "Evite excesso de goitrogênicos crus (couve, brócolis em grandes quantidades) se houver hipotireoidismo",
       ],
       suplementacao: [
-        "Selênio 100–200 mcg/dia se anti-TPO positivo — reduz autoanticorpos",
-        "Zinco 15–25mg/dia ajuda conversão T4→T3",
-        "Tirosina 500mg pode ser cofator — use com cautela se ansiedade",
-        "Evite excesso de iodo (>500 mcg/dia) em Hashimoto — pode piorar autoimunidade",
+        "Selênio 100–200 µg/dia em Hashimoto (anti-TPO+) pode reduzir títulos de anti-TPO em meta-análises (Toulis et al., Thyroid 2010), mas o impacto sobre desfecho clínico (progressão para hipotireoidismo, qualidade de vida) ainda é incerto — discuta com endócrino",
+        "Zinco 15–25mg/dia: cofator na conversão periférica T4→T3, suplementar quando ingestão dietética baixa",
+        "Tirosina oral isolada NÃO melhora função tireoidiana em pessoas com dieta adequada — a tireoide precisa de tirosina + iodo via tireoglobulina, mas não há evidência de que suplementação oral aumente síntese hormonal",
+        "Evite excesso de iodo (>500 µg/dia) em Hashimoto — pode piorar autoimunidade (evidência mecanística + alguns estudos epidemiológicos)",
       ],
       exercicio: [
         "Exercício moderado e consistente apoia função tireoidiana",
@@ -394,7 +394,7 @@ export const BIOMARKER_KNOWLEDGE: Record<string, BiomarkerKnowledge> = {
         "Evite overtraining — cargas excessivas elevam inflamação",
       ],
       sono: [
-        "Dormir menos de 6h eleva PCR em 15–20% cronicamente",
+        "Sono crônico curto (<6h) ou fragmentado eleva marcadores inflamatórios incluindo PCR (meta-análise Irwin et al., Sleep 2016) — magnitude modesta no PCR isolado mas efeito agregado relevante quando há outros gatilhos inflamatórios",
         "Trate apneia — forte fonte de inflamação sistêmica",
       ],
     },
@@ -430,8 +430,8 @@ export const BIOMARKER_KNOWLEDGE: Record<string, BiomarkerKnowledge> = {
       alimentacao: [
         "Gorduras saudáveis suficientes: 25–35% das calorias (azeite, ovos, abacate)",
         "Zinco: ostras, carnes vermelhas, sementes de abóbora",
-        "Evite dietas muito baixas em carboidrato a longo prazo — suprimem testosterona",
-        "Limite soja processada em excesso — efeito modesto mas real em doses altas",
+        "Dietas muito baixas em carboidrato a longo prazo + déficit calórico crônico podem reduzir testosterona em atletas de endurance (Whittaker & Wu, J Steroid Biochem 2021). Em adultos sedentários ou recreacionais comendo o suficiente, o impacto é menor",
+        "Soja em consumo normal (até 1–2 porções/dia) NÃO suprime testosterona — meta-análise Hamilton-Reeves et al., Fertil Steril 2010. Doses muito altas de isoflavonas (≥100 mg/dia, equivalente a >1L de leite de soja/dia) podem ter efeito marginal",
       ],
       suplementacao: [
         "Vitamina D 2000–5000 UI/dia se deficiente — reposição eleva testosterona",
@@ -442,11 +442,11 @@ export const BIOMARKER_KNOWLEDGE: Record<string, BiomarkerKnowledge> = {
       exercicio: [
         "Treino de força composto (agachamento, levantamento terra) 2–3x/semana",
         "HIIT 1–2x/semana — efeito agudo na testosterona",
-        "Evite overtraining — mais de 10h/semana de endurance pode suprimir",
+        "Evite overtraining sustentado sem reposição calórica adequada — RED-S (Relative Energy Deficiency in Sport) reduz testosterona; balanço energético importa mais que volume bruto de treino",
         "Priorize recuperação entre sessões pesadas",
       ],
       sono: [
-        "7–9h não negociáveis — 70% da testosterona é produzida durante o sono",
+        "7–9h não negociáveis — o pico diurno de testosterona ocorre ao amanhecer e depende fortemente da arquitetura de sono REM/profundo; privação reduz testosterona total em ~10–15% após 1 semana (Leproult & Van Cauter, JAMA 2011)",
         "Horário consistente — variação grande piora eixo hormonal",
         "Quarto escuro e frio (18–20°C) otimiza arquitetura do sono",
       ],
@@ -488,7 +488,7 @@ export const BIOMARKER_KNOWLEDGE: Record<string, BiomarkerKnowledge> = {
       ],
       suplementacao: [
         "Ômega-3 EPA/DHA 2–4g/dia reduz gordura hepática em 15–20%",
-        "Vitamina E 400–800 UI/dia — evidência em esteatose não alcoólica",
+        "Vitamina E 400–800 UI/dia tem evidência em NASH biopsy-comprovada em não-diabéticos (PIVENS trial 2010) — para ALT borderline assintomático sem confirmação histológica a evidência é fraca; discuta com hepatologista antes de doses altas",
         "Berberina 500mg 2x/dia ajuda sensibilidade à insulina hepática",
         "Cuidado com chás 'detox' e suplementos sem procedência — podem ser hepatotóxicos",
       ],
