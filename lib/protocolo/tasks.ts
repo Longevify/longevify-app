@@ -33,9 +33,19 @@ import { getProductById, type Product } from "@/lib/products";
 
 export interface ProtocolTask {
   id: string;
-  /** Frase orientativa em linguagem direta — sugestão educacional, não prescrição médica. */
+  /**
+   * Título curto da ação (3-7 palavras, imperativo). Lucas (2026-05-20):
+   * "a aba de protocolo ainda ta cheio de texto e não apenas com um
+   * título no to-do list e um botão de saiba mais explicando melhor".
+   *
+   * Ex: "Suplementar Vitamina D3", "Tomar sol matinal".
+   */
   label: string;
-  /** Por que esse suplemento? Referência ao biomarcador. */
+  /**
+   * Explicação completa: contexto do biomarcador + posologia/protocolo
+   * + caveat clínico. Vai dentro do expandable "Saber mais" — não aparece
+   * no card direto.
+   */
   reasoning?: string;
   /** Produto vinculado (suplemento). Se ausente = task lifestyle (sol/sono/etc). */
   product?: Product;
@@ -43,6 +53,17 @@ export interface ProtocolTask {
   shopQuery?: string;
   /** Icone (lucide) pra tasks lifestyle. Texto literal pra desacoplar de jsx. */
   lifestyleIcon?: "sun" | "moon" | "droplet" | "activity";
+  /**
+   * Categoria pro agrupamento visual no UI. Lucas (2026-05-20): "a
+   * sugestão que não for relacionada diretamente a ingestão de um
+   * suplemento, não deve ficar no mesmo card que tem a foto do
+   * suplemento, mas sim em outro card."
+   *
+   * - "supplement": tem produto associado, vai pra seção "Suplementos"
+   * - "habit": ação de lifestyle (sol/sono/exercício/dieta), seção "Hábitos"
+   * - "investigation": pedir avaliação médica ou exame complementar
+   */
+  kind?: "supplement" | "habit" | "investigation";
 }
 
 export interface WorkingOnGoal {
@@ -57,8 +78,12 @@ export interface WorkingOnGoal {
 
 interface BiomarkerProtocolEntry {
   productId: string;
-  /** Posologia exata pra task imperativa. */
-  posology: string;
+  /** Título curto da ação — 3-7 palavras, imperativo. Aparece no card. */
+  title: string;
+  /** Categoria visual: supplement / habit / investigation. */
+  kind: "supplement" | "habit" | "investigation";
+  /** Posologia + caveat clínico — aparece dentro do expandable "Saber mais". */
+  detail: string;
   /** Frase pra "no que estamos trabalhando" (goal terapêutico). */
   goalTitle: string;
   goalDescriptionTemplate: (b: Biomarker) => string;
@@ -67,7 +92,9 @@ interface BiomarkerProtocolEntry {
 const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
   vitd: {
     productId: "vitamina-d",
-    posology:
+    title: "Suplementar Vitamina D3",
+    kind: "supplement",
+    detail:
       "Sugestão: 1 cápsula de Vitamina D3 2.000 UI/dia com refeição contendo gordura. Em deficiência grave (<20 ng/mL) doses maiores podem ser necessárias — confirme com seu médico após checar 25(OH)D sérica.",
     goalTitle: "Atingir faixa-alvo de 25(OH)D (40–60 ng/mL)",
     goalDescriptionTemplate: (b) =>
@@ -75,7 +102,9 @@ const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
   },
   ldl: {
     productId: "omega-3",
-    posology:
+    title: "Reduzir gordura saturada e aumentar fibra",
+    kind: "habit",
+    detail:
       "Sugestão alimentar: reduzir gordura saturada (carnes gordas, manteiga, óleo de coco), aumentar fibra solúvel (aveia, feijão, psyllium 5–10g) — esses são os fatores que mais reduzem LDL. Ômega-3 (EPA/DHA 2g/dia, 2 cápsulas com almoço) reduz TG e ApoB, mas tem efeito modesto sobre LDL.",
     goalTitle: "Reduzir LDL conforme seu risco cardiovascular",
     goalDescriptionTemplate: (b) =>
@@ -83,7 +112,9 @@ const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
   },
   apob: {
     productId: "omega-3",
-    posology:
+    title: "Suplementar Ômega-3 (EPA/DHA)",
+    kind: "supplement",
+    detail:
       "Sugestão: Ômega-3 EPA/DHA 2g/dia (2 cápsulas com almoço) — reduz partículas VLDL/IDL e tem efeito modesto sobre ApoB. Para reduções maiores de ApoB, mudanças alimentares (menos gordura saturada, mais fibra) + atividade física são essenciais.",
     goalTitle: "Otimizar ApoB (carga aterogênica)",
     goalDescriptionTemplate: (b) =>
@@ -91,7 +122,9 @@ const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
   },
   crp: {
     productId: "omega-3",
-    posology:
+    title: "Suplementar Ômega-3 (anti-inflamatório)",
+    kind: "supplement",
+    detail:
       "Sugestão: padrão alimentar mediterrâneo (azeite, vegetais, peixes 2-3x/semana, oleaginosas, legumes) + Ômega-3 EPA/DHA 2g/dia (2 cápsulas com almoço) + sono regular. PCR persistentemente alta sem causa óbvia merece investigação médica.",
     goalTitle: "Reduzir PCR (inflamação sistêmica de baixo grau)",
     goalDescriptionTemplate: (b) =>
@@ -99,7 +132,9 @@ const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
   },
   hba1c: {
     productId: "magnesio-quelato",
-    posology:
+    title: "Suplementar Magnésio Quelato",
+    kind: "supplement",
+    detail:
       "Sugestão: 1 cápsula de Magnésio Quelato 200mg/dia (frequentemente recomendado antes de dormir pelo efeito sobre o sono) — adjuvante para sensibilidade à insulina. Maior alavanca: redução de açúcar refinado, perda de gordura visceral, exercício e sono adequado.",
     goalTitle: "Estabilizar HbA1c em faixa não-pré-diabética",
     goalDescriptionTemplate: (b) =>
@@ -107,24 +142,30 @@ const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
   },
   testo: {
     productId: "zinco",
-    posology:
+    title: "Suplementar Zinco Quelato",
+    kind: "supplement",
+    detail:
       "Sugestão: 1 cápsula de Zinco Quelato 25mg/dia (especialmente útil se ingesta dietética baixa). Testosterona baixa persistente merece avaliação com endócrino — investigar SHBG, LH, prolactina, sono, peso, álcool.",
     goalTitle: "Otimizar testosterona — buscar causas modificáveis",
     goalDescriptionTemplate: (b) =>
       `Sua testosterona está em ${b.value} ${b.unit}. Treino de força composto, sono de 7-9h, controle de peso e álcool moderado são as alavancas modificáveis principais. Zinco e vitamina D só fazem diferença se houver deficiência. Reposição hormonal é decisão médica com avaliação completa.`,
   },
   ferritin: {
-    productId: "", // sem produto direto — task vira ação one-time daily-completable
-    posology:
+    productId: "",
+    title: "Investigar ferritina baixa com médico",
+    kind: "investigation",
+    detail:
       "Não suplementar ferro sem antes investigar a causa da queda (perda, absorção, dieta). Mensagem ao Concierge ou consulta com médico parceiro pra orientação.",
     goalTitle: "Investigar e tratar causa de ferritina baixa",
     goalDescriptionTemplate: (b) =>
       `Sua ferritina está em ${b.value} ${b.unit}. Ferro oral mal dosado pode causar sobrecarga; a investigação da causa (menstruação abundante, sangramento digestivo oculto, má absorção, dieta vegana sem reposição) deve preceder a reposição. Avaliação médica necessária.`,
   },
   hdl: {
-    productId: "", // sem suplemento — task DIÁRIA (não semanal!) de exercício
-    posology:
-      "Sugestão: 30 min de caminhada/corrida leve em Zona 2 hoje (ritmo conversável, FC ~60-70% da máx).",
+    productId: "",
+    title: "Fazer 30 min de Zona 2",
+    kind: "habit",
+    detail:
+      "Sugestão: 30 min de caminhada/corrida leve em Zona 2 hoje (ritmo conversável, FC ~60-70% da máx). Exercício aeróbico consistente é o que mais eleva HDL — suplemento isolado não funciona.",
     goalTitle: "Elevar HDL com exercício consistente (não com suplemento)",
     goalDescriptionTemplate: (b) =>
       `Seu HDL em ${b.value} ${b.unit} é melhor modulado por exercício aeróbico (150-300 min/semana de Zona 2) e composição corporal — suplemento isolado tem efeito muito modesto. Importante: HDL baixo é marcador de risco, mas elevá-lo farmacologicamente NÃO reduziu eventos em estudos (niacina, CETPi).`,
@@ -133,7 +174,9 @@ const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
   // ─── Glicemia ──────────────────────────────────────────────────────
   glucose: {
     productId: "",
-    posology:
+    title: "Caminhar 10-15 min após cada refeição",
+    kind: "habit",
+    detail:
       "Sugestão: caminhada de 10-15 minutos APÓS cada refeição hoje. Reduz pico glicêmico pós-prandial significativamente (estudos: até -30% AUC glicose).",
     goalTitle: "Reduzir glicemia de jejum pra <90 mg/dL",
     goalDescriptionTemplate: (b) =>
@@ -141,7 +184,9 @@ const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
   },
   insulin_fasting: {
     productId: "",
-    posology:
+    title: "Priorizar 7-9h de sono + treino hoje",
+    kind: "habit",
+    detail:
       "Sugestão: priorizar 7-9h de sono hoje + treino de força ou Zona 2 30 min. Sono fragmentado eleva resistência à insulina em poucos dias.",
     goalTitle: "Reduzir insulina de jejum (<6 µUI/mL) e melhorar sensibilidade",
     goalDescriptionTemplate: (b) =>
@@ -149,7 +194,9 @@ const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
   },
   homa_ir: {
     productId: "magnesio-quelato",
-    posology:
+    title: "Suplementar Magnésio antes de dormir",
+    kind: "supplement",
+    detail:
       "Sugestão: 1 cápsula de Magnésio 200mg antes de dormir (melhora sensibilidade à insulina via canais GLUT4). Combine com hábitos alimentares e movimento.",
     goalTitle: "HOMA-IR abaixo de 1.9 (sensibilidade à insulina preservada)",
     goalDescriptionTemplate: (b) =>
@@ -157,7 +204,9 @@ const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
   },
   triglycerides: {
     productId: "omega-3",
-    posology:
+    title: "Suplementar Ômega-3 + reduzir açúcar",
+    kind: "supplement",
+    detail:
       "Sugestão: 2g/dia de Ômega-3 EPA/DHA (2 cápsulas com almoço). Mais eficaz pra TG que pra LDL. Combine com redução de carbs refinados e álcool — ambos elevam TG dramaticamente.",
     goalTitle: "Triglicérides em faixa ótima (<100 mg/dL)",
     goalDescriptionTemplate: (b) =>
@@ -167,7 +216,9 @@ const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
   // ─── Vitaminas / Minerais ─────────────────────────────────────────
   vitb12: {
     productId: "",
-    posology:
+    title: "Aumentar carne/ovo/peixe na dieta",
+    kind: "habit",
+    detail:
       "Sugestão: avalie ingesta dietética (carne, ovo, peixe, laticínios). Se vegetariano/vegano ou >50 anos, suplementar é razoável (1.000 µg cianocobalamina sublingual/semana). Confirme com médico se persistir baixo.",
     goalTitle: "Vitamina B12 acima de 500 pg/mL (faixa cognitiva ideal)",
     goalDescriptionTemplate: (b) =>
@@ -175,7 +226,9 @@ const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
   },
   folate: {
     productId: "",
-    posology:
+    title: "Aumentar folhas verdes na dieta",
+    kind: "habit",
+    detail:
       "Sugestão: aumentar verduras de folhas escuras (couve, espinafre, rúcula — 2-3 porções/dia), feijão, lentilha. Suplementação só se persistir baixo após ajuste alimentar.",
     goalTitle: "Folato (B9) ≥5 ng/mL com fontes alimentares",
     goalDescriptionTemplate: (b) =>
@@ -183,7 +236,9 @@ const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
   },
   iron_serum: {
     productId: "",
-    posology:
+    title: "Investigar ferro sérico com médico",
+    kind: "investigation",
+    detail:
       "NÃO suplementar ferro sem investigar causa (perda menstrual abundante, sangramento digestivo, má absorção, dieta). Ferro indevidamente suplementado causa sobrecarga e dano oxidativo.",
     goalTitle: "Ferro sérico adequado SEM sobrecarga",
     goalDescriptionTemplate: (b) =>
@@ -191,7 +246,9 @@ const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
   },
   magnesium: {
     productId: "magnesio-quelato",
-    posology:
+    title: "Suplementar Magnésio Quelato",
+    kind: "supplement",
+    detail:
       "Sugestão: 1 cápsula de Magnésio Quelato 200mg antes de dormir. Maioria dos brasileiros está abaixo da RDA (320-420 mg/dia). Glicinato/treonato são as melhores formas pra sono e cognição.",
     goalTitle: "Atingir RDA de magnésio (~400 mg/dia)",
     goalDescriptionTemplate: (b) =>
@@ -199,7 +256,9 @@ const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
   },
   zinc: {
     productId: "zinco",
-    posology:
+    title: "Suplementar Zinco Quelato",
+    kind: "supplement",
+    detail:
       "Sugestão: 1 cápsula de Zinco Quelato 25mg/dia com refeição (longe de café). Mantenha por 4-8 semanas e reavalie.",
     goalTitle: "Zinco adequado (imunidade, testo, cicatrização)",
     goalDescriptionTemplate: (b) =>
@@ -209,7 +268,9 @@ const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
   // ─── Cardiovascular ───────────────────────────────────────────────
   homocysteine: {
     productId: "",
-    posology:
+    title: "Aumentar B12 + folato via dieta",
+    kind: "habit",
+    detail:
       "Sugestão: combinação de B12 + B9 (folato) + B6 + betaína via dieta (ovo, fígado, vegetais verdes). Suplementação de complexo B só se persistir alto após ajuste alimentar — testar primeiro B12 e folato isoladamente.",
     goalTitle: "Homocisteína abaixo de 9 µmol/L",
     goalDescriptionTemplate: (b) =>
@@ -219,7 +280,9 @@ const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
   // ─── Tireoide ─────────────────────────────────────────────────────
   tsh: {
     productId: "",
-    posology:
+    title: "Avaliar tireoide completa com médico",
+    kind: "investigation",
+    detail:
       "TSH alterado merece avaliação completa: T4 livre, T3 livre, anti-TPO, anti-Tg. Hipotireoidismo subclínico (TSH 4.5-10 com T4 normal) é controverso — não suplementar T4 sem critério médico.",
     goalTitle: "TSH em faixa ótima (0.5-2.5 µUI/mL para longevidade)",
     goalDescriptionTemplate: (b) =>
@@ -235,25 +298,27 @@ const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
 const LIFESTYLE_TASKS: ProtocolTask[] = [
   {
     id: "sol-manha",
-    // Exposição solar moderada: 10-15 min na pele clara, 20-30 min em pele
-    // mais escura (Fitzpatrick V/VI), de braços/pernas. Antes das 10h o UV
-    // é menor — risco de queimadura/dano menor. Em alto risco de melanoma
-    // (histórico familiar, fototipo I, lesões suspeitas) consultar
-    // dermatologista antes.
-    label: "Pegar 10-15 min de sol matinal hoje (antes das 10h), em braços/pernas — ajuste se você tem pele mais escura ou alto risco de melanoma.",
+    label: "Tomar 10-15 min de sol matinal",
+    reasoning:
+      "Exposição solar moderada antes das 10h em braços/pernas — 10-15 min em pele clara, 20-30 min em pele mais escura (Fitzpatrick V/VI). Antes das 10h o UV é menor, então o risco de queimadura/dano é baixo. Estimula produção endógena de Vitamina D e regula ritmo circadiano. Em alto risco de melanoma (histórico familiar, fototipo I, lesões suspeitas) consulte dermatologista antes.",
     lifestyleIcon: "sun",
+    kind: "habit",
   },
   {
     id: "agua",
-    // 2L/dia é orientação genérica. Necessidade real varia por peso, clima,
-    // exercício, dieta (frutas/vegetais já contêm bastante água).
-    label: "Manter-se bem hidratado(a) ao longo do dia — para a maioria dos adultos, ~2L de líquidos (água + bebidas + alimentos com água) é uma boa referência.",
+    label: "Manter-se bem hidratado(a) hoje",
+    reasoning:
+      "Pra maioria dos adultos, ~2L de líquidos por dia (água + bebidas + alimentos com água como frutas e vegetais) é uma boa referência. A necessidade real varia por peso, clima, exercício e dieta — em dias quentes ou de treino intenso, suba pra 2.5-3L. Cor da urina amarelo-clara é o melhor termômetro prático.",
     lifestyleIcon: "droplet",
+    kind: "habit",
   },
   {
     id: "sono",
-    label: "Dormir entre 7h e 9h hoje, priorizando horário consistente (NSF/AASM recomendam ≥7h em adultos).",
+    label: "Dormir entre 7h e 9h hoje",
+    reasoning:
+      "Priorizar horário consistente (acordar e dormir no mesmo horário) — NSF/AASM recomendam ≥7h em adultos. Sono curto ou fragmentado eleva resistência à insulina, cortisol e PCR já em poucas noites. Pra qualidade: evitar tela 1h antes, manter quarto escuro e fresco (18-20°C), evitar álcool e cafeína à noite.",
     lifestyleIcon: "moon",
+    kind: "habit",
   },
 ];
 
@@ -280,25 +345,39 @@ export function generateProtocolTasks(biomarkers: Biomarker[]): ProtocolTask[] {
 
   const tasks: ProtocolTask[] = [];
   const seenProducts = new Set<string>();
+  // Dedup por título também — quando 2 biomarcadores compartilham
+  // intervenção comum (ex: LDL + triglycerides → "Reduzir gordura
+  // saturada") não mostra task duplicada.
+  const seenTitles = new Set<string>();
 
   for (const biomarker of relevant) {
     const entry = BIOMARKER_PROTOCOL[biomarker.id];
     if (!entry) continue;
 
-    // Dedup por produto
+    // Dedup por produto (suplementos)
     if (entry.productId && seenProducts.has(entry.productId)) continue;
+    // Dedup por título (hábitos repetidos)
+    if (!entry.productId && seenTitles.has(entry.title)) continue;
 
     const product = entry.productId ? getProductById(entry.productId) : undefined;
 
+    // Reasoning combina contexto do biomarcador + posologia/detalhe da entry.
+    // Lucas (2026-05-20): "tenha um título das ações sugeridas e abaixo
+    // tenha um mini botão de saiba mais que expande para um texto,
+    // explicando porque a sugestão está sendo feita".
+    const reasoning = `${biomarker.name} está em ${biomarker.value} ${biomarker.unit} (faixa ${biomarker.referenceLabel}).\n\n${entry.detail}`;
+
     tasks.push({
       id: `bio-${biomarker.id}`,
-      label: entry.posology,
-      reasoning: `${biomarker.name} ${biomarker.value} ${biomarker.unit} (faixa ${biomarker.referenceLabel}).`,
+      label: entry.title,
+      reasoning,
       product,
       shopQuery: product?.name,
+      kind: entry.kind,
     });
 
     if (entry.productId) seenProducts.add(entry.productId);
+    else seenTitles.add(entry.title);
   }
 
   // Lifestyle tasks no final

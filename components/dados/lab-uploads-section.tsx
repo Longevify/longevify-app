@@ -1,11 +1,17 @@
 "use client";
 
-import { useRef, useState, useTransition, type ChangeEvent, type DragEvent } from "react";
 import {
-  Calendar,
+  useRef,
+  useState,
+  useTransition,
+  type ChangeEvent,
+  type DragEvent,
+} from "react";
+import {
   Eye,
   FileText,
   Loader2,
+  Sparkles,
   Trash2,
   Upload,
 } from "lucide-react";
@@ -50,11 +56,12 @@ export function LabUploadsSection({ uploads, enabled }: LabUploadsSectionProps) 
   const [dragOver, setDragOver] = useState(false);
   const [pendingUpload, startUpload] = useTransition();
   const [pendingDelete, startDelete] = useTransition();
-  const [draftFile, setDraftFile] = useState<File | null>(null);
-  const [takenAt, setTakenAt] = useState("");
-  const [labName, setLabName] = useState("");
-  const [examKind, setExamKind] = useState("");
-  const [notes, setNotes] = useState("");
+
+  // Lucas (2026-05-20): "no histórico anexado, não precisa pedir data,
+  // nem nada, você mesmo adiciona isso ao analisar o pdf." Antes o form
+  // pedia takenAt/labName/examKind/notes — agora é zero-touch: o user
+  // sobe o arquivo, a gente extrai data + laboratório via Opus 4.7
+  // durante o parse.
 
   if (!enabled) {
     return (
@@ -77,6 +84,11 @@ export function LabUploadsSection({ uploads, enabled }: LabUploadsSectionProps) 
     );
   }
 
+  /**
+   * Recebe FileList, valida tamanho/extensão, e dispara upload direto —
+   * sem form intermediário. Data e laboratório serão extraídos pelo
+   * Opus 4.7 durante o parse automático.
+   */
   function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
     const f = files[0];
@@ -87,7 +99,7 @@ export function LabUploadsSection({ uploads, enabled }: LabUploadsSectionProps) 
       });
       return;
     }
-    setDraftFile(f);
+    uploadDirectly(f);
   }
 
   function onDrop(e: DragEvent<HTMLDivElement>) {
@@ -96,32 +108,19 @@ export function LabUploadsSection({ uploads, enabled }: LabUploadsSectionProps) 
     handleFiles(e.dataTransfer.files);
   }
 
-  function clearDraft() {
-    setDraftFile(null);
-    setTakenAt("");
-    setLabName("");
-    setExamKind("");
-    setNotes("");
-    if (inputRef.current) inputRef.current.value = "";
-  }
-
-  function submit() {
-    if (!draftFile) return;
+  function uploadDirectly(file: File) {
     const fd = new FormData();
-    fd.append("file", draftFile);
-    fd.append("takenAt", takenAt);
-    fd.append("labName", labName);
-    fd.append("examKind", examKind);
-    fd.append("notes", notes);
+    fd.append("file", file);
+    // Sem takenAt/labName/examKind/notes — vem do parse AI.
 
     startUpload(async () => {
       const r = await uploadLabFile(fd);
       if (r.ok) {
         toast.success({
           title: "Exame anexado",
-          description: `${draftFile.name} salvo no seu histórico.`,
+          description: `${file.name} — extraindo data e biomarcadores com IA...`,
         });
-        clearDraft();
+        if (inputRef.current) inputRef.current.value = "";
       } else {
         toast.error({ title: "Não conseguimos enviar", description: r.error });
       }
@@ -165,44 +164,53 @@ export function LabUploadsSection({ uploads, enabled }: LabUploadsSectionProps) 
             Anexar exames antigos
           </h2>
           <p className="mt-1 text-[13px] text-muted">
-            Suba PDFs ou fotos de exames anteriores — quanto mais histórico, mais
-            preciso fica o Concierge IA. Aceita PDF, PNG, JPG, HEIC, WEBP até 20 MB.
+            Suba PDFs ou fotos de exames anteriores. A IA extrai{" "}
+            <strong className="font-semibold text-ink">
+              data, laboratório e biomarcadores
+            </strong>{" "}
+            automaticamente — você não precisa preencher nada. Aceita PDF, PNG,
+            JPG, HEIC, WEBP até 20 MB.
           </p>
         </div>
       </div>
 
-      {/* Dropzone */}
+      {/* Dropzone — upload direto, sem form de metadados.
+          Lucas (2026-05-20): "no histórico anexado, não precisa pedir
+          data, nem nada, você mesmo adiciona isso ao analisar o pdf." */}
       <div
         onDragOver={(e) => {
           e.preventDefault();
-          setDragOver(true);
+          if (!pendingUpload) setDragOver(true);
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
-        onClick={() => inputRef.current?.click()}
+        onClick={() => !pendingUpload && inputRef.current?.click()}
         className={cn(
-          "flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border bg-brand-50/30 px-6 py-8 text-center transition-colors cursor-pointer",
-          dragOver && "border-brand-400 bg-brand-50",
-          draftFile && "border-brand-400 bg-brand-50",
+          "flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border bg-brand-50/30 px-6 py-8 text-center transition-colors",
+          pendingUpload
+            ? "cursor-wait border-brand-300 bg-brand-50/60"
+            : "cursor-pointer",
+          !pendingUpload && dragOver && "border-brand-400 bg-brand-50",
         )}
       >
         <input
           ref={inputRef}
           type="file"
           accept={ACCEPTED_MIME}
+          disabled={pendingUpload}
           className="sr-only"
           onChange={(e: ChangeEvent<HTMLInputElement>) =>
             handleFiles(e.target.files)
           }
         />
-        {draftFile ? (
+        {pendingUpload ? (
           <>
-            <FileText className="h-6 w-6 text-brand-700" />
+            <Loader2 className="h-6 w-6 animate-spin text-brand-700" />
             <div className="text-[14px] font-medium text-ink">
-              {draftFile.name}
+              Enviando arquivo…
             </div>
             <div className="text-[12px] text-muted">
-              {formatBytes(draftFile.size)} · {draftFile.type}
+              IA vai extrair data + biomarcadores em ~10s
             </div>
           </>
         ) : (
@@ -214,73 +222,13 @@ export function LabUploadsSection({ uploads, enabled }: LabUploadsSectionProps) 
             <div className="text-[12px] text-muted">
               PDF, PNG, JPG, HEIC, WEBP — até 20 MB
             </div>
+            <div className="mt-2 inline-flex items-center gap-1 text-[11px] text-brand-700">
+              <Sparkles className="h-3 w-3" />
+              Extração automática de data, laboratório e biomarcadores
+            </div>
           </>
         )}
       </div>
-
-      {draftFile ? (
-        <div className="flex flex-col gap-3 rounded-2xl border border-border bg-white p-4">
-          <h3 className="text-[13px] font-semibold text-ink">
-            Detalhes do exame (opcional)
-          </h3>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="Data do exame" icon={Calendar}>
-              <input
-                type="date"
-                value={takenAt}
-                onChange={(e) => setTakenAt(e.target.value)}
-                max={new Date().toISOString().slice(0, 10)}
-                className="h-10 rounded-full border border-border bg-brand-50/30 px-4 text-[14px] text-ink outline-none focus:border-brand-400 focus:bg-white"
-              />
-            </Field>
-            <Field label="Laboratório">
-              <input
-                type="text"
-                value={labName}
-                onChange={(e) => setLabName(e.target.value)}
-                placeholder="Ex: Fleury, Sabin, DASA…"
-                className="h-10 rounded-full border border-border bg-brand-50/30 px-4 text-[14px] text-ink outline-none focus:border-brand-400 focus:bg-white"
-              />
-            </Field>
-            <Field label="Tipo de exame">
-              <select
-                value={examKind}
-                onChange={(e) => setExamKind(e.target.value)}
-                className="h-10 rounded-full border border-border bg-brand-50/30 px-4 text-[14px] text-ink outline-none focus:border-brand-400 focus:bg-white"
-              >
-                {EXAM_KIND_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Notas" full>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={2}
-                placeholder="Algo que queira lembrar sobre esse exame…"
-                className="rounded-2xl border border-border bg-brand-50/30 px-4 py-3 text-[14px] text-ink outline-none focus:border-brand-400 focus:bg-white resize-y"
-              />
-            </Field>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" size="sm" onClick={clearDraft} disabled={pendingUpload}>
-              Cancelar
-            </Button>
-            <Button variant="primary" size="sm" onClick={submit} disabled={pendingUpload}>
-              {pendingUpload ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" /> Enviando…
-                </>
-              ) : (
-                "Anexar exame"
-              )}
-            </Button>
-          </div>
-        </div>
-      ) : null}
 
       {/* Lista de uploads existentes */}
       {uploads.length > 0 ? (
@@ -505,29 +453,3 @@ function ParseStatusBadge({ upload }: { upload: LabUpload }) {
   }
 }
 
-function Field({
-  label,
-  full,
-  icon: Icon,
-  children,
-}: {
-  label: string;
-  full?: boolean;
-  icon?: React.ComponentType<{ className?: string }>;
-  children: React.ReactNode;
-}) {
-  return (
-    <label
-      className={cn(
-        "flex flex-col gap-1.5 text-[12px]",
-        full ? "sm:col-span-2" : "",
-      )}
-    >
-      <span className="inline-flex items-center gap-1.5 text-muted">
-        {Icon ? <Icon className="h-3 w-3" /> : null}
-        {label}
-      </span>
-      {children}
-    </label>
-  );
-}

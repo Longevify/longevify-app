@@ -438,12 +438,20 @@ Retorne SOMENTE JSON neste schema (zero comentários):
   }
 
   // ─── 7. Marca parsed + linka exam ──────────────────────────────────────
+  //
+  // Lucas (2026-05-20): "no histórico anexado, não precisa pedir data,
+  // nem nada, você mesmo adiciona isso ao analisar o pdf." → propagar
+  // taken_at + lab_name extraídos pelo Opus pra row do lab_uploads,
+  // pra UI do "Histórico anexado" mostrar a data correta sem o user
+  // ter que digitar nada.
   await supabase
     .from("lab_uploads")
     .update({
       status: "parsed",
       exam_id: examId,
       parsed_data: parsed as unknown as Record<string, unknown>,
+      taken_at: takenAt,
+      lab_name: parsed.lab ?? null,
     })
     .eq("id", id);
 
