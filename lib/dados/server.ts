@@ -9,6 +9,12 @@ import {
   type BiomarkerStatus,
   type Patient,
 } from "@/lib/mock-data";
+import {
+  computeBiologicalAge,
+  computeLongevifyScore,
+  computeOrganBioAges,
+  computeOrganScores,
+} from "./compute";
 
 export interface DadosData {
   patient: Patient;
@@ -161,24 +167,118 @@ export async function loadDadosForUser(opts: {
     (profileRes.data as { sex?: string } | null)?.sex === "female"
       ? "female"
       : "male";
+
+  // ─── Computa Score/idade/órgãos a partir dos biomarcadores REAIS ─────
+  //
+  // Lucas (2026-05-20): "o app todo tem que ser configurado com base nesses
+  // meus dados, as cores no boneco, minha idade biológica e tudo mais, os
+  // dados reais tem que substituir os dados demo."
+  //
+  // Prioridade: snapshot em longevify_scores (se existe) > computado on-the-fly
+  // > mock (fallback final). Compute funciona pra todo paciente com qualquer
+  // número de biomarcadores reais.
+  const computedScore = computeLongevifyScore(withData);
+  const computedBioAge = computeBiologicalAge(withData, chronologicalAge);
+  const organScores = computeOrganScores(withData);
+  const organBioAges = computeOrganBioAges(withData, chronologicalAge);
+
+  // Histórico: 1 ponto por exame existente, com score/age computado por
+  // exame. Pra MVP, refazemos compute por exame (cheap — N ≤ 12).
+  const scoreHistory = buildScoreHistory(withData, exams);
+  const biologicalAgeHistory = buildBioAgeHistory(
+    withData,
+    exams,
+    chronologicalAge,
+  );
+
   const patient: Patient = {
     firstName: patientFirstName,
     lastName: patientLastName,
     sex: patientSex,
     chronologicalAge,
-    biologicalAge: score?.biological_age ? Number(score.biological_age) : chronologicalAge,
-    longevifyScore: score?.score ?? MOCK_PATIENT.longevifyScore,
+    biologicalAge: score?.biological_age
+      ? Number(score.biological_age)
+      : computedBioAge,
+    longevifyScore: score?.score ?? computedScore.score,
     scoreStatus:
-      (score?.status as Patient["scoreStatus"]) ?? MOCK_PATIENT.scoreStatus,
+      (score?.status as Patient["scoreStatus"]) ?? computedScore.status,
     latestExamDate: exams[0].taken_at as string,
     pendingResultsDays: MOCK_PATIENT.pendingResultsDays,
-    scoreHistory: MOCK_PATIENT.scoreHistory, // TODO: derivar de longevify_scores quando virar uso real
-    biologicalAgeHistory: MOCK_PATIENT.biologicalAgeHistory,
-    organBioAges: MOCK_PATIENT.organBioAges,
-    organScores: MOCK_PATIENT.organScores,
+    scoreHistory,
+    biologicalAgeHistory,
+    organBioAges,
+    organScores,
   };
 
   return { patient, biomarkers: withData, hasExams: true };
+}
+
+/**
+ * Histórico de Longevify Score — 1 ponto por exame existente. Re-aplica
+ * computeLongevifyScore filtrando os biomarcadores que pertencem ao
+ * exame específico. Útil pro sparkline da ScoreCard.
+ */
+function buildScoreHistory(
+  biomarkers: Biomarker[],
+  exams: Array<{ id: unknown; taken_at: unknown }>,
+): Patient["scoreHistory"] {
+  if (exams.length === 0) return [];
+
+  // Reordena ascendente pra sparkline ler esquerda → direita = passado → hoje
+  const sorted = [...exams].sort((a, b) =>
+    (a.taken_at as string) < (b.taken_at as string) ? -1 : 1,
+  );
+
+  return sorted.map((e) => {
+    // Filtra biomarkers cujo valor mais recente é DESSE exame
+    const examId = e.id as string;
+    const subset = biomarkers
+      .map((b) => {
+        const v = b.history.find(
+          (h) => h.date.slice(0, 10) === (e.taken_at as string),
+        );
+        if (!v) return null;
+        return {
+          ...b,
+          value: v.value,
+          // Status nesse ponto histórico — usa o do biomarker corrente
+          // como proxy (MVP — refinement futuro: recompute por valor)
+          status: b.status,
+        };
+      })
+      .filter((b): b is Biomarker => b !== null);
+    const { score } = computeLongevifyScore(subset);
+    return { date: e.taken_at as string, score };
+  });
+}
+
+/**
+ * Histórico de idade biológica — análogo ao scoreHistory.
+ */
+function buildBioAgeHistory(
+  biomarkers: Biomarker[],
+  exams: Array<{ id: unknown; taken_at: unknown }>,
+  chronologicalAge: number,
+): Patient["biologicalAgeHistory"] {
+  if (exams.length === 0) return [];
+
+  const sorted = [...exams].sort((a, b) =>
+    (a.taken_at as string) < (b.taken_at as string) ? -1 : 1,
+  );
+
+  return sorted.map((e) => {
+    const subset = biomarkers
+      .map((b) => {
+        const v = b.history.find(
+          (h) => h.date.slice(0, 10) === (e.taken_at as string),
+        );
+        if (!v) return null;
+        return { ...b, value: v.value, status: b.status };
+      })
+      .filter((b): b is Biomarker => b !== null);
+    const age = computeBiologicalAge(subset, chronologicalAge);
+    return { date: e.taken_at as string, age };
+  });
 }
 
 export function biomarkersStatsFrom(biomarkers: Biomarker[]) {
