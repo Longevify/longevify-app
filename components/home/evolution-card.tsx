@@ -23,6 +23,15 @@ interface EvolutionCardProps {
   scoreHistory: ScorePoint[];
   biologicalAgeHistory: BioAgePoint[];
   chronologicalAge: number;
+  /**
+   * Contexto adicional pra computar achievements mais ricos:
+   * - streakDays: dias seguidos completando tasks
+   * - biomarkersOptimal: count de biomarcadores em verde
+   * - examsCount: quantos exames já anexou
+   */
+  streakDays?: number;
+  biomarkersOptimal?: number;
+  examsCount?: number;
   achievements?: Achievement[];
   className?: string;
 }
@@ -37,15 +46,21 @@ export function EvolutionCard({
   scoreHistory,
   biologicalAgeHistory,
   chronologicalAge,
+  streakDays,
+  biomarkersOptimal,
+  examsCount,
   achievements,
   className,
 }: EvolutionCardProps) {
-  // Constrói achievements automáticos a partir do histórico se não
-  // veio explicitamente do server.
+  // Constrói achievements automáticos a partir do histórico + contexto
+  // se não veio achievements explícitos.
   const autoAchievements = computeAchievements(
     scoreHistory,
     biologicalAgeHistory,
     chronologicalAge,
+    streakDays,
+    biomarkersOptimal,
+    examsCount,
   );
   const achs = achievements ?? autoAchievements;
 
@@ -167,6 +182,11 @@ function Sparkline({ values, color, fillFrom, fillTo, invert }: SparklineProps) 
   const max = Math.max(...values);
   const range = max - min || 1;
 
+  // ID do gradient SVG — sanitiza color pra evitar `#` no id (que
+  // quebra `url(#grad-#xyz)`). Cores possíveis: brand-700, status colors,
+  // etc — alfanuméricos com `-` são seguros após este replace.
+  const gradId = `grad-${color.replace(/[^a-zA-Z0-9-]/g, "")}`;
+
   // Pontos normalizados
   const pts = values.map((v, i) => {
     const x = (i / (values.length - 1)) * (w - 8) + 4;
@@ -195,12 +215,12 @@ function Sparkline({ values, color, fillFrom, fillTo, invert }: SparklineProps) 
         preserveAspectRatio="none"
       >
         <defs>
-          <linearGradient id={`grad-${color}`} x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={fillFrom} />
             <stop offset="100%" stopColor={fillTo} />
           </linearGradient>
         </defs>
-        <path d={areaPath} fill={`url(#grad-${color})`} />
+        <path d={areaPath} fill={`url(#${gradId})`} />
         <path
           d={linePath}
           fill="none"
@@ -240,9 +260,20 @@ function computeAchievements(
   scoreHistory: ScorePoint[],
   biologicalAgeHistory: BioAgePoint[],
   chronologicalAge: number,
+  streakDays?: number,
+  biomarkersOptimal?: number,
+  examsCount?: number,
 ): Achievement[] {
   const out: Achievement[] = [];
 
+  // Streak (lança quando >= 7d pra ser badge meaningful)
+  if (streakDays && streakDays >= 30) {
+    out.push({ id: "streak-30", emoji: "🔥", label: `${streakDays}d de sequência` });
+  } else if (streakDays && streakDays >= 7) {
+    out.push({ id: "streak-7", emoji: "🔥", label: `${streakDays}d de sequência` });
+  }
+
+  // Score history
   if (scoreHistory.length >= 2) {
     const first = scoreHistory[0].score;
     const last = scoreHistory[scoreHistory.length - 1].score;
@@ -256,6 +287,36 @@ function computeAchievements(
     if (last >= 80) {
       out.push({ id: "high-score", emoji: "🌟", label: "Score 80+" });
     }
+  }
+
+  // Biomarcadores ótimos (>=15 é forte)
+  if (biomarkersOptimal && biomarkersOptimal >= 15) {
+    out.push({
+      id: "many-optimal",
+      emoji: "💚",
+      label: `${biomarkersOptimal} biomarcadores ótimos`,
+    });
+  } else if (biomarkersOptimal && biomarkersOptimal >= 5) {
+    out.push({
+      id: "some-optimal",
+      emoji: "✅",
+      label: `${biomarkersOptimal} biomarcadores ótimos`,
+    });
+  }
+
+  // Exames anexados (longevidade requer série temporal)
+  if (examsCount && examsCount >= 4) {
+    out.push({
+      id: "many-exams",
+      emoji: "📊",
+      label: `${examsCount} exames no histórico`,
+    });
+  } else if (examsCount && examsCount >= 2) {
+    out.push({
+      id: "trend-started",
+      emoji: "📊",
+      label: "Tendência rastreada",
+    });
   }
 
   if (biologicalAgeHistory.length > 0) {
