@@ -383,6 +383,190 @@ export function biomarkersStats() {
   return { total, optimal, normal, out };
 }
 
+// ───────────────────────────────────────────────────────────────────────────
+// FAIXAS POR SEXO — overrides clínicos para biomarcadores cujos cortes
+// variam entre adulto masculino e feminino.
+//
+// Diretrizes:
+//   - HDL: AHA/ACC 2018 (♂ <40 baixo, ♀ <50 baixo, ≥60 protetor)
+//   - Testosterona: Endocrine Society 2018 (Bhasin et al., JCEM 2018)
+//     ♂ 300-1000 ng/dL · ♀ 15-70 ng/dL (faixas completamente diferentes)
+//   - Ferritina: Mayo Clinic; Camaschella NEJM 2019
+//     ♂ até ~300 sem alarme · ♀ até ~200 · alvo funcional 50-150
+//   - ALT: Prati et al., Ann Intern Med 2002; AASLD 2017 MASLD
+//     ♂ <30 "true normal" · ♀ <19 "true normal"
+//
+// Para LDL, ApoB, HbA1c, TSH, PCR-us, Vitamina D: cortes unificados entre
+// sexos (consenso clínico atual).
+// ───────────────────────────────────────────────────────────────────────────
+
+export interface BiomarkerSexOverride {
+  optimalRange: [number, number];
+  normalRange: [number, number];
+  referenceLabel: string;
+  source: string;
+  note: string;
+}
+
+export const BIOMARKER_RANGES_BY_SEX: Record<
+  string,
+  { male: BiomarkerSexOverride; female: BiomarkerSexOverride }
+> = {
+  hdl: {
+    male: {
+      optimalRange: [60, 100],
+      normalRange: [40, 60],
+      referenceLabel: "> 60 (♂)",
+      source: "AHA/ACC 2018 (Grundy et al., Circulation)",
+      note: "Em homens, HDL <40 mg/dL é fator de risco cardiovascular independente.",
+    },
+    female: {
+      optimalRange: [60, 100],
+      normalRange: [50, 60],
+      referenceLabel: "> 60 (♀)",
+      source: "AHA/ACC 2018 (Grundy et al., Circulation)",
+      note:
+        "Em mulheres, HDL <50 mg/dL é fator de risco — corte mais alto que em homens. Estrogênio eleva HDL na pré-menopausa; queda na pós-menopausa é comum e merece avaliação metabólica completa.",
+    },
+  },
+  testo: {
+    male: {
+      optimalRange: [600, 1000],
+      normalRange: [300, 600],
+      referenceLabel: "600–1000 ng/dL (♂)",
+      source: "Endocrine Society 2018 (Bhasin et al., JCEM)",
+      note:
+        "Em homem adulto, hipogonadismo bioquímico requer T total <264 ng/dL em 2 medidas matinais + sintomas. Avaliar SHBG, T livre, LH antes de decisão clínica.",
+    },
+    female: {
+      optimalRange: [25, 70],
+      normalRange: [15, 25],
+      referenceLabel: "15–70 ng/dL (♀ adulto)",
+      source: "Endocrine Society; faixas de referência laboratoriais",
+      note:
+        "Em mulher adulta, valores >70 ng/dL podem sugerir hiperandrogenismo (SOP é a causa mais comum; investigar também tumores adrenais/ovarianos e uso exógeno). Valores muito baixos costumam ser fisiológicos pós-menopausa e raramente exigem tratamento isolado.",
+    },
+  },
+  ferritin: {
+    male: {
+      optimalRange: [50, 200],
+      normalRange: [30, 300],
+      referenceLabel: "30–300 ng/mL (♂)",
+      source: "Mayo Clinic Laboratories; Camaschella NEJM 2019",
+      note:
+        "Em homem com ferritina >300 ng/mL sem causa óbvia (e TSAT >45%), investigar hemocromatose hereditária (HFE C282Y). Ferritina elevada com PCR normal sugere sobrecarga real; com PCR alta, é reagente de fase aguda.",
+    },
+    female: {
+      optimalRange: [50, 150],
+      normalRange: [30, 200],
+      referenceLabel: "30–200 ng/mL (♀)",
+      source: "Mayo Clinic Laboratories; Camaschella NEJM 2019",
+      note:
+        "Em mulher em idade fértil, ferritina <30 ng/mL frequentemente cursa com fadiga, queda de cabelo, brain fog mesmo com hemoglobina normal. Em mulher pós-menopausa, ranges convergem aos masculinos. Valores >200 sem causa óbvia merecem investigar inflamação e sobrecarga.",
+    },
+  },
+  alt: {
+    male: {
+      optimalRange: [0, 30],
+      normalRange: [30, 40],
+      referenceLabel: "< 30 U/L (♂)",
+      source: "Prati et al., Ann Intern Med 2002; AASLD 2017 NAFLD/MASLD",
+      note:
+        "Em homem adulto, 'true normal' hepatologia moderna é <30 U/L. Valores entre 30-40 — embora dentro de faixas laboratoriais antigas — já flaggam MASLD subclínica em ~30% dos adultos. Acima de 50 persistente merece avaliação com FIB-4 e ultrassom abdominal.",
+    },
+    female: {
+      optimalRange: [0, 19],
+      normalRange: [19, 40],
+      referenceLabel: "< 19 U/L (♀)",
+      source: "Prati et al., Ann Intern Med 2002; AASLD 2017 NAFLD/MASLD",
+      note:
+        "Em mulher adulta, 'true normal' hepatologia moderna é <19 U/L — corte mais conservador que em homens. Valores entre 19-40 já podem indicar MASLD subclínica. Atenção a uso de anticoncepcionais hormonais, suplementos não-regulados e álcool — todos podem elevar ALT.",
+    },
+  },
+};
+
+/**
+ * Aplica faixa sex-specific a um biomarker e RECLASSIFICA o status com
+ * os cortes corretos para o sexo do paciente.
+ *
+ * Para HDL, Testosterona, Ferritina e ALT (mapeados em
+ * `BIOMARKER_RANGES_BY_SEX`), substitui `optimalRange`, `normalRange`,
+ * `referenceLabel` e recalcula `status`. Para os demais biomarcadores,
+ * retorna o objeto inalterado.
+ *
+ * Use SEMPRE no topo de qualquer componente que renderiza dados do
+ * paciente — os componentes filhos consomem o objeto resolvido e nada
+ * mais precisa mudar.
+ */
+export function applyPatientSexToBiomarker(
+  biomarker: Biomarker,
+  sex: PatientSex,
+): Biomarker {
+  const override = BIOMARKER_RANGES_BY_SEX[biomarker.id]?.[sex];
+  if (!override) return biomarker;
+
+  const { optimalRange, normalRange, referenceLabel } = override;
+  const inRange = (r: [number, number]) =>
+    biomarker.value >= r[0] && biomarker.value <= r[1];
+
+  let status: BiomarkerStatus;
+  if (inRange(optimalRange)) status = "optimal";
+  else if (inRange(normalRange)) status = "normal";
+  else status = "out";
+
+  return {
+    ...biomarker,
+    optimalRange,
+    normalRange,
+    referenceLabel,
+    status,
+  };
+}
+
+/**
+ * Versão batch — aplica `applyPatientSexToBiomarker` a um array.
+ */
+export function applyPatientSexToBiomarkers(
+  biomarkers: Biomarker[],
+  sex: PatientSex,
+): Biomarker[] {
+  return biomarkers.map((b) => applyPatientSexToBiomarker(b, sex));
+}
+
+/**
+ * Resolve o override de sexo para um biomarcador (sem reclassificar).
+ * Retorna `null` se não há variação por sexo definida — UI usa o default.
+ */
+export function getSexOverride(
+  biomarkerId: string,
+  sex: PatientSex,
+): BiomarkerSexOverride | null {
+  return BIOMARKER_RANGES_BY_SEX[biomarkerId]?.[sex] ?? null;
+}
+
+/**
+ * Classifica um valor (number) em status considerando sexo do paciente.
+ * Para HDL/Testo/Ferritin/ALT usa cortes sex-specific; para os demais
+ * usa as faixas default do biomarker.
+ */
+export function classifyValueForSex(
+  biomarkerId: string,
+  defaultOptimalRange: [number, number] | undefined,
+  defaultNormalRange: [number, number] | undefined,
+  value: number,
+  sex: PatientSex,
+): BiomarkerStatus {
+  const override = getSexOverride(biomarkerId, sex);
+  const opt = override?.optimalRange ?? defaultOptimalRange;
+  const norm = override?.normalRange ?? defaultNormalRange;
+
+  const inRange = (r?: [number, number]) =>
+    !!r && value >= r[0] && value <= r[1];
+  if (inRange(opt)) return "optimal";
+  if (inRange(norm)) return "normal";
+  return "out";
+}
+
 /** Versão pra biomarcadores reais (sem extras hardcoded do mock).
  *  Lucas 2026-05-20: home + outras telas precisam refletir stats reais
  *  quando paciente tem exames. */

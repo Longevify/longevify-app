@@ -18,6 +18,26 @@ export interface InterpretationBand {
   guidance: string;
 }
 
+/**
+ * Item crítico — pergunta cuja resposta acima do threshold dispara
+ * escalação IMEDIATA independente do score total do questionário.
+ *
+ * Exemplo padrão da literatura: PHQ-9 Q9 (ideação suicida) — qualquer
+ * resposta ≥ 1 ("vários dias") já é red flag clínico e requer avaliação
+ * de risco mesmo com score total <10. Validado em Simon et al., Ann
+ * Intern Med 2013, e refletido nas APA Practice Guidelines.
+ *
+ * UI consumer deve chamar `getCriticalHits()` ANTES de renderizar o
+ * `interpretation` band normal — se houver hit, mostra modal/card de
+ * escalação prioritária com CVV 188 / SAMU 192 / pronto-socorro.
+ */
+export interface CriticalItem {
+  questionId: string;
+  thresholdValue: number;
+  reason: string;
+  escalation: string;
+}
+
 export interface Questionnaire {
   id: "phq9" | "gad7" | "psqi" | "pss10";
   name: string;
@@ -33,6 +53,8 @@ export interface Questionnaire {
   // Interpretation bands ordenadas crescentemente
   interpretation: InterpretationBand[];
   recommendThreshold: number; // score igual ou maior aciona recomendação ativa
+  // Itens críticos — disparam escalação imediata independente do score
+  criticalItems?: CriticalItem[];
 }
 
 const PHQ_OPTIONS: LikertOption[] = [
@@ -178,10 +200,23 @@ export const PHQ9: Questionnaire = {
       label: "Depressão grave",
       severity: "high",
       guidance:
-        "Procure ajuda profissional o quanto antes. Em emergência ligue 188 (CVV) ou 192 (SAMU).",
+        "Procure ajuda profissional o quanto antes. Em emergência ligue 188 (CVV) ou 192 (SAMU). Não fique sozinho(a).",
     },
   ],
   recommendThreshold: 10,
+  // PHQ-9 Q9 (ideação suicida) — qualquer resposta ≥ 1 dispara avaliação
+  // de risco de suicídio independente do score total. Padrão validado.
+  // Ref: Simon GE et al., Ann Intern Med 2013; APA Practice Guidelines.
+  criticalItems: [
+    {
+      questionId: "q9",
+      thresholdValue: 1,
+      reason:
+        "Qualquer resposta diferente de 'Nenhuma vez' à pergunta sobre se ferir ou querer estar morto é red flag clínico, independente do score total. PHQ-9 Q9 ≥ 1 tem associação com risco aumentado de suicídio nos 12 meses seguintes.",
+      escalation:
+        "Procure avaliação de saúde mental AGORA: CVV 188 (24h gratuito) ou pronto-socorro psiquiátrico. Se houver plano ou meio acessível, ligue 192 (SAMU) e não fique sozinho(a). O Concierge IA não substitui profissional humano em situação assim.",
+    },
+  ],
 };
 
 export const GAD7: Questionnaire = {
@@ -464,5 +499,27 @@ export function getInterpretation(
   return (
     q.interpretation.find((b) => score >= b.min && score <= b.max) ??
     q.interpretation[q.interpretation.length - 1]
+  );
+}
+
+/**
+ * Avalia itens críticos do questionário contra as respostas. Retorna a
+ * lista de critical items disparados (zero, um ou mais).
+ *
+ * UI consumer DEVE chamar antes de exibir o resultado normal. Se a lista
+ * não estiver vazia, mostrar bloco de escalação prioritária ANTES do
+ * `interpretation` band — com CVV 188 / SAMU 192 / pronto-socorro
+ * psiquiátrico, e reforço de que IA não substitui profissional humano.
+ *
+ * Exemplo PHQ-9: se `answers.q9 >= 1`, retorna critical item de ideação
+ * suicida.
+ */
+export function getCriticalHits(
+  q: Questionnaire,
+  answers: Record<string, number>,
+): CriticalItem[] {
+  if (!q.criticalItems || q.criticalItems.length === 0) return [];
+  return q.criticalItems.filter(
+    (ci) => (answers[ci.questionId] ?? 0) >= ci.thresholdValue,
   );
 }
