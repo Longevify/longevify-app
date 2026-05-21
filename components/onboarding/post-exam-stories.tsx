@@ -1932,6 +1932,34 @@ export function PostExamStories({
     return () => document.removeEventListener("keydown", onKey);
   }, [open, close, advance, back]);
 
+  // Lucas (2026-05-21): "seria legal se desse para ativar o scroll em
+  // todos os stories do onboarding". Swipe horizontal navega entre
+  // slides (esquerda → próximo, direita → anterior). Vertical scroll
+  // continua funcionando dentro dos slides (overflow-y-auto no shell).
+  //
+  // Threshold de 60px pra evitar disparo acidental durante scroll vertical.
+  // Se delta vertical > horizontal × 1.5, ignora (era scroll, não swipe).
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const t = e.touches[0];
+    touchStart.current = { x: t.clientX, y: t.clientY };
+  }, []);
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      const start = touchStart.current;
+      touchStart.current = null;
+      if (!start) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - start.x;
+      const dy = t.clientY - start.y;
+      if (Math.abs(dx) < 60) return;
+      if (Math.abs(dy) > Math.abs(dx) * 1.5) return; // foi scroll vertical
+      if (dx < 0) advance();
+      else back();
+    },
+    [advance, back],
+  );
+
   if (!open) return null;
 
   const Slide = SLIDES[slideIdx];
@@ -1947,6 +1975,8 @@ export function PostExamStories({
             ? "bg-gradient-to-br from-[#0d2818] via-[#143D28] to-[#0F3020]"
             : "bg-gradient-to-br from-[#0d2818] via-[#103a26] to-[#0F3020]",
       )}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
       {/* Header: progress bars + close. Bars são estáticas — preenchidas
           se já passou pelo slide (incluindo o atual), vazias pra futuros.
@@ -2005,15 +2035,17 @@ export function PostExamStories({
       )}
 
       {/* Slide content — key={slideIdx} força remount + entrance animations.
-          Lucas (2026-05-19): "o scroll nos stories de recomendação de
-          produtos no onboarding não está funcionando ainda". O wrapper
-          tinha items-center/justify-center que travava o flex-1 do scroll
-          container interno do BundleSlide. Agora overflow-hidden simples
-          — cada slide controla seu próprio centramento (os de tela cheia
-          já têm items-center dentro deles). */}
+          Lucas (2026-05-21): "seria legal se desse para ativar o scroll
+          em todos os stories do onboarding". Mudou pra overflow-y-auto
+          (era overflow-hidden) pra slides com muito conteúdo (deep dive
+          de biomarcadores, breakdown de órgãos) poderem rolar
+          verticalmente. Slides que já tinham overflow-y-auto interno
+          (BundleSlide, BiomarkerDeepDiveSlide) continuam funcionando —
+          esse nível extra é benigno. overscroll-contain evita
+          "pull-to-refresh" do navegador. */}
       <div
         key={slideIdx}
-        className="story-slide-shell relative flex flex-1 flex-col overflow-hidden"
+        className="story-slide-shell relative flex flex-1 flex-col overflow-y-auto overscroll-contain"
       >
         {Slide.render(ctx)}
       </div>
