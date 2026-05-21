@@ -191,6 +191,9 @@ export default async function HomePage() {
         scoreHistory={patient.scoreHistory}
         biologicalAgeHistory={patient.biologicalAgeHistory}
         chronologicalAge={patient.chronologicalAge}
+        streakDays={streakDays}
+        biomarkersOptimal={biomarkersOptimal}
+        examsCount={patient.scoreHistory.length}
         className="mt-6"
       />
 
