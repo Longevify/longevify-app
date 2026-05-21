@@ -104,6 +104,34 @@ export function CompactHealthSummary({
               <span className="h-1 w-1 rounded-full bg-emerald-400" />
               {statusLabel}
             </div>
+
+            {/* Lucas (2026-05-21): "coloque uma linha de 0 a 100" — mini
+                progress bar com thumb saliente posicionado no score atual. */}
+            <div className="relative mt-3 pb-1">
+              <div className="relative h-1 w-full">
+                <div className="absolute inset-0 overflow-hidden rounded-full bg-white/15">
+                  <div
+                    className="absolute inset-y-0 left-0 rounded-full"
+                    style={{
+                      width: "100%",
+                      background:
+                        "linear-gradient(90deg, #E85D5D 0%, #F39A50 25%, #E6B845 50%, #79C98E 75%, #10B981 100%)",
+                    }}
+                  />
+                </div>
+                <div
+                  className="absolute top-1/2 grid h-3 w-3 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,.3)] ring-2 ring-emerald-400"
+                  style={{ left: `${Math.max(0, Math.min(100, score))}%` }}
+                >
+                  <span className="h-1 w-1 rounded-full bg-emerald-500" />
+                </div>
+              </div>
+              <div className="mt-1 flex justify-between text-[8.5px] font-medium text-white/40">
+                <span>0</span>
+                <span>50</span>
+                <span>100</span>
+              </div>
+            </div>
           </div>
         </button>
 
@@ -141,6 +169,54 @@ export function CompactHealthSummary({
               : younger
                 ? `${Math.abs(bioDiff)}a mais jovem`
                 : `${Math.abs(bioDiff)}a mais velho`}
+          </div>
+
+          {/* Lucas (2026-05-21): "coloque uma linha de 0 a 100 (em idade
+              biológica e no score)". Range 0-100 anos. Thumb na bio age
+              atual + marca discreta na idade cronológica pra comparar. */}
+          <div className="relative mt-3 pb-1">
+            <div className="relative h-1 w-full">
+              <div className="absolute inset-0 overflow-hidden rounded-full bg-zinc-100">
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full"
+                  style={{
+                    width: "100%",
+                    background:
+                      "linear-gradient(90deg, #10B981 0%, #79C98E 30%, #E6B845 60%, #F39A50 80%, #E85D5D 100%)",
+                  }}
+                />
+              </div>
+              {/* Marca da idade cronológica — pra contexto */}
+              <div
+                className="absolute top-1/2 h-2 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-zinc-400/60"
+                style={{
+                  left: `${Math.max(0, Math.min(100, chronologicalAge))}%`,
+                }}
+                aria-label={`Idade cronológica: ${chronologicalAge}`}
+              />
+              {/* Thumb da bio age (saliente) */}
+              <div
+                className={cn(
+                  "absolute top-1/2 grid h-3 w-3 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,.25)] ring-2",
+                  younger ? "ring-emerald-500" : "ring-amber-500",
+                )}
+                style={{
+                  left: `${Math.max(0, Math.min(100, biologicalAge))}%`,
+                }}
+              >
+                <span
+                  className={cn(
+                    "h-1 w-1 rounded-full",
+                    younger ? "bg-emerald-500" : "bg-amber-500",
+                  )}
+                />
+              </div>
+            </div>
+            <div className="mt-1 flex justify-between text-[8.5px] font-medium text-zinc-400">
+              <span>0</span>
+              <span>50</span>
+              <span>100</span>
+            </div>
           </div>
         </button>
       </div>
