@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useMemo, useState } from "react";
 import { X, ChevronDown, Sparkles } from "lucide-react";
 import {
   AreaChart,
@@ -13,6 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { ScorePoint, OrganScore } from "@/lib/mock-data";
 import { getScoreInsight } from "@/lib/dados/organ-insights";
+import { scoreLabel, scoreBg } from "@/lib/wearables/metric-score";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -230,6 +231,22 @@ function OrganExpandableRow({ organ }: { organ: OrganScore }) {
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
+type Range = "7d" | "30d" | "6m" | "all";
+
+const RANGE_DAYS: Record<Range, number> = {
+  "7d": 7,
+  "30d": 30,
+  "6m": 180,
+  all: Number.POSITIVE_INFINITY,
+};
+
+const RANGE_LABEL: Record<Range, string> = {
+  "7d": "7 dias",
+  "30d": "30 dias",
+  "6m": "6 meses",
+  all: "Tudo",
+};
+
 export function ScoreDetailPopup({
   open,
   onClose,
@@ -238,6 +255,11 @@ export function ScoreDetailPopup({
   scoreHistory,
   organScores,
 }: ScoreDetailPopupProps) {
+  // Lucas (2026-05-21): "histórico (que pode mudar l7d, l30d, l6m)".
+  // Default "all" (Score history é geralmente sparse — 1 ponto por
+  // exame, então mostrar tudo de início faz sentido).
+  const [range, setRange] = useState<Range>("all");
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -251,9 +273,17 @@ export function ScoreDetailPopup({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [open, handleKeyDown]);
 
+  const filteredHistory = useMemo(() => {
+    if (range === "all") return scoreHistory;
+    const cutoff = new Date();
+    cutoff.setUTCDate(cutoff.getUTCDate() - RANGE_DAYS[range]);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    return scoreHistory.filter((p) => p.date.slice(0, 10) >= cutoffStr);
+  }, [scoreHistory, range]);
+
   if (!open) return null;
 
-  const chartData = scoreHistory.map((p) => ({
+  const chartData = filteredHistory.map((p) => ({
     label: formatMonthYear(p.date),
     score: p.score,
   }));
@@ -301,6 +331,16 @@ export function ScoreDetailPopup({
               <span className="text-[20px] font-medium text-zinc-400">
                 / 100
               </span>
+              {/* Lucas (2026-05-21): label do score padronizado com
+                  WearableMetricPopup ("Excelente", "Bom", etc) */}
+              <span
+                className={cn(
+                  "ml-2 rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold",
+                  scoreBg(score),
+                )}
+              >
+                {scoreLabel(score)}
+              </span>
             </div>
             <p
               className={cn(
@@ -312,58 +352,83 @@ export function ScoreDetailPopup({
             </p>
           </div>
 
+          {/* Toggle de range — l7d / l30d / l6m / tudo */}
+          <div className="flex gap-1 px-5 pb-3">
+            {(["7d", "30d", "6m", "all"] as Range[]).map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setRange(r)}
+                className={cn(
+                  "flex-1 rounded-xl py-2 text-[12px] font-semibold transition",
+                  range === r
+                    ? "bg-brand-700 text-white shadow-sm"
+                    : "bg-zinc-50 text-zinc-600 hover:bg-zinc-100",
+                )}
+              >
+                {RANGE_LABEL[r]}
+              </button>
+            ))}
+          </div>
+
           <div className="px-5 pb-6">
             <div className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-zinc-500">
-              Evolução ao longo do tempo
+              Evolução · {RANGE_LABEL[range]}
             </div>
-            <ResponsiveContainer width="100%" height={200}>
-              <AreaChart
-                data={chartData}
-                margin={{ top: 16, right: 8, bottom: 0, left: 0 }}
-              >
-                <defs>
-                  <linearGradient
-                    id="score-gradient"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop offset="0%" stopColor="#3f9a6b" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="#3f9a6b" stopOpacity={0.04} />
-                  </linearGradient>
-                </defs>
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 11, fill: "#a1a1aa" }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  domain={[0, 100]}
-                  ticks={[0, 25, 50, 75, 100]}
-                  tick={{ fontSize: 11, fill: "#a1a1aa" }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={32}
-                />
-                <Tooltip content={<ChartTooltip suffix="/100" />} />
-                <Area
-                  type="monotone"
-                  dataKey="score"
-                  stroke="#3f9a6b"
-                  strokeWidth={2.5}
-                  fill="url(#score-gradient)"
-                  dot={false}
-                  activeDot={{
-                    r: 5,
-                    fill: "#3f9a6b",
-                    stroke: "#fff",
-                    strokeWidth: 2,
-                  }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            {chartData.length >= 2 ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart
+                  data={chartData}
+                  margin={{ top: 16, right: 8, bottom: 0, left: 0 }}
+                >
+                  <defs>
+                    <linearGradient
+                      id="score-gradient"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop offset="0%" stopColor="#3f9a6b" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="#3f9a6b" stopOpacity={0.04} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: 11, fill: "#a1a1aa" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    domain={[0, 100]}
+                    ticks={[0, 25, 50, 75, 100]}
+                    tick={{ fontSize: 11, fill: "#a1a1aa" }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={32}
+                  />
+                  <Tooltip content={<ChartTooltip suffix="/100" />} />
+                  <Area
+                    type="monotone"
+                    dataKey="score"
+                    stroke="#3f9a6b"
+                    strokeWidth={2.5}
+                    fill="url(#score-gradient)"
+                    dot={false}
+                    activeDot={{
+                      r: 5,
+                      fill: "#3f9a6b",
+                      stroke: "#fff",
+                      strokeWidth: 2,
+                    }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="rounded-xl bg-zinc-50 px-4 py-8 text-center text-[12px] text-zinc-500">
+                Sem dados suficientes nesse período — Score é atualizado a cada exame (~6 meses). Tente <strong>Tudo</strong>.
+              </div>
+            )}
           </div>
 
           <div className="border-t border-zinc-100 bg-zinc-50/50 px-5 py-4">

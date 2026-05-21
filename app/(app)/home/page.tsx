@@ -18,7 +18,7 @@ import { TodoSidebar } from "@/components/home/todo-sidebar";
 import { BIOMARKERS } from "@/lib/mock-data";
 import { loadDadosForUser } from "@/lib/dados/server";
 import { generateProtocolTasks } from "@/lib/protocolo/tasks";
-import { getStreakDays } from "@/lib/protocolo/streak";
+import { getStreakDays, getTaskCompletionsHistory } from "@/lib/protocolo/streak";
 import { DAILY_METRICS } from "@/lib/wearables-mock";
 import { getServerRepositories } from "@/lib/data";
 
@@ -140,6 +140,14 @@ export default async function HomePage() {
     : await getUserBookings();
   const nextBookingHome = bookings.upcoming[0] ?? null;
 
+  // Lucas (2026-05-21): "Quando clicar em algum card da aba home, tem
+  // que abrir a aba mostrando a evolução, histórico." Histórico de
+  // task_completions pros últimos 30 dias pra alimentar o calendar
+  // heatmap no TaskHistoryPopup.
+  const completionsHistory = user.isDemo
+    ? generateDemoCompletions()
+    : await getTaskCompletionsHistory(user.id, 30);
+
   return (
     <div className="mx-auto w-full max-w-[1080px] px-4 py-6 sm:px-6 sm:py-10">
       <PostExamStories
@@ -194,6 +202,9 @@ export default async function HomePage() {
               totalTasks={totalTasks}
               metricsHistory={metricsHistory}
               hasWearableData={hasWearableData}
+              tasks={tasks}
+              completionsHistory={completionsHistory}
+              streakDays={streakDays}
             />
           </section>
 
@@ -517,4 +528,26 @@ async function NewUserHome({ firstName }: { firstName: string }) {
       </section>
     </div>
   );
+}
+
+/**
+ * Demo completions — gera 30 dias com counts variados pra ilustrar o
+ * calendar heatmap quando user é demo (João Silva, mock). Reflete
+ * "streak ativo" estilo Duolingo com alguns "off days".
+ */
+function generateDemoCompletions(): Array<{ date: string; count: number }> {
+  const out: Array<{ date: string; count: number }> = [];
+  const days = 30;
+  // Padrão pseudo-aleatório determinístico (não Math.random — evita
+  // hydration mismatch entre SSR/CSR)
+  const pattern = [4, 3, 5, 2, 0, 3, 4, 6, 5, 0, 2, 4, 3, 5, 4, 1, 0, 4, 5, 6, 3, 4, 5, 2, 4, 5, 6, 4, 5, 3, 5];
+  for (let i = 0; i <= days; i++) {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - (days - i));
+    out.push({
+      date: d.toISOString().slice(0, 10),
+      count: pattern[i % pattern.length] ?? 0,
+    });
+  }
+  return out;
 }
