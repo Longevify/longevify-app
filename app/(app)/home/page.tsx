@@ -10,12 +10,14 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ScoreCard } from "@/components/dados/score-card";
-import { BioAgeCard } from "@/components/dados/bio-age-card";
-import { RecommendationsSection } from "@/components/loja/recommendations-section";
-import { GoalsSummary } from "@/components/wearables/goals-summary";
-import { BIOMARKERS, PATIENT, biomarkersStats, biomarkersStatsFor } from "@/lib/mock-data";
+import { CompactHealthSummary } from "@/components/home/compact-health-summary";
+import { DailyProgressGrid } from "@/components/home/daily-progress-grid";
+import { MonthlyGoals } from "@/components/home/monthly-goals";
+import { EvolutionCard } from "@/components/home/evolution-card";
+import { BIOMARKERS } from "@/lib/mock-data";
 import { loadDadosForUser } from "@/lib/dados/server";
+import { generateProtocolTasks } from "@/lib/protocolo/tasks";
+import { DAILY_METRICS } from "@/lib/wearables-mock";
 
 // Lucas (2026-05-19): "ainda ta demorando".
 // PostExamStories tem 2.2k linhas + Three.js + várias libs. Era baixado
@@ -34,135 +36,141 @@ const ReplayStoriesButton = dynamicImport(
     ),
   { loading: () => null },
 );
-import { getRecommendedProducts } from "@/lib/product-recommender";
 import { formatDatePtBR } from "@/lib/utils";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getUserBookings } from "@/lib/scheduling/bookings";
 import { BookingCard } from "@/components/scheduling/booking-card";
 
+/**
+ * Lucas (2026-05-20): "quero refazer a aba home, quero que o longevify
+ * score e idade biológica fiquem menores, o progresso diário fique
+ * mais bonito, sendo mais visual, e tenha um card para cada quesito
+ * de saúde: sono, exercício, to-do list feita e a fazer, no que tange
+ * a questão da loja, deixe na aba de loja e não na aba home, abaixo
+ * dessas coisas que eu falei para fazer na aba home, coloque metas
+ * para o mês e evolução geral, tem que ser bem gameficado, o cara
+ * tem que gostar de usar o app para ver que ta melhorando."
+ *
+ * Nova layout:
+ *   1. Header (Olá, X — Sua saúde hoje)
+ *   2. CompactHealthSummary (score + bio age — 2 cards pequenos lado a lado)
+ *   3. DailyProgressGrid (sono / exercício / to-do feita / to-do pendente)
+ *   4. MonthlyGoals (gameficação — 4 missões mensais com ring de progresso)
+ *   5. EvolutionCard (sparklines de score + bio age + conquistas)
+ *   6. Próximos passos (timeline + agendar serviço)
+ *
+ * RecommendationsSection saiu daqui — vai pra /loja.
+ */
 export default async function HomePage() {
   const user = await getCurrentUser();
 
-  // Lucas (2026-05-20): "tudo tem que mudar com base nessas informações".
-  // Carrega dados REAIS do paciente quando autenticado. Mock só pra demo.
   const dados = await loadDadosForUser({
     userId: user.id,
     isDemo: user.isDemo,
   });
 
-  // 3 estados possíveis:
-  //   - Demo (mock João Silva) → painel demonstrativo
-  //   - User real COM exames → painel personalizado com dados reais
-  //   - User real SEM exames → empty state (NewUserHome) pra incentivar
-  //     primeira coleta
   if (!user.isDemo && !dados.hasExams) {
     return <NewUserHome firstName={user.firstName} />;
   }
 
   const patient = dados.patient;
-  const biomarkers = dados.biomarkers;
-  const recommendations = getRecommendedProducts(
-    biomarkers.length > 0 ? biomarkers : BIOMARKERS,
-    3,
-  );
-  const stats = biomarkers.length > 0 ? biomarkersStatsFor(biomarkers) : biomarkersStats();
+  const biomarkers = dados.biomarkers.length > 0 ? dados.biomarkers : BIOMARKERS;
+
+  // Total de tasks rule-based (pro DailyProgressGrid calcular % de
+  // conclusão). Client lê o localStorage pra saber done.
+  const tasks = generateProtocolTasks(biomarkers);
+  const totalTasks = tasks.length;
+
+  // Dados de wearables (mock — última entrada do DAILY_METRICS).
+  // TODO: substituir por fetch real do Apple Health/Oura quando
+  // conexões wearables estiverem ativas em produção.
+  const latestMetric = DAILY_METRICS[DAILY_METRICS.length - 1];
+  const sleepMinutes = latestMetric?.sleepMinutes ?? 0;
+  const exerciseMinutes =
+    (latestMetric?.zone2Minutes ?? 0) +
+    Math.round((latestMetric?.steps ?? 0) / 130); // ~130 passos/min ritmo médio
+
+  // Stats pra gameficação
+  const biomarkersOptimal = biomarkers.filter(
+    (b) => b.status === "optimal",
+  ).length;
+  const previousScore =
+    patient.scoreHistory[patient.scoreHistory.length - 2]?.score ??
+    patient.longevifyScore;
+  const bioAgeDelta = +(
+    patient.chronologicalAge - patient.biologicalAge
+  ).toFixed(1);
+
+  // Streak placeholder — pra ter real, precisa de tabela `task_completions`
+  // com data. Por enquanto, deriva uma estimativa otimista do score.
+  const streakDays = Math.min(30, Math.max(1, Math.floor(patient.longevifyScore / 4)));
 
   return (
-    <div className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6 sm:py-10">
-      {/* Apresentação Stories pós-exame — só na primeira visita (gerencia
-          via localStorage). Inspirado nos stories do Superpower app. */}
+    <div className="mx-auto w-full max-w-[920px] px-4 py-6 sm:px-6 sm:py-10">
       <PostExamStories patient={patient} />
 
-      <header className="flex flex-col gap-1 pb-6 sm:pb-8">
+      <header className="flex flex-col gap-1 pb-5 sm:pb-7">
         <span className="text-[13px] text-muted">Olá, {user.firstName}</span>
         <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <h1 className="text-[28px] leading-[1.1] font-semibold tracking-tight sm:text-[40px] sm:leading-[1.05]">
+          <h1 className="text-[26px] leading-[1.1] font-semibold tracking-tight sm:text-[34px] sm:leading-[1.05]">
             Sua saúde hoje
           </h1>
-          {/* Botão pra rever apresentação — só na conta demo (Lucas) */}
           <ReplayStoriesButton patient={patient} />
         </div>
       </header>
 
-      {/* 1. SAÚDE — destaque principal */}
-      <section className="flex flex-col gap-4">
-        <div className="flex items-baseline justify-between gap-3">
+      {/* 1. Resumo compacto — Score + Idade biológica (menores) */}
+      <CompactHealthSummary
+        score={patient.longevifyScore}
+        scoreStatus={patient.scoreStatus}
+        scoreHistory={patient.scoreHistory}
+        organScores={patient.organScores}
+        biologicalAge={patient.biologicalAge}
+        chronologicalAge={patient.chronologicalAge}
+        biologicalAgeHistory={patient.biologicalAgeHistory}
+        organBioAges={patient.organBioAges}
+      />
+
+      {/* 2. Progresso diário — 4 cards (sono, exercício, to-do feita, pendente) */}
+      <section className="mt-6">
+        <div className="mb-2 flex items-baseline justify-between gap-2">
           <h2 className="text-[13px] font-medium uppercase tracking-[0.14em] text-muted">
-            Painel de saúde
+            Progresso de hoje
           </h2>
-          <Link
-            href="/dados"
-            className="inline-flex items-center gap-1 text-[13px] font-medium text-brand-700 hover:text-brand-900"
-          >
-            Ver todos os dados <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
+          <span className="text-[11px] text-zinc-500">
+            atualizado agora
+          </span>
         </div>
-
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <ScoreCard
-            score={patient.longevifyScore}
-            status={patient.scoreStatus}
-            scoreHistory={patient.scoreHistory}
-            organScores={patient.organScores}
-          />
-          <BioAgeCard
-            biologicalAge={patient.biologicalAge}
-            chronologicalAge={patient.chronologicalAge}
-            biologicalAgeHistory={patient.biologicalAgeHistory}
-            organBioAges={patient.organBioAges}
-          />
-        </div>
-
-        {/* H10: flex-col em mobile evita stats + link "Detalhar" quebrando desorganizados */}
-        <Card className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2 text-[13px] text-muted">
-            <span className="font-medium text-ink">{stats.total} biomarcadores</span>
-            no último painel · {formatDatePtBR(patient.latestExamDate)}
-          </div>
-          <div className="flex items-center gap-4 text-[13px]">
-            <SummaryStat
-              value={stats.optimal}
-              label="Ótimos"
-              color="var(--color-status-optimal)"
-            />
-            <SummaryStat
-              value={stats.normal}
-              label="Normais"
-              color="var(--color-status-normal)"
-            />
-            <SummaryStat
-              value={stats.out}
-              label="Fora"
-              color="var(--color-status-out)"
-            />
-            <Link
-              href="/dados"
-              className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-3 h-8 text-[12px] font-medium text-brand-700 hover:bg-brand-100"
-            >
-              Detalhar
-            </Link>
-          </div>
-        </Card>
+        <DailyProgressGrid
+          sleepMinutes={sleepMinutes}
+          sleepTargetMinutes={450}
+          exerciseMinutes={exerciseMinutes}
+          exerciseTargetMinutes={30}
+          totalTasks={totalTasks}
+        />
       </section>
 
-      {/* 2. METAS / WEARABLES — segundo bloco de saúde */}
-      <section className="mt-10">
-        <div className="mb-3 flex items-baseline justify-between gap-3">
-          <h2 className="text-[13px] font-medium uppercase tracking-[0.14em] text-muted">
-            Suas metas
-          </h2>
-          <Link
-            href="/wearables"
-            className="inline-flex items-center gap-1 text-[13px] font-medium text-brand-700 hover:text-brand-900"
-          >
-            Ver wearables <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
-        <GoalsSummary />
-      </section>
+      {/* 3. Metas do mês — gameficação com ring de progresso */}
+      <MonthlyGoals
+        scoreNow={patient.longevifyScore}
+        scoreLastMonth={previousScore}
+        biomarkersOptimal={biomarkersOptimal}
+        biomarkersTotal={biomarkers.length}
+        streakDays={streakDays}
+        biologicalAgeDelta={bioAgeDelta}
+        className="mt-8"
+      />
 
-      {/* 3. TIMELINE / PRÓXIMOS PASSOS */}
-      <section className="mt-10 grid grid-cols-1 gap-8 lg:grid-cols-2">
+      {/* 4. Evolução geral — sparklines + conquistas */}
+      <EvolutionCard
+        scoreHistory={patient.scoreHistory}
+        biologicalAgeHistory={patient.biologicalAgeHistory}
+        chronologicalAge={patient.chronologicalAge}
+        className="mt-6"
+      />
+
+      {/* 5. Próximos passos / Este mês — timeline operacional */}
+      <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div>
           <h2 className="mb-3 text-[13px] font-medium uppercase tracking-[0.14em] text-muted">
             Próximos passos
@@ -173,15 +181,17 @@ export default async function HomePage() {
             </span>
             <div className="flex-1">
               <div className="text-[15px] font-medium">
-                Painel de exames Longevify — plano de ação
+                Revisar protocolo
               </div>
               <div className="text-[13px] text-muted">
-                Revise suas recomendações personalizadas
+                {totalTasks} ações personalizadas pra você
               </div>
             </div>
-            <Button variant="outline" size="sm">
-              Revisar
-            </Button>
+            <Link href="/protocolo">
+              <Button variant="outline" size="sm">
+                Abrir
+              </Button>
+            </Link>
           </Card>
 
           <Card className="mt-3 flex items-center gap-4 px-5 py-4">
@@ -194,9 +204,11 @@ export default async function HomePage() {
                 Exames de imagem, VO2max, DEXA
               </div>
             </div>
-            <Button variant="outline" size="sm">
-              Agendar
-            </Button>
+            <Link href="/coleta/agendar">
+              <Button variant="outline" size="sm">
+                Agendar
+              </Button>
+            </Link>
           </Card>
         </div>
 
@@ -210,57 +222,55 @@ export default async function HomePage() {
             </span>
             <div className="flex-1">
               <div className="text-[15px] font-medium">
-                Coleta Longevify — Painel Completo
+                Coleta Longevify
               </div>
               <div className="text-[13px] text-muted">
-                Realizada em {formatDatePtBR(patient.latestExamDate)} · 12:00
+                Realizada em {formatDatePtBR(patient.latestExamDate)}
               </div>
             </div>
-            <Button variant="outline" size="sm">
-              Detalhes
-            </Button>
+            <Link href="/dados">
+              <Button variant="outline" size="sm">
+                Detalhes
+              </Button>
+            </Link>
           </Card>
 
-          <Card className="mt-3 flex flex-col gap-2 px-5 py-4 text-[13px] text-muted">
+          <Card className="mt-3 flex flex-col gap-1.5 px-5 py-4 text-[13px] text-muted">
             <div className="text-[12px] font-medium uppercase tracking-wide text-muted/80">
               Próximos 6 meses
             </div>
-            <div>• Segunda coleta do ano em ~6 meses (2 coletas/ano)</div>
-            <div>• Teleorientação com médico parceiro credenciado em 30 dias</div>
+            <div>• Próxima coleta em ~6 meses (2 coletas/ano)</div>
+            <div>• Teleorientação com médico em 30 dias</div>
             <div>• Atualização do protocolo após nova coleta</div>
           </Card>
         </div>
       </section>
 
-      {/* 4. RECOMENDAÇÕES DE PRODUTOS — sempre por último, com bulk-add e assinatura */}
-      <RecommendationsSection
-        recommendations={recommendations}
-        limit={3}
-        className="mt-12"
-      />
+      {/* Lucas (2026-05-20): "no que tange a questão da loja, deixe na
+          aba de loja e não na aba home" — RecommendationsSection
+          removido daqui. CTA pra loja como balcão final. */}
+      <section className="mt-8">
+        <Link
+          href="/loja"
+          className="group flex items-center justify-between gap-3 rounded-2xl border border-brand-200 bg-gradient-to-br from-brand-50/60 to-emerald-50/30 px-5 py-4 transition hover:border-brand-300 hover:shadow-[0_8px_24px_-15px_rgba(31,93,63,.3)]"
+        >
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-brand-700 ring-1 ring-brand-200">
+              <Sparkles className="h-5 w-5" />
+            </span>
+            <div>
+              <div className="text-[14px] font-semibold text-ink">
+                Produtos recomendados pra você
+              </div>
+              <div className="text-[12px] text-muted">
+                Selecionados a partir dos seus biomarcadores
+              </div>
+            </div>
+          </div>
+          <ArrowRight className="h-4 w-4 text-brand-700 transition group-hover:translate-x-0.5" />
+        </Link>
+      </section>
     </div>
-  );
-}
-
-function SummaryStat({
-  value,
-  label,
-  color,
-}: {
-  value: number;
-  label: string;
-  color: string;
-}) {
-  return (
-    <span className="inline-flex items-baseline gap-1.5">
-      <span
-        className="font-semibold"
-        style={{ color: `color-mix(in srgb, ${color} 90%, black)` }}
-      >
-        {value}
-      </span>
-      <span className="text-muted">{label}</span>
-    </span>
   );
 }
 
