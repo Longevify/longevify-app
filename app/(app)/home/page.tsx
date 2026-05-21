@@ -19,6 +19,7 @@ import { loadDadosForUser } from "@/lib/dados/server";
 import { generateProtocolTasks } from "@/lib/protocolo/tasks";
 import { getStreakDays } from "@/lib/protocolo/streak";
 import { DAILY_METRICS } from "@/lib/wearables-mock";
+import { getServerRepositories } from "@/lib/data";
 
 // Lucas (2026-05-19): "ainda ta demorando".
 // PostExamStories tem 2.2k linhas + Three.js + várias libs. Era baixado
@@ -82,10 +83,19 @@ export default async function HomePage() {
   const tasks = generateProtocolTasks(biomarkers);
   const totalTasks = tasks.length;
 
-  // Dados de wearables (mock — última entrada do DAILY_METRICS).
-  // TODO: substituir por fetch real do Apple Health/Oura quando
-  // conexões wearables estiverem ativas em produção.
-  const latestMetric = DAILY_METRICS[DAILY_METRICS.length - 1];
+  // Wearables REAIS via getServerRepositories (Apple Health → Supabase
+  // daily_health_metrics). Demo cai pro mock automaticamente via fallback
+  // do adapter. User real sem wearable conectado retorna array vazio →
+  // sinaliza pro DailyProgressGrid mostrar CTA "Conectar wearable".
+  const repos = await getServerRepositories();
+  const metrics = await repos.metrics.daily(7);
+  const realLatestMetric = metrics.length > 0 ? metrics[metrics.length - 1] : null;
+  // Pra demo, mantém o mock direto (o adapter já fallback retorna mock).
+  // Pra user real: usa o realLatestMetric se houver, OU zeros + flag.
+  const latestMetric = user.isDemo
+    ? DAILY_METRICS[DAILY_METRICS.length - 1]
+    : realLatestMetric;
+  const hasWearableData = Boolean(realLatestMetric || user.isDemo);
   const sleepMinutes = latestMetric?.sleepMinutes ?? 0;
   const exerciseMinutes =
     (latestMetric?.zone2Minutes ?? 0) +
@@ -108,6 +118,13 @@ export default async function HomePage() {
   const streakDays = user.isDemo
     ? Math.min(30, Math.max(1, Math.floor(patient.longevifyScore / 4)))
     : await getStreakDays(user.id);
+
+  // Bookings reais — pra mostrar "próxima coleta" / "última coleta" no
+  // bloco "Este mês" sem hardcode.
+  const bookings = user.isDemo
+    ? { upcoming: [], past: [] }
+    : await getUserBookings();
+  const nextBookingHome = bookings.upcoming[0] ?? null;
 
   return (
     <div className="mx-auto w-full max-w-[920px] px-4 py-6 sm:px-6 sm:py-10">
@@ -154,6 +171,7 @@ export default async function HomePage() {
           exerciseMinutes={exerciseMinutes}
           exerciseTargetMinutes={30}
           totalTasks={totalTasks}
+          hasWearableData={hasWearableData}
         />
       </section>
 
@@ -173,6 +191,9 @@ export default async function HomePage() {
         scoreHistory={patient.scoreHistory}
         biologicalAgeHistory={patient.biologicalAgeHistory}
         chronologicalAge={patient.chronologicalAge}
+        streakDays={streakDays}
+        biomarkersOptimal={biomarkersOptimal}
+        examsCount={patient.scoreHistory.length}
         className="mt-6"
       />
 
@@ -242,14 +263,49 @@ export default async function HomePage() {
             </Link>
           </Card>
 
-          <Card className="mt-3 flex flex-col gap-1.5 px-5 py-4 text-[13px] text-muted">
-            <div className="text-[12px] font-medium uppercase tracking-wide text-muted/80">
-              Próximos 6 meses
-            </div>
-            <div>• Próxima coleta em ~6 meses (2 coletas/ano)</div>
-            <div>• Teleorientação com médico em 30 dias</div>
-            <div>• Atualização do protocolo após nova coleta</div>
-          </Card>
+          {/* Lucas (2026-05-21): "próxima coleta" agora vem de
+              collection_bookings real. Antes era hardcode "~6 meses".
+              Quando user não tem booking agendado, mostra CTA. */}
+          {nextBookingHome ? (
+            <Card className="mt-3 flex items-center gap-4 px-5 py-4">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#E7F0FD] text-[#2562A8]">
+                <Calendar className="h-5 w-5" />
+              </span>
+              <div className="flex-1">
+                <div className="text-[15px] font-medium">
+                  Próxima coleta agendada
+                </div>
+                <div className="text-[13px] text-muted">
+                  {formatDatePtBR(nextBookingHome.scheduledAtISO.slice(0, 10))}{" "}
+                  {nextBookingHome.location === "home" ? "· em casa" : "· no laboratório"}
+                </div>
+              </div>
+              <Link href="/coleta">
+                <Button variant="outline" size="sm">
+                  Ver
+                </Button>
+              </Link>
+            </Card>
+          ) : (
+            <Card className="mt-3 flex items-center gap-4 px-5 py-4">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600">
+                <Calendar className="h-5 w-5" />
+              </span>
+              <div className="flex-1">
+                <div className="text-[15px] font-medium">
+                  Sem próxima coleta agendada
+                </div>
+                <div className="text-[13px] text-muted">
+                  Reavaliação a cada 6 meses (2 coletas/ano)
+                </div>
+              </div>
+              <Link href="/coleta/agendar">
+                <Button variant="primary" size="sm">
+                  Agendar
+                </Button>
+              </Link>
+            </Card>
+          )}
         </div>
       </section>
 
