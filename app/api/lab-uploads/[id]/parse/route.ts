@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { getUserIdFromCookie } from "@/lib/auth/jwt";
 import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
+import { generatePersonalizedInsights } from "@/lib/dados/personalized-insights";
+import type { Biomarker } from "@/lib/mock-data";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -58,6 +60,12 @@ interface BiomarkerDef {
   optimal_max: number | null;
   normal_min: number | null;
   normal_max: number | null;
+  /**
+   * Categoria clínica do catálogo (lipidico, hepatico, etc.). Usado pelo
+   * prompt do Dr. Lon pra contextualizar insights. Adicionado em
+   * 2026-05-20 pro pre-compute de insights.
+   */
+  category_id?: string;
 }
 
 function computeStatus(
@@ -191,7 +199,9 @@ export async function POST(
   // ─── 4. Catálogo de biomarcadores conhecidos ───────────────────────────
   const { data: definitions, error: defErr } = await supabase
     .from("biomarker_definitions")
-    .select("id, name, unit, optimal_min, optimal_max, normal_min, normal_max");
+    .select(
+      "id, name, unit, optimal_min, optimal_max, normal_min, normal_max, category_id",
+    );
 
   if (defErr || !definitions) {
     await supabase
@@ -437,7 +447,113 @@ Retorne SOMENTE JSON neste schema (zero comentários):
     // Não da rollback — exam ja criado, melhor manter parcial
   }
 
-  // ─── 7. Marca parsed + linka exam ──────────────────────────────────────
+  // ─── 7. Pré-computa insights Dr. Lon ───────────────────────────────────
+  //
+  // Lucas (2026-05-20): "quando abro o onboarding do app, não quero
+  // esperar para a analise do Dr. Lon carregar, quero que isso ja
+  // esteja pronto quando passar pelo onboarding, ou seja, quero que
+  // você ja tenha feito essa análise previamente e armazenado o que
+  // estará 'printado' no onboarding."
+  //
+  // Roda DEPOIS do parse (síncrono, mas só add ~5s sobre os 30-60s
+  // do Opus). Persiste em exams.insights_data — onboarding/post-exam-
+  // stories lê via prefetchedInsights e renderiza instantâneo, sem
+  // spinner.
+  //
+  // Não bloqueia o sucesso do parse: se a gen de insights falhar, o
+  // exam segue válido (PostExamStories cai pro fetch client-side
+  // como antes).
+  try {
+    // Busca perfil pra contextualizar prompt (nome, idade, sexo).
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("first_name, birth_date, sex")
+      .eq("id", userId)
+      .maybeSingle();
+
+    const chronologicalAge =
+      profile?.birth_date && typeof profile.birth_date === "string"
+        ? Math.floor(
+            (Date.now() - new Date(profile.birth_date).getTime()) /
+              (365.25 * 24 * 60 * 60 * 1000),
+          )
+        : undefined;
+
+    // Top 8: prioriza out + normal pra dar conteúdo rico no Stories;
+    // fallback pra optimal se exam tiver só resultados bons.
+    const sorted = [...validBiomarkers].sort((a, b) => {
+      const sa = computeStatus(a.value, defsById.get(a.id)!);
+      const sb = computeStatus(b.value, defsById.get(b.id)!);
+      const rank = (s: string) =>
+        s === "out" ? 0 : s === "normal" ? 1 : 2;
+      return rank(sa) - rank(sb);
+    });
+    const topForInsights = sorted.slice(0, 8);
+
+    const insightBiomarkers: Biomarker[] = topForInsights.map((b) => {
+      const def = defsById.get(b.id)!;
+      const status = computeStatus(b.value, def);
+      const optimalRange: [number, number] | null =
+        def.optimal_min != null && def.optimal_max != null
+          ? [def.optimal_min, def.optimal_max]
+          : null;
+      const referenceLabel =
+        optimalRange != null
+          ? `Ótimo: ${optimalRange[0]}–${optimalRange[1]}`
+          : def.normal_min != null && def.normal_max != null
+            ? `Normal: ${def.normal_min}–${def.normal_max}`
+            : "—";
+      return {
+        id: b.id,
+        name: def.name,
+        value: b.value,
+        unit: def.unit,
+        status,
+        referenceLabel,
+        optimalRange,
+        category: def.category_id ?? "outros",
+        // Campos não usados pelo helper — preenchidos só pra satisfazer
+        // a interface Biomarker.
+        organ: "system",
+        history: [],
+        ranges: {
+          optimal: optimalRange ?? [0, 0],
+          normal:
+            def.normal_min != null && def.normal_max != null
+              ? [def.normal_min, def.normal_max]
+              : [0, 0],
+        },
+      } as unknown as Biomarker;
+    });
+
+    const result = await generatePersonalizedInsights(insightBiomarkers, {
+      firstName: profile?.first_name ?? "paciente",
+      chronologicalAge,
+      sex:
+        profile?.sex === "female" || profile?.sex === "male"
+          ? profile.sex
+          : undefined,
+    });
+
+    // Persiste no exam — coluna jsonb adicionada em 0009_exam_insights_cache
+    await supabase
+      .from("exams")
+      .update({
+        insights_data: {
+          insights: result.insights,
+          generated_at: new Date().toISOString(),
+          provider: result.provider,
+          biomarker_ids: topForInsights.map((b) => b.id),
+        },
+      })
+      .eq("id", examId);
+  } catch (insightsErr) {
+    // eslint-disable-next-line no-console
+    console.warn("[lab-uploads/parse] insights gen falhou:", insightsErr);
+    // segue — exam fica válido, só sem cache de insights
+  }
+
+  // ─── 8. Marca parsed + linka exam ──────────────────────────────────────
   //
   // Lucas (2026-05-20): "no histórico anexado, não precisa pedir data,
   // nem nada, você mesmo adiciona isso ao analisar o pdf." → propagar
