@@ -11,6 +11,9 @@ import {
   ShoppingCart,
   ChevronDown,
   X,
+  Pill,
+  Heart,
+  Stethoscope,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -73,6 +76,22 @@ export function ProtocoloClient({
     const lifestyle = ruleBasedTasks.filter((t) => t.lifestyleIcon);
     return [...nonLifestyle, ...aiTasks, ...lifestyle];
   }, [ruleBasedTasks, aiTasks]);
+
+  // Lucas (2026-05-20): "a sugestão que não for relacionada diretamente
+  // a ingestão de um suplemento, não deve ficar no mesmo card que tem
+  // a foto do suplemento, mas sim em outro card."
+  //
+  // Suplementos: tasks com produto vinculado (mostram foto + botão Comprar)
+  // Hábitos: tudo mais — lifestyle (sol/sono/água) + biomarker-tasks sem
+  //          produto (HDL → Zona 2, glucose → caminhar) + investigation.
+  const supplementTasks = useMemo(
+    () => tasks.filter((t) => t.product),
+    [tasks],
+  );
+  const habitTasks = useMemo(
+    () => tasks.filter((t) => !t.product),
+    [tasks],
+  );
 
   const workingOn = useMemo(
     () => [...ruleBasedGoals, ...aiGoals],
@@ -180,23 +199,48 @@ export function ProtocoloClient({
         </p>
       </header>
 
-      {/* Ações de hoje */}
-      <section>
-        <h2 className="mb-3 text-[13px] font-medium uppercase tracking-[0.14em] text-muted">
-          Ações de hoje
-        </h2>
-        <ul className="flex flex-col gap-2">
-          {tasks.map((task) => (
-            <li key={task.id}>
-              <TaskRow
-                task={task}
-                isDone={doneTasks.has(task.id)}
-                onToggleDone={() => toggleDone(task.id)}
-              />
-            </li>
-          ))}
-        </ul>
-      </section>
+      {/* Suplementos — cards com foto + botão Comprar */}
+      {supplementTasks.length > 0 && (
+        <section>
+          <h2 className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-medium uppercase tracking-[0.14em] text-muted">
+            <Pill className="h-3.5 w-3.5 text-brand-600" />
+            Suplementos sugeridos
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {supplementTasks.map((task) => (
+              <li key={task.id}>
+                <TaskRow
+                  task={task}
+                  isDone={doneTasks.has(task.id)}
+                  onToggleDone={() => toggleDone(task.id)}
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* Hábitos — sem produto, ações de lifestyle / exercício / dieta /
+          investigação. Lucas (2026-05-20): card separado dos suplementos. */}
+      {habitTasks.length > 0 && (
+        <section className={supplementTasks.length > 0 ? "mt-8" : ""}>
+          <h2 className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-medium uppercase tracking-[0.14em] text-muted">
+            <Heart className="h-3.5 w-3.5 text-brand-600" />
+            Hábitos e ações
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {habitTasks.map((task) => (
+              <li key={task.id}>
+                <TaskRow
+                  task={task}
+                  isDone={doneTasks.has(task.id)}
+                  onToggleDone={() => toggleDone(task.id)}
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* Modal de explicação do goal — aparece quando user clica num card
           "Trabalhando". Lucas (2026-05-20): "esses cards tem que ser
@@ -251,10 +295,24 @@ function TaskRow({
   isDone: boolean;
   onToggleDone: () => void;
 }) {
-  const Icon = task.lifestyleIcon ? LIFESTYLE_ICONS[task.lifestyleIcon] : null;
-  const iconAccent = task.lifestyleIcon
+  // Lucas (2026-05-20): tasks de "habit" sem lifestyleIcon ganham fallback
+  // pra Heart (hábito genérico); "investigation" usa Stethoscope.
+  let Icon = task.lifestyleIcon ? LIFESTYLE_ICONS[task.lifestyleIcon] : null;
+  let iconAccent = task.lifestyleIcon
     ? LIFESTYLE_ACCENTS[task.lifestyleIcon]
     : "bg-brand-50 text-brand-700";
+
+  if (!Icon && !task.product) {
+    if (task.kind === "investigation") {
+      Icon = Stethoscope;
+      iconAccent = "bg-amber-50 text-amber-700";
+    } else {
+      // habit (default)
+      Icon = Heart;
+      iconAccent = "bg-rose-50 text-rose-600";
+    }
+  }
+
   const [expanded, setExpanded] = useState(false);
 
   // Lucas (2026-05-20): "tenha um título das ações sugeridas e abaixo

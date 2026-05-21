@@ -43,10 +43,19 @@ interface RequestBody {
 
 interface AITask {
   id: string;
+  /** Título curto e imperativo (3-7 palavras). Ex: "Suplementar Vitamina B6". */
   label: string;
+  /** Explicação completa (contexto + posologia + caveat) pro expandable. */
   reasoning: string;
   /** Pode ser null se task não tem produto vinculado (ex: lifestyle/exam). */
   productHint?: string | null;
+  /**
+   * "supplement" (ingestão de pílula/líquido), "habit" (mudança comportamental
+   * como exercício/sono/dieta), ou "investigation" (pedir exame/avaliar
+   * com médico). Lucas (2026-05-20): cards de suplemento vs hábito
+   * ficam em seções separadas no UI.
+   */
+  kind?: "supplement" | "habit" | "investigation";
 }
 
 interface AIGoal {
@@ -81,9 +90,11 @@ BIOMARCADORES:
 ${biomarkerLines}
 
 REGRAS DE TASK:
-- 1 task por biomarcador, label imperativa e curta (1-2 frases, max 200 chars)
-- Foco em ação CONCRETA (suplemento com dose específica OU mudança de hábito)
-- Mencione alavanca principal ANTES de suplementação isolada (dieta/sono/exercício > pílula)
+- 1 task por biomarcador
+- "label" = TÍTULO CURTO IMPERATIVO de 3-7 palavras. Não mais que 60 caracteres. Ex: "Suplementar Vitamina B6", "Caminhar 30 min/dia", "Aumentar folhas verdes". NÃO incluir posologia/dose no label.
+- "reasoning" = EXPLICAÇÃO COMPLETA (2-4 frases): valor atual do biomarcador + faixa-alvo + ação concreta com dose/protocolo + caveat clínico
+- "kind" = "supplement" se a ação principal é tomar pílula/líquido; "habit" se é mudança de comportamento (exercício/sono/dieta); "investigation" se é avaliar com médico ou pedir exame
+- Foco em ação CONCRETA. Mencione alavanca principal ANTES de suplementação isolada (dieta/sono/exercício > pílula)
 - Tom educacional. NUNCA usar imperativo médico ("você DEVE", "precisa de receita").
 - Sem prescrição de medicamento controlado, nem ajuste de dose de medicação existente
 - Em PT-BR, linguagem direta
@@ -104,9 +115,10 @@ OUTPUT (SOMENTE JSON, sem comentários):
   "tasks": [
     {
       "id": "ai-{biomarker.id}",
-      "label": "...",
-      "reasoning": "...",
-      "productHint": null
+      "label": "Título curto (max 60 chars)",
+      "reasoning": "Explicação completa com valor atual + alvo + protocolo + caveat",
+      "productHint": null,
+      "kind": "supplement" | "habit" | "investigation"
     }
   ],
   "goals": [

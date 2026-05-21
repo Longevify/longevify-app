@@ -19,6 +19,7 @@ interface AIResponse {
     label: string;
     reasoning: string;
     productHint?: string | null;
+    kind?: "supplement" | "habit" | "investigation";
   }>;
   goals?: Array<{
     id: string;
@@ -96,7 +97,10 @@ export async function generateAIProtocolForGaps(
         id: t.id,
         label: t.label,
         reasoning: t.reasoning,
-        // productHint pode ser usado futuramente pra linkar com produto via fuzzy match
+        // AI gen tasks NÃO têm product associado (sem fuzzy match com catálogo
+        // ainda) — por padrão caem em "habit" se kind ausente. Lucas
+        // (2026-05-20): tasks sem produto vão pra seção "Hábitos".
+        kind: t.kind ?? "habit",
       })),
       goals: data.goals.map((g) => ({
         id: g.id,
