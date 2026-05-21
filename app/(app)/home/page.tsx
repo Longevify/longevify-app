@@ -14,6 +14,7 @@ import { CompactHealthSummary } from "@/components/home/compact-health-summary";
 import { DailyProgressGrid } from "@/components/home/daily-progress-grid";
 import { MonthlyGoals } from "@/components/home/monthly-goals";
 import { EvolutionCard } from "@/components/home/evolution-card";
+import { TodoSidebar } from "@/components/home/todo-sidebar";
 import { BIOMARKERS } from "@/lib/mock-data";
 import { loadDadosForUser } from "@/lib/dados/server";
 import { generateProtocolTasks } from "@/lib/protocolo/tasks";
@@ -87,11 +88,15 @@ export default async function HomePage() {
   // daily_health_metrics). Demo cai pro mock automaticamente via fallback
   // do adapter. User real sem wearable conectado retorna array vazio →
   // sinaliza pro DailyProgressGrid mostrar CTA "Conectar wearable".
+  //
+  // Lucas (2026-05-21): puxa 180 dias pra alimentar o popup de detalhe
+  // com toggle l7d / l30d / l6m. Pra demo, fallback usa o DAILY_METRICS
+  // mock (que tem ~60 dias). User real sem wearable = array vazio.
   const repos = await getServerRepositories();
-  const metrics = await repos.metrics.daily(7);
-  const realLatestMetric = metrics.length > 0 ? metrics[metrics.length - 1] : null;
-  // Pra demo, mantém o mock direto (o adapter já fallback retorna mock).
-  // Pra user real: usa o realLatestMetric se houver, OU zeros + flag.
+  const metricsAll = await repos.metrics.daily(180);
+  const metricsSource = user.isDemo ? DAILY_METRICS : metricsAll;
+  const realLatestMetric =
+    metricsAll.length > 0 ? metricsAll[metricsAll.length - 1] : null;
   const latestMetric = user.isDemo
     ? DAILY_METRICS[DAILY_METRICS.length - 1]
     : realLatestMetric;
@@ -100,6 +105,15 @@ export default async function HomePage() {
   const exerciseMinutes =
     (latestMetric?.zone2Minutes ?? 0) +
     Math.round((latestMetric?.steps ?? 0) / 130); // ~130 passos/min ritmo médio
+
+  // Histórico pro popup de detalhe — converte cada dia em
+  // { date, sleepMinutes, exerciseMinutes } (calculo igual ao "today").
+  const metricsHistory = metricsSource.map((m) => ({
+    date: m.date,
+    sleepMinutes: m.sleepMinutes ?? 0,
+    exerciseMinutes:
+      (m.zone2Minutes ?? 0) + Math.round((m.steps ?? 0) / 130),
+  }));
 
   // Stats pra gameficação
   const biomarkersOptimal = biomarkers.filter(
@@ -127,7 +141,7 @@ export default async function HomePage() {
   const nextBookingHome = bookings.upcoming[0] ?? null;
 
   return (
-    <div className="mx-auto w-full max-w-[920px] px-4 py-6 sm:px-6 sm:py-10">
+    <div className="mx-auto w-full max-w-[1080px] px-4 py-6 sm:px-6 sm:py-10">
       <PostExamStories
         patient={patient}
         prefetchedInsights={dados.insights}
@@ -155,47 +169,62 @@ export default async function HomePage() {
         organBioAges={patient.organBioAges}
       />
 
-      {/* 2. Progresso diário — 4 cards (sono, exercício, to-do feita, pendente) */}
-      <section className="mt-6">
-        <div className="mb-2 flex items-baseline justify-between gap-2">
-          <h2 className="text-[13px] font-medium uppercase tracking-[0.14em] text-muted">
-            Progresso de hoje
-          </h2>
-          <span className="text-[11px] text-zinc-500">
-            atualizado agora
-          </span>
+      {/* Lucas (2026-05-21): "na aba home, colo que a to-do list na
+          lateral, com as tarefas para marcar e as ja marcadas." →
+          grid 2-col em lg+ com sidebar de tasks à direita. Mobile
+          continua linear (sidebar vira card normal abaixo). */}
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_300px]">
+        {/* Main column */}
+        <div className="flex flex-col gap-6 lg:gap-8 min-w-0">
+          {/* 2. Progresso diário — 4 cards (sono, exercício, feitas, pendentes) */}
+          <section>
+            <div className="mb-2 flex items-baseline justify-between gap-2">
+              <h2 className="text-[13px] font-medium uppercase tracking-[0.14em] text-muted">
+                Progresso de hoje
+              </h2>
+              <span className="text-[11px] text-zinc-500">
+                atualizado agora
+              </span>
+            </div>
+            <DailyProgressGrid
+              sleepMinutes={sleepMinutes}
+              sleepTargetMinutes={450}
+              exerciseMinutes={exerciseMinutes}
+              exerciseTargetMinutes={30}
+              totalTasks={totalTasks}
+              metricsHistory={metricsHistory}
+              hasWearableData={hasWearableData}
+            />
+          </section>
+
+          {/* 3. Metas do mês */}
+          <MonthlyGoals
+            scoreNow={patient.longevifyScore}
+            scoreLastMonth={previousScore}
+            biomarkersOptimal={biomarkersOptimal}
+            biomarkersTotal={biomarkers.length}
+            streakDays={streakDays}
+            biologicalAgeDelta={bioAgeDelta}
+          />
+
+          {/* 4. Evolução geral */}
+          <EvolutionCard
+            scoreHistory={patient.scoreHistory}
+            biologicalAgeHistory={patient.biologicalAgeHistory}
+            chronologicalAge={patient.chronologicalAge}
+            streakDays={streakDays}
+            biomarkersOptimal={biomarkersOptimal}
+            examsCount={patient.scoreHistory.length}
+          />
         </div>
-        <DailyProgressGrid
-          sleepMinutes={sleepMinutes}
-          sleepTargetMinutes={450}
-          exerciseMinutes={exerciseMinutes}
-          exerciseTargetMinutes={30}
-          totalTasks={totalTasks}
-          hasWearableData={hasWearableData}
+
+        {/* Sidebar — to-do list. Sticky em desktop pra ficar visível
+            enquanto scrolla; vira card normal em mobile. */}
+        <TodoSidebar
+          tasks={tasks}
+          className="lg:sticky lg:top-4 lg:self-start"
         />
-      </section>
-
-      {/* 3. Metas do mês — gameficação com ring de progresso */}
-      <MonthlyGoals
-        scoreNow={patient.longevifyScore}
-        scoreLastMonth={previousScore}
-        biomarkersOptimal={biomarkersOptimal}
-        biomarkersTotal={biomarkers.length}
-        streakDays={streakDays}
-        biologicalAgeDelta={bioAgeDelta}
-        className="mt-8"
-      />
-
-      {/* 4. Evolução geral — sparklines + conquistas */}
-      <EvolutionCard
-        scoreHistory={patient.scoreHistory}
-        biologicalAgeHistory={patient.biologicalAgeHistory}
-        chronologicalAge={patient.chronologicalAge}
-        streakDays={streakDays}
-        biomarkersOptimal={biomarkersOptimal}
-        examsCount={patient.scoreHistory.length}
-        className="mt-6"
-      />
+      </div>
 
       {/* 5. Próximos passos / Este mês — timeline operacional */}
       <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
