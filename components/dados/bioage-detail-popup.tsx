@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useMemo, useState } from "react";
 import { X, ChevronDown, Sparkles } from "lucide-react";
 import {
   AreaChart,
@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { BioAgePoint, OrganBioAge } from "@/lib/mock-data";
 import { getBioAgeInsight } from "@/lib/dados/organ-insights";
+import { scoreLabel, scoreBg } from "@/lib/wearables/metric-score";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -263,6 +264,36 @@ function OrganExpandableRow({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
+type Range = "7d" | "30d" | "6m" | "all";
+
+const RANGE_DAYS: Record<Range, number> = {
+  "7d": 7,
+  "30d": 30,
+  "6m": 180,
+  all: Number.POSITIVE_INFINITY,
+};
+
+const RANGE_LABEL: Record<Range, string> = {
+  "7d": "7 dias",
+  "30d": "30 dias",
+  "6m": "6 meses",
+  all: "Tudo",
+};
+
+/**
+ * BioAge → score 0-100. Lucas (2026-05-21) pediu "overall score" também
+ * pra Idade Biológica. Cálculo: 5 anos mais jovem = 100, igual à
+ * cronológica = 80 (saudável de base), 10 anos mais velho = 20.
+ */
+function bioAgeAsScore(bioAge: number, chronoAge: number): number {
+  const delta = chronoAge - bioAge; // positivo = mais jovem (bom)
+  // Piecewise: -10 → 0; 0 → 80; +5 → 100; +∞ → 100 (cap)
+  if (delta <= -10) return 10;
+  if (delta < 0) return Math.round(10 + ((delta + 10) / 10) * 70); // -10..0 → 10..80
+  if (delta <= 5) return Math.round(80 + (delta / 5) * 20); // 0..5 → 80..100
+  return 100;
+}
+
 export function BioAgeDetailPopup({
   open,
   onClose,
@@ -271,6 +302,9 @@ export function BioAgeDetailPopup({
   biologicalAgeHistory,
   organBioAges,
 }: BioAgeDetailPopupProps) {
+  // Lucas (2026-05-21): toggle l7d/l30d/l6m padrão.
+  const [range, setRange] = useState<Range>("all");
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -284,19 +318,41 @@ export function BioAgeDetailPopup({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [open, handleKeyDown]);
 
+  const filteredHistory = useMemo(() => {
+    if (range === "all") return biologicalAgeHistory;
+    const cutoff = new Date();
+    cutoff.setUTCDate(cutoff.getUTCDate() - RANGE_DAYS[range]);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    return biologicalAgeHistory.filter(
+      (p) => p.date.slice(0, 10) >= cutoffStr,
+    );
+  }, [biologicalAgeHistory, range]);
+
   if (!open) return null;
 
-  const chartData = biologicalAgeHistory.map((p) => ({
+  const chartData = filteredHistory.map((p) => ({
     label: formatMonthYear(p.date),
     age: p.age,
   }));
 
   const minAge = Math.floor(
-    Math.min(...biologicalAgeHistory.map((p) => p.age), chronologicalAge) - 2,
+    Math.min(
+      ...(filteredHistory.length > 0
+        ? filteredHistory.map((p) => p.age)
+        : [biologicalAge]),
+      chronologicalAge,
+    ) - 2,
   );
   const maxAge = Math.ceil(
-    Math.max(...biologicalAgeHistory.map((p) => p.age), chronologicalAge) + 2,
+    Math.max(
+      ...(filteredHistory.length > 0
+        ? filteredHistory.map((p) => p.age)
+        : [biologicalAge]),
+      chronologicalAge,
+    ) + 2,
   );
+
+  const bioScore = bioAgeAsScore(biologicalAge, chronologicalAge);
 
   const delta = +(biologicalAge - chronologicalAge).toFixed(1);
   const deltaLabel =
@@ -342,12 +398,22 @@ export function BioAgeDetailPopup({
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="px-5 pt-7 pb-5">
-            <div className="flex items-baseline gap-2">
+            <div className="flex items-baseline gap-2 flex-wrap">
               <span className="text-[64px] font-semibold leading-none tracking-tight text-zinc-900">
                 {biologicalAge}
               </span>
               <span className="text-[18px] font-medium text-zinc-500">
                 anos
+              </span>
+              {/* Lucas (2026-05-21): "overall score" pra Bio Age também.
+                  Cálculo: 5 anos mais jovem = 100, igual = 80, etc. */}
+              <span
+                className={cn(
+                  "ml-2 rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold",
+                  scoreBg(bioScore),
+                )}
+              >
+                {scoreLabel(bioScore)} · {bioScore}/100
               </span>
             </div>
             <p
@@ -364,68 +430,93 @@ export function BioAgeDetailPopup({
             </p>
           </div>
 
+          {/* Toggle de range — l7d / l30d / l6m / tudo */}
+          <div className="flex gap-1 px-5 pb-3">
+            {(["7d", "30d", "6m", "all"] as Range[]).map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setRange(r)}
+                className={cn(
+                  "flex-1 rounded-xl py-2 text-[12px] font-semibold transition",
+                  range === r
+                    ? "bg-brand-700 text-white shadow-sm"
+                    : "bg-zinc-50 text-zinc-600 hover:bg-zinc-100",
+                )}
+              >
+                {RANGE_LABEL[r]}
+              </button>
+            ))}
+          </div>
+
           <div className="px-5 pb-6">
             <div className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-zinc-500">
-              Evolução ao longo do tempo
+              Evolução · {RANGE_LABEL[range]}
             </div>
-            <ResponsiveContainer width="100%" height={200}>
-              <AreaChart
-                data={chartData}
-                margin={{ top: 16, right: 8, bottom: 0, left: 0 }}
-              >
-                <defs>
-                  <linearGradient
-                    id="bioage-gradient"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop offset="0%" stopColor="#3f9a6b" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="#3f9a6b" stopOpacity={0.04} />
-                  </linearGradient>
-                </defs>
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 11, fill: "#a1a1aa" }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  domain={[minAge, maxAge]}
-                  tick={{ fontSize: 11, fill: "#a1a1aa" }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={32}
-                />
-                <Tooltip content={<ChartTooltip unit="anos" />} />
-                <ReferenceLine
-                  y={chronologicalAge}
-                  stroke="#d4d4d8"
-                  strokeDasharray="4 3"
-                  label={{
-                    value: `Cronológica ${chronologicalAge}`,
-                    position: "insideTopRight",
-                    fill: "#a1a1aa",
-                    fontSize: 10,
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="age"
-                  stroke="#3f9a6b"
-                  strokeWidth={2.5}
-                  fill="url(#bioage-gradient)"
-                  dot={false}
-                  activeDot={{
-                    r: 5,
-                    fill: "#3f9a6b",
-                    stroke: "#fff",
-                    strokeWidth: 2,
-                  }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            {chartData.length >= 2 ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart
+                  data={chartData}
+                  margin={{ top: 16, right: 8, bottom: 0, left: 0 }}
+                >
+                  <defs>
+                    <linearGradient
+                      id="bioage-gradient"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop offset="0%" stopColor="#3f9a6b" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="#3f9a6b" stopOpacity={0.04} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: 11, fill: "#a1a1aa" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    domain={[minAge, maxAge]}
+                    tick={{ fontSize: 11, fill: "#a1a1aa" }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={32}
+                  />
+                  <Tooltip content={<ChartTooltip unit="anos" />} />
+                  <ReferenceLine
+                    y={chronologicalAge}
+                    stroke="#d4d4d8"
+                    strokeDasharray="4 3"
+                    label={{
+                      value: `Cronológica ${chronologicalAge}`,
+                      position: "insideTopRight",
+                      fill: "#a1a1aa",
+                      fontSize: 10,
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="age"
+                    stroke="#3f9a6b"
+                    strokeWidth={2.5}
+                    fill="url(#bioage-gradient)"
+                    dot={false}
+                    activeDot={{
+                      r: 5,
+                      fill: "#3f9a6b",
+                      stroke: "#fff",
+                      strokeWidth: 2,
+                    }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="rounded-xl bg-zinc-50 px-4 py-8 text-center text-[12px] text-zinc-500">
+                Sem dados suficientes nesse período — Idade Biológica é atualizada a cada exame (~6 meses). Tente <strong>Tudo</strong>.
+              </div>
+            )}
           </div>
 
           <div className="border-t border-zinc-100 bg-zinc-50/50 px-5 py-4">

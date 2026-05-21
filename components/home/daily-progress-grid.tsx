@@ -20,6 +20,8 @@ import {
   WearableMetricPopup,
   type MetricPoint,
 } from "@/components/home/wearable-metric-popup";
+import { TaskHistoryPopup } from "@/components/home/task-history-popup";
+import type { ProtocolTask } from "@/lib/protocolo/tasks";
 
 /**
  * Grid 2x2 com indicadores visuais de progresso pra cada quesito.
@@ -57,6 +59,18 @@ interface DailyProgressGridProps {
    * frustrante pra user real sem Apple Health/Oura). Demo passa true.
    */
   hasWearableData?: boolean;
+  /**
+   * Lista completa de tasks rule-based (mesma do /protocolo) pra
+   * alimentar o popup de histórico ao clicar nos cards de to-do.
+   */
+  tasks?: ProtocolTask[];
+  /**
+   * Histórico de completions dos últimos 30 dias pra calendar heatmap
+   * no TaskHistoryPopup. Vindo do server (getTaskCompletionsHistory).
+   */
+  completionsHistory?: Array<{ date: string; count: number }>;
+  /** Streak atual pra exibir no popup de tasks. */
+  streakDays?: number;
   className?: string;
 }
 
@@ -70,10 +84,14 @@ export function DailyProgressGrid({
   totalTasks,
   metricsHistory = [],
   hasWearableData = true,
+  tasks = [],
+  completionsHistory = [],
+  streakDays = 0,
   className,
 }: DailyProgressGridProps) {
-  const [doneCount, setDoneCount] = useState(0);
+  const [doneIds, setDoneIds] = useState<Set<string>>(new Set());
   const [openMetric, setOpenMetric] = useState<"sleep" | "exercise" | null>(null);
+  const [openTasksPopup, setOpenTasksPopup] = useState(false);
 
   // Lê tasks feitas do localStorage (mesma chave do /protocolo)
   useEffect(() => {
@@ -81,12 +99,14 @@ export function DailyProgressGrid({
       const raw = localStorage.getItem(TASKS_STORAGE_KEY);
       if (raw) {
         const ids: string[] = JSON.parse(raw);
-        setDoneCount(Array.isArray(ids) ? ids.length : 0);
+        setDoneIds(new Set(Array.isArray(ids) ? ids : []));
       }
     } catch {
       // ignore
     }
   }, []);
+
+  const doneCount = doneIds.size;
 
   const pendingTasks = Math.max(0, totalTasks - doneCount);
   const tasksPct =
@@ -163,7 +183,7 @@ export function DailyProgressGrid({
             label="Exercício"
           />
         )}
-        <ProgressCardLink
+        <ProgressCardButton
           icon={CheckCircle2}
           iconAccent="bg-brand-50 text-brand-700"
           label="Feitas hoje"
@@ -171,9 +191,9 @@ export function DailyProgressGrid({
           target={totalTasks > 0 ? `de ${totalTasks}` : "sem tarefas"}
           progressPct={tasksPct}
           progressColor="from-brand-400 to-brand-600"
-          href="/protocolo"
+          onClick={() => setOpenTasksPopup(true)}
         />
-        <ProgressCardLink
+        <ProgressCardButton
           icon={Circle}
           iconAccent="bg-amber-50 text-amber-700"
           label="A fazer"
@@ -185,7 +205,7 @@ export function DailyProgressGrid({
               : 0
           }
           progressColor="from-amber-400 to-amber-600"
-          href="/protocolo"
+          onClick={() => setOpenTasksPopup(true)}
         />
       </div>
 
@@ -207,6 +227,15 @@ export function DailyProgressGrid({
         unit="min"
         history={exerciseHistory}
         accentColor="#10b981"
+      />
+      {/* Popup de histórico de tasks — abre nos cards "Feitas hoje" / "A fazer" */}
+      <TaskHistoryPopup
+        open={openTasksPopup}
+        onClose={() => setOpenTasksPopup(false)}
+        tasks={tasks}
+        doneIds={doneIds}
+        completionsHistory={completionsHistory}
+        streakDays={streakDays}
       />
     </>
   );
@@ -298,12 +327,16 @@ function ClickableProgressCard({
   );
 }
 
-interface ProgressCardLinkProps extends BaseCardProps {
-  href: string;
+interface ProgressCardButtonProps extends BaseCardProps {
+  onClick: () => void;
 }
 
-/** Card link (tasks feitas, tasks a fazer) — só leva pra /protocolo */
-function ProgressCardLink({
+/**
+ * Card botão (tasks feitas, tasks a fazer) — abre TaskHistoryPopup.
+ * Lucas (2026-05-21): click vira popup com histórico em vez de
+ * navegar pra /protocolo (movimento dentro do contexto da home).
+ */
+function ProgressCardButton({
   icon: Icon,
   iconAccent,
   label,
@@ -311,12 +344,13 @@ function ProgressCardLink({
   target,
   progressPct,
   progressColor,
-  href,
-}: ProgressCardLinkProps) {
+  onClick,
+}: ProgressCardButtonProps) {
   return (
-    <Link
-      href={href}
-      className="group flex flex-col gap-2 rounded-2xl border border-zinc-200/80 bg-white p-4 shadow-[0_4px_16px_-10px_rgba(13,40,24,.1)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_22px_-10px_rgba(13,40,24,.15)]"
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex flex-col gap-2 rounded-2xl border border-zinc-200/80 bg-white p-4 text-left shadow-[0_4px_16px_-10px_rgba(13,40,24,.1)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_22px_-10px_rgba(13,40,24,.15)]"
     >
       <div className="flex items-center justify-between">
         <span
@@ -349,7 +383,7 @@ function ProgressCardLink({
           style={{ width: `${progressPct}%` }}
         />
       </div>
-    </Link>
+    </button>
   );
 }
 

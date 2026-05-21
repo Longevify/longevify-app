@@ -85,3 +85,55 @@ export async function getStreakDays(userId: string): Promise<number> {
 
   return streak;
 }
+
+/**
+ * Retorna count de tasks completadas POR DIA nos últimos N dias.
+ * Usado pelo calendar heatmap no popup de tasks da home.
+ *
+ * Lucas (2026-05-21): popup pros cards "Feitas hoje" / "A fazer" com
+ * histórico de completions tipo GitHub contributions.
+ */
+export async function getTaskCompletionsHistory(
+  userId: string,
+  days = 30,
+): Promise<Array<{ date: string; count: number }>> {
+  if (!isSupabaseConfigured()) return [];
+
+  const { accessToken } = await getUserIdFromCookie();
+  if (!accessToken) return [];
+
+  const supabase = await createSupabaseWithJwt(accessToken);
+
+  // Calcula cutoff date
+  const cutoff = new Date();
+  cutoff.setUTCDate(cutoff.getUTCDate() - days);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+
+  const { data, error } = await supabase
+    .from("task_completions")
+    .select("completed_date")
+    .eq("patient_id", userId)
+    .gte("completed_date", cutoffStr)
+    .order("completed_date", { ascending: true });
+
+  if (error || !data) return [];
+
+  // Agrega por date
+  const byDate = new Map<string, number>();
+  for (const row of data) {
+    const d = row.completed_date as string;
+    byDate.set(d, (byDate.get(d) ?? 0) + 1);
+  }
+
+  // Constrói array com TODOS os dias (mesmo sem completions), pra
+  // alimentar grid contínuo no heatmap.
+  const out: Array<{ date: string; count: number }> = [];
+  for (let i = 0; i <= days; i++) {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - (days - i));
+    const dStr = d.toISOString().slice(0, 10);
+    out.push({ date: dStr, count: byDate.get(dStr) ?? 0 });
+  }
+
+  return out;
+}
