@@ -1,18 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, Loader2, Repeat } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  HeartHandshake,
+  Lock,
+  Loader2,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   OnboardingStepper,
   type OnboardingStep,
 } from "@/components/onboarding/stepper";
-import { PathChooser } from "@/components/onboarding/path-chooser";
-import {
-  StepQuickHabits,
-  StepQuickIdentity,
-} from "@/components/onboarding/intake/step-quick";
 import { StepIdentity } from "@/components/onboarding/intake/step-identity";
 import { StepMedical } from "@/components/onboarding/intake/step-medical";
 import { StepFamily } from "@/components/onboarding/intake/step-family";
@@ -37,12 +40,23 @@ import { toast } from "@/lib/toast";
 import { syncIntake } from "./actions";
 
 // ─── State machine ─────────────────────────────────────────────────────────
-// Steps por variante. "choose" é o splash; "schedule" e "done" são compartilhados.
+//
+// Lucas (2026-05-21): "só tenha 1 opção de anamenese". Removida a
+// variante "quick" — todos passam pelo flow único (comprehensive
+// renomeado pra só "anamnese"). PathChooser não é mais chamada.
+//
+// Reordenação inspirada em recomendação do agent medico-longevify:
+// fácil → engajamento → sensível no meio → fácil no fim.
+//   1. Identity (quick win)
+//   2. Goals (engajamento — dá propósito)
+//   3. Medical history
+//   4. Family history
+//   5. Lifestyle
+//   6. Mental health (com banner CVV 188 antes)
+//   7. Sex-specific
+//   8. Schedule + Done
 
 type StepId =
-  | "choose"
-  | "quick-1"
-  | "quick-2"
   | "comp-1"
   | "comp-2"
   | "comp-3"
@@ -53,29 +67,24 @@ type StepId =
   | "schedule"
   | "done";
 
-const QUICK_FLOW: StepId[] = ["quick-1", "quick-2", "schedule", "done"];
-
 const COMPREHENSIVE_FLOW: StepId[] = [
   "comp-1",
+  "comp-7", // Goals reordenado pra logo após Identity
   "comp-2",
   "comp-3",
   "comp-4",
   "comp-5",
   "comp-6",
-  "comp-7",
   "schedule",
   "done",
 ];
 
 const STEP_LABEL: Record<StepId, string> = {
-  choose: "Início",
-  "quick-1": "Você",
-  "quick-2": "Hábitos",
   "comp-1": "Identidade",
   "comp-2": "Histórico clínico",
   "comp-3": "Histórico familiar",
   "comp-4": "Estilo de vida",
-  "comp-5": "Mental",
+  "comp-5": "Saúde mental",
   "comp-6": "Específico",
   "comp-7": "Objetivos",
   schedule: "Agendamento",
@@ -84,9 +93,6 @@ const STEP_LABEL: Record<StepId, string> = {
 
 // Quantas perguntas cada step tem (pra "Pergunta X de Y" honesto).
 const STEP_QUESTION_COUNT: Record<StepId, number> = {
-  choose: 0,
-  "quick-1": 4,
-  "quick-2": 4,
   "comp-1": 7,
   "comp-2": 7,
   "comp-3": 1,
@@ -105,7 +111,28 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     const loaded = loadIntake();
-    setRecord(loaded);
+    // Lucas (2026-05-21): unifica. Se record tem variant "quick"
+    // (legado), reseta pra comprehensive na hidratação — não tem mais
+    // path chooser pro user trocar.
+    if (loaded) {
+      const needsMigration = (loaded as IntakeRecord & { variant?: string })
+        .variant === "quick";
+      if (needsMigration) {
+        setRecord({
+          ...loaded,
+          variant: "comprehensive",
+          step:
+            (loaded.step as string).startsWith("quick-")
+              ? "comp-1"
+              : loaded.step,
+        });
+      } else {
+        setRecord(loaded);
+      }
+    } else {
+      // Sem record salvo → cria comprehensive direto, sem path chooser
+      setRecord(createEmptyRecord("comprehensive"));
+    }
     setHydrated(true);
   }, []);
 
@@ -134,36 +161,6 @@ export default function OnboardingPage() {
     if (typeof window !== "undefined") {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
-  }
-
-  function chooseVariant(variant: IntakeVariant) {
-    setRecord((r) => {
-      if (!r) return createEmptyRecord(variant);
-      // preserva data acumulada — só troca variant + step inicial
-      return {
-        ...r,
-        variant,
-        step: variant === "quick" ? "quick-1" : "comp-1",
-      };
-    });
-    if (typeof window !== "undefined") {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  }
-
-  function switchVariant() {
-    if (!record) return;
-    const next: IntakeVariant =
-      record.variant === "quick" ? "comprehensive" : "quick";
-    setRecord((r) =>
-      r
-        ? {
-            ...r,
-            variant: next,
-            step: next === "quick" ? "quick-1" : "comp-1",
-          }
-        : r,
-    );
   }
 
   async function submitScheduling() {
@@ -216,7 +213,7 @@ export default function OnboardingPage() {
     }
   }
 
-  if (!hydrated) {
+  if (!hydrated || !record) {
     return (
       <div className="mx-auto flex min-h-[60vh] w-full max-w-[920px] items-center justify-center px-6">
         <Loader2 className="h-5 w-5 animate-spin text-muted" />
@@ -224,28 +221,8 @@ export default function OnboardingPage() {
     );
   }
 
-  // Sem record carregado → splash.
-  if (!record) {
-    return (
-      // H5: max-w-4xl (~1152px) pra cards ficarem balanceados em desktop
-      <div className="mx-auto w-full max-w-5xl px-6 py-10 sm:py-12">
-        <PathChooser onSelect={chooseVariant} />
-      </div>
-    );
-  }
-
   const stepId = record.step as StepId;
-
-  if (stepId === "choose") {
-    return (
-      // H5: mesma largura ampliada
-      <div className="mx-auto w-full max-w-5xl px-6 py-10 sm:py-12">
-        <PathChooser selected={record.variant} onSelect={chooseVariant} />
-      </div>
-    );
-  }
-
-  const flow = record.variant === "quick" ? QUICK_FLOW : COMPREHENSIVE_FLOW;
+  const flow = COMPREHENSIVE_FLOW;
   const stepIndex = Math.max(0, flow.indexOf(stepId));
   const isFirst = stepIndex === 0;
   const isLast = stepId === "done";
@@ -267,14 +244,19 @@ export default function OnboardingPage() {
 
   const valid = isStepValid(stepId, record);
 
+  // Lucas (2026-05-21): mostra banner CFM/LGPD no primeiro step
+  // (após user clicar Continuar do step 1, esconde — já validado o
+  // consentimento implícito). Banner CVV aparece ANTES do step
+  // saúde mental (recomendação do medico-longevify agent).
+  const showConsentBanner = stepId === "comp-1";
+  const showMentalHealthBanner = stepId === "comp-5";
+
   return (
     <div className="mx-auto w-full max-w-[920px] px-4 py-8 sm:px-6 sm:py-10">
-      <header className="flex flex-col gap-2 pb-4 sm:flex-row sm:items-end sm:justify-between sm:pb-6">
+      <header className="flex flex-col gap-2 pb-4 sm:pb-6">
         <div className="flex flex-col gap-1.5">
           <span className="text-[12px] font-medium uppercase tracking-wide text-brand-700">
-            {record.variant === "quick"
-              ? "Cadastro Rápido"
-              : "Cadastro Completo"}
+            Anamnese
           </span>
           {showProgress ? (
             <p className="text-[13px] text-muted">
@@ -293,18 +275,44 @@ export default function OnboardingPage() {
             </p>
           )}
         </div>
-        {!isLast ? (
-          <button
-            type="button"
-            onClick={switchVariant}
-            className="inline-flex items-center gap-1.5 self-start rounded-full border border-border bg-white px-3 py-1.5 text-[12px] font-medium text-muted transition-colors hover:border-brand-400 hover:text-ink sm:self-end"
-          >
-            <Repeat className="h-3.5 w-3.5" />
-            Trocar pra{" "}
-            {record.variant === "quick" ? "Cadastro Completo" : "Cadastro Rápido"}
-          </button>
-        ) : null}
       </header>
+
+      {/* Banner LGPD + CFM 2.314/2022 — só no primeiro step.
+          Recomendado pelo medico-longevify agent (2026-05-21) por
+          base legal de dados sensíveis (Art. 11 §1º) + clareza que
+          isso não é ato médico. */}
+      {showConsentBanner && (
+        <div className="mb-5 flex items-start gap-3 rounded-2xl border border-brand-200 bg-brand-50/60 px-4 py-3 text-[12.5px] leading-relaxed text-brand-900">
+          <Lock className="mt-0.5 h-4 w-4 shrink-0 text-brand-700" />
+          <div>
+            <strong className="font-semibold">Seus dados são protegidos.</strong>{" "}
+            Esta avaliação é educacional e não constitui ato médico
+            (CFM 2.314/2022). Tratamento de dados de saúde sob LGPD
+            Art. 11. Você pode pausar, editar ou excluir suas respostas
+            a qualquer momento.
+          </div>
+        </div>
+      )}
+
+      {/* Banner CVV 188 antes do step Saúde Mental — recomendado pelo
+          medico-longevify agent. Próximas perguntas tratam de humor,
+          ansiedade e podem desconfortar. Acesso a apoio imediato. */}
+      {showMentalHealthBanner && (
+        <div className="mb-5 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12.5px] leading-relaxed text-amber-900">
+          <HeartHandshake className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+          <div>
+            <strong className="font-semibold">As próximas perguntas tratam de saúde mental.</strong>{" "}
+            Se sentir desconforto, pode pausar. Em momentos de crise:{" "}
+            <a
+              href="tel:188"
+              className="font-semibold underline underline-offset-2 hover:text-amber-700"
+            >
+              CVV 188
+            </a>{" "}
+            (24h, gratuito) ou SAMU 192.
+          </div>
+        </div>
+      )}
 
       {!isLast ? (
         <div className="sticky top-3 z-10 mb-5 rounded-2xl border border-border bg-white/95 p-3 shadow-[0_4px_18px_-12px_rgba(13,40,24,.18)] backdrop-blur sm:mb-6">
@@ -321,9 +329,7 @@ export default function OnboardingPage() {
           stepId={stepId}
           record={record}
           onPatch={patchData}
-          onEdit={() =>
-            setStep(record.variant === "quick" ? "quick-1" : "comp-1")
-          }
+          onEdit={() => setStep("comp-1")}
         />
 
         {!isLast ? (
@@ -332,13 +338,10 @@ export default function OnboardingPage() {
               variant="ghost"
               size="md"
               onClick={() => {
-                if (isFirst) {
-                  setStep("choose");
-                } else {
-                  setStep(flow[stepIndex - 1]);
-                }
+                // Voltar do primeiro step não tem destino — só desabilita
+                if (!isFirst) setStep(flow[stepIndex - 1]);
               }}
-              disabled={submitting}
+              disabled={isFirst || submitting}
             >
               <ArrowLeft className="h-4 w-4" />
               Voltar
@@ -396,10 +399,6 @@ function StepBody({
 }) {
   const data = record.data;
   switch (stepId) {
-    case "quick-1":
-      return <StepQuickIdentity data={data} onPatch={onPatch} />;
-    case "quick-2":
-      return <StepQuickHabits data={data} onPatch={onPatch} />;
     case "comp-1":
       return <StepIdentity data={data} onPatch={onPatch} />;
     case "comp-2":
@@ -428,20 +427,6 @@ function StepBody({
 function isStepValid(stepId: StepId, record: IntakeRecord): boolean {
   const d = record.data;
   switch (stepId) {
-    case "quick-1":
-      return Boolean(
-        d.identity.birthDate &&
-          d.identity.biologicalSex &&
-          d.identity.heightCm &&
-          d.identity.weightKg,
-      );
-    case "quick-2":
-      return Boolean(
-        d.lifestyle.smokingStatus &&
-          d.lifestyle.alcoholFrequency &&
-          d.lifestyle.exerciseDaysPerWeek != null &&
-          d.medical.hasChronicCondition !== undefined,
-      );
     case "comp-1":
       return Boolean(
         d.identity.birthDate &&
