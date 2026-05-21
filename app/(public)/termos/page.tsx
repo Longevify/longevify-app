@@ -124,17 +124,32 @@ export default function TermosPage() {
         </p>
       </Section>
 
-      <Section title="7. Concierge IA e revisão humana">
+      <Section title='7. Concierge IA "Dr. Lon" e seus limites'>
         <p>
-          Algumas respostas do Concierge são geradas por sistemas de
-          inteligência artificial sob supervisão da equipe clínica. Decisões
-          relevantes — mudanças de protocolo, ajustes de medicação,
-          encaminhamentos — passam por revisão humana antes de chegarem em
-          você.
+          O Concierge &quot;Dr. Lon&quot; é um <strong>sistema de
+          inteligência artificial</strong>. Apesar do apelido de tratamento
+          &quot;Dr.&quot; — mantido por escolha de branding da Longevify — Lon{" "}
+          <strong>NÃO é médico humano</strong>, não tem CRM, e{" "}
+          <strong>não substitui consulta com profissional habilitado</strong>.
+          Em cada sessão, Lon se identifica explicitamente como IA.
         </p>
         <p>
-          A IA pode errar. Sempre confirme com a equipe clínica antes de tomar
-          qualquer decisão de saúde.
+          Lon NÃO prescreve medicamentos, NÃO ajusta dose de tratamento em
+          uso, NÃO emite diagnóstico definitivo. Suas respostas são
+          educacionais e baseadas em diretrizes oficiais (SBC, SBD, SBEM,
+          USPSTF, ESC, ADA, etc.) quando aplicável. Decisões clínicas
+          relevantes — mudança de protocolo, ajuste de medicação,
+          encaminhamento a especialista — devem ser tomadas com seu médico
+          assistente, e quando indicado pela Longevify, com médico parceiro
+          credenciado em teleorientação (CFM 2.314/2022).
+        </p>
+        <p>
+          A IA pode errar. Em qualquer dúvida clínica relevante ou em
+          sintomas agudos (dor torácica, sinais de AVC, falta de ar grave,
+          sangramento, ideação suicida) procure atendimento médico imediato:{" "}
+          <strong>SAMU 192</strong> / <strong>CVV 188</strong> /
+          pronto-socorro mais próximo. Não espere uma resposta do Concierge
+          para agir em urgências.
         </p>
       </Section>
 

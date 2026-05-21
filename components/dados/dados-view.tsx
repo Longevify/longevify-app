@@ -21,6 +21,7 @@ const BodyMannequin = dynamic(
 );
 import {
   CATEGORIES,
+  applyPatientSexToBiomarkers,
   type Biomarker,
   type CategoryGrade,
   type Patient,
@@ -80,10 +81,19 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
   const [scorePopupOpen, setScorePopupOpen] = useState(false);
   const [bioAgePopupOpen, setBioAgePopupOpen] = useState(false);
 
+  // Aplica faixas sex-specific antes da filtragem/exibição. Para HDL,
+  // Testosterona, Ferritina e ALT isso reclassifica o status (optimal/
+  // normal/out) com os cortes corretos para o sexo do paciente; demais
+  // biomarcadores passam inalterados.
+  const sexResolvedBiomarkers = useMemo(
+    () => applyPatientSexToBiomarkers(biomarkers, displaySex),
+    [biomarkers, displaySex],
+  );
+
   const filtered = useMemo(() => {
-    if (categoryId === "all") return biomarkers;
-    return biomarkers.filter((b) => b.categoryId === categoryId);
-  }, [categoryId, biomarkers]);
+    if (categoryId === "all") return sexResolvedBiomarkers;
+    return sexResolvedBiomarkers.filter((b) => b.categoryId === categoryId);
+  }, [categoryId, sexResolvedBiomarkers]);
 
   // Mapping órgão → status clínico real (a partir das organBioAges/Scores).
   // Usado no modo "Todos" pra colorir cada região com cor de status.
@@ -167,7 +177,7 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
           <BiomarkerRow
             key={b.id}
             biomarker={b}
-            related={biomarkers.filter(
+            related={sexResolvedBiomarkers.filter(
               (other) =>
                 other.id !== b.id && other.categoryId === b.categoryId,
             )}

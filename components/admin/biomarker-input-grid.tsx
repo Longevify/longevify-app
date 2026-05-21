@@ -7,16 +7,29 @@ import {
   isSanityWarning,
 } from "@/lib/admin/biomarker-catalog";
 import type { ExamBiomarkerValue } from "@/lib/admin/types";
+import {
+  classifyValueForSex,
+  getSexOverride,
+  type PatientSex,
+} from "@/lib/mock-data";
 import { BiomarkerStatusPreview } from "./biomarker-status-preview";
 
 interface BiomarkerInputGridProps {
   values: Record<string, string>; // raw user input
   onChange: (id: string, raw: string) => void;
+  /**
+   * Sexo biológico do paciente. Quando passado, HDL/Testosterona/
+   * Ferritina/ALT são classificados com cortes sex-specific corretos
+   * — sem isso, lab tech digitando exame de paciente do sexo feminino
+   * vê interpretação masculina (clinicamente incorreta).
+   */
+  patientSex?: PatientSex;
 }
 
 export function BiomarkerInputGrid({
   values,
   onChange,
+  patientSex,
 }: BiomarkerInputGridProps) {
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -24,8 +37,22 @@ export function BiomarkerInputGrid({
         const raw = values[meta.id] ?? "";
         const parsed = raw.trim() === "" ? NaN : Number(raw.replace(",", "."));
         const hasValue = Number.isFinite(parsed);
-        const status = hasValue ? classifyValue(meta, parsed) : undefined;
+        const status = hasValue
+          ? patientSex
+            ? classifyValueForSex(
+                meta.id,
+                meta.optimalRange,
+                meta.normalRange,
+                parsed,
+                patientSex,
+              )
+            : classifyValue(meta, parsed)
+          : undefined;
         const sanityWarn = hasValue && isSanityWarning(meta, parsed);
+        const sexOverride = patientSex
+          ? getSexOverride(meta.id, patientSex)
+          : null;
+        const displayLabel = sexOverride?.referenceLabel ?? meta.referenceLabel;
 
         return (
           <div
@@ -38,7 +65,10 @@ export function BiomarkerInputGrid({
                   {meta.name}
                 </div>
                 <div className="text-[11px] text-muted">
-                  {meta.category} · Ref. {meta.referenceLabel}
+                  {meta.category} · Ref. {displayLabel}
+                  {sexOverride ? (
+                    <span className="ml-1 text-brand-700">(faixa por sexo)</span>
+                  ) : null}
                 </div>
               </div>
               <BiomarkerStatusPreview status={status} />
@@ -74,9 +104,14 @@ export function BiomarkerInputGrid({
 /**
  * Converte o state bruto (strings) pra lista de ExamBiomarkerValue.
  * Ignora campos vazios/inválidos.
+ *
+ * Quando `patientSex` é fornecido, HDL/Testosterona/Ferritina/ALT são
+ * classificados com cortes sex-specific corretos (lib/mock-data).
+ * Sem `patientSex`, usa faixas default (preferencialmente masculinas).
  */
 export function computeExamValues(
   raw: Record<string, string>,
+  patientSex?: PatientSex,
 ): ExamBiomarkerValue[] {
   const out: ExamBiomarkerValue[] = [];
   for (const meta of BIOMARKER_CATALOG) {
@@ -84,11 +119,16 @@ export function computeExamValues(
     if (!s || s.trim() === "") continue;
     const n = Number(s.replace(",", "."));
     if (!Number.isFinite(n)) continue;
-    out.push({
-      biomarkerId: meta.id,
-      value: n,
-      status: classifyValue(meta, n),
-    });
+    const status = patientSex
+      ? classifyValueForSex(
+          meta.id,
+          meta.optimalRange,
+          meta.normalRange,
+          n,
+          patientSex,
+        )
+      : classifyValue(meta, n);
+    out.push({ biomarkerId: meta.id, value: n, status });
   }
   return out;
 }

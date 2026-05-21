@@ -1,9 +1,16 @@
 import Link from "next/link";
-import { AlertTriangle, CheckCircle2, MessageCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  MessageCircle,
+  Phone,
+  ShieldAlert,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn, formatDatePtBR } from "@/lib/utils";
 import {
+  getCriticalHits,
   getInterpretation,
   type Questionnaire,
 } from "@/lib/questionnaires/definitions";
@@ -57,8 +64,63 @@ export function ScoreResult({
   const max = maxScore(questionnaire);
   const recommendActive = current.score >= questionnaire.recommendThreshold;
 
+  // CRITICAL ITEMS — perguntas que disparam escalação imediata independente
+  // do score total. Ex.: PHQ-9 Q9 (ideação suicida) ≥ 1 já é red flag
+  // clínico mesmo se o score total estiver em "depressão leve". Esse bloco
+  // renderiza ANTES do interpretation card, em vermelho, com botões
+  // clicáveis para CVV (188) e SAMU (192).
+  const criticalHits = getCriticalHits(questionnaire, current.answers);
+
   return (
     <div className="flex flex-col gap-6">
+      {criticalHits.length > 0 ? (
+        <Card className="border-2 border-red-600 bg-red-50 p-6 shadow-md">
+          <div className="flex items-start gap-4">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-red-600 text-white">
+              <ShieldAlert className="h-6 w-6" />
+            </span>
+            <div className="min-w-0">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-red-700">
+                Atenção · avaliação prioritária
+              </span>
+              <h2 className="mt-1 text-[22px] font-semibold leading-tight text-red-900">
+                Identificamos uma resposta que precisa de atenção imediata
+              </h2>
+              {criticalHits.map((ci) => (
+                <div
+                  key={ci.questionId}
+                  className="mt-3 space-y-2 text-[14px] leading-relaxed text-red-900/90"
+                >
+                  <p>{ci.reason}</p>
+                  <p className="font-medium">{ci.escalation}</p>
+                </div>
+              ))}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <a
+                  href="tel:188"
+                  className="inline-flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition hover:bg-red-700"
+                >
+                  <Phone className="h-4 w-4" />
+                  CVV 188 (24h, gratuito)
+                </a>
+                <a
+                  href="tel:192"
+                  className="inline-flex items-center gap-2 rounded-full border border-red-600 bg-white px-4 py-2 text-[13px] font-semibold text-red-700 transition hover:bg-red-100"
+                >
+                  <Phone className="h-4 w-4" />
+                  SAMU 192
+                </a>
+              </div>
+              <p className="mt-3 text-[12px] leading-relaxed text-red-900/70">
+                O Concierge &quot;Dr. Lon&quot; é uma IA — em momentos como
+                este, você precisa falar com profissional humano habilitado.
+                Você não está sozinho(a).
+              </p>
+            </div>
+          </div>
+        </Card>
+      ) : null}
+
       <Card
         className={cn(
           "relative overflow-hidden p-6",
@@ -106,7 +168,7 @@ export function ScoreResult({
         </div>
       </Card>
 
-      {recommendActive ? (
+      {recommendActive && criticalHits.length === 0 ? (
         <Card className="flex flex-wrap items-center justify-between gap-4 border-brand-400/40 bg-brand-50/50 p-5">
           <div className="flex items-start gap-3">
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-100 text-brand-700">
@@ -114,11 +176,13 @@ export function ScoreResult({
             </span>
             <div>
               <h3 className="text-[15px] font-semibold leading-tight">
-                Recomendamos conversar com a equipe Longevify
+                Vale conversar com um(a) profissional habilitado(a)
               </h3>
               <p className="mt-1 text-[13px] text-muted">
-                Sua pontuação está num patamar que vale acompanhamento. O time
-                clínico revisa o resultado em até 24h.
+                Sua pontuação está num patamar que merece avaliação. Médico
+                parceiro credenciado da Longevify pode acompanhar via
+                teleorientação (CFM 2.314/2022); o Concierge IA &quot;Lon&quot;
+                ajuda com dúvidas educacionais — não substitui consulta.
               </p>
             </div>
           </div>

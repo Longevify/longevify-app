@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight, MessageCircle } from "lucide-react";
-import { BIOMARKERS } from "@/lib/mock-data";
+import { BIOMARKERS, applyPatientSexToBiomarker } from "@/lib/mock-data";
 import { getBiomarkerKnowledge, type BiomarkerKnowledge } from "@/lib/biomarker-knowledge";
 import { formatDatePtBR } from "@/lib/utils";
 import { StatusBadge } from "@/components/ui/badge";
@@ -43,7 +43,14 @@ export default async function BiomarkerDetailPage({
   // entraram no catálogo real do DB).
   const fromReal = dados.biomarkers.find((b) => b.id === biomarkerId);
   const fromMock = BIOMARKERS.find((b) => b.id === biomarkerId);
-  const biomarker = fromReal ?? fromMock;
+  const rawBiomarker = fromReal ?? fromMock;
+
+  // Aplica faixa sex-specific antes da exibição. Para HDL, Testosterona,
+  // Ferritina e ALT isso ajusta optimalRange/normalRange/referenceLabel
+  // e reclassifica `status` com cortes corretos para o sexo do paciente.
+  const biomarker = rawBiomarker
+    ? applyPatientSexToBiomarker(rawBiomarker, dados.patient.sex)
+    : undefined;
 
   // Layer 1: catálogo local curado. Se falhar, gera via AI (Opus 4.7) —
   // Lucas (2026-05-20): "todos os biomarcadores terão que ter páginas
@@ -84,14 +91,17 @@ export default async function BiomarkerDetailPage({
   const lastPoint = biomarker.history[biomarker.history.length - 1];
   const lastDate = lastPoint ? lastPoint.date : null;
 
-  // Related: tenta resolver pelo conjunto REAL primeiro, depois mock
+  // Related: tenta resolver pelo conjunto REAL primeiro, depois mock.
+  // Aplica sex resolution em cada um para que badges de status reflitam
+  // interpretação correta para o sexo do paciente.
   const related = knowledge.relatedBiomarkerIds
     .map(
       (id) =>
         dados.biomarkers.find((b) => b.id === id) ??
         BIOMARKERS.find((b) => b.id === id),
     )
-    .filter((b): b is NonNullable<typeof b> => Boolean(b));
+    .filter((b): b is NonNullable<typeof b> => Boolean(b))
+    .map((b) => applyPatientSexToBiomarker(b, dados.patient.sex));
 
   return (
     <div className="mx-auto w-full max-w-[1280px] px-6 py-8">
