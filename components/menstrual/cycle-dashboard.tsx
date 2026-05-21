@@ -7,10 +7,16 @@ import type {
   CyclePhase,
   MenstrualEntry,
   MenstrualProfile,
+  SymptomKey,
 } from "@/lib/menstrual/types";
-import { PHASE_COLOR, PHASE_LABEL } from "@/lib/menstrual/types";
+import {
+  PHASE_COLOR,
+  PHASE_LABEL,
+  SYMPTOM_CATALOG,
+} from "@/lib/menstrual/types";
 import {
   addDays,
+  describePhase,
   formatYmd,
   getCyclePhaseInfo,
   predictPhaseForDate,
@@ -127,6 +133,9 @@ export function CycleDashboard({ profile, initialEntries }: Props) {
       {entries.length > 0 && (
         <RecentSymptomsCard entries={entries.slice(0, 30)} />
       )}
+
+      {/* Explicações das 4 fases — expansíveis */}
+      <PhaseExplanationsCard />
 
       {/* Bottom sheet de registro */}
       {selectedDate && (
@@ -369,16 +378,79 @@ function RecentSymptomsCard({ entries }: { entries: MenstrualEntry[] }) {
         Sintomas mais frequentes (últimos 30 dias)
       </h3>
       <div className="mt-2 flex flex-wrap gap-2">
-        {counts.map(([key, count]) => (
-          <span
-            key={key}
-            className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-[12px] text-zinc-700"
-          >
-            <span className="font-medium">{key}</span>
-            <span className="text-zinc-400">×{count}</span>
-          </span>
-        ))}
+        {counts.map(([key, count]) => {
+          // Lucas (2026-05-21): "os sintomas deveriam estar em portugues
+          // e sem '_'." Usa SYMPTOM_CATALOG (key → pt + emoji). Fallback
+          // pra key formatada (sem underscore) se vier algo fora do
+          // catálogo (legacy entries, edge case).
+          const meta = SYMPTOM_CATALOG[key as SymptomKey];
+          const label = meta?.pt ?? key.replace(/_/g, " ");
+          const emoji = meta?.emoji ?? "";
+          return (
+            <span
+              key={key}
+              className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-[12px] text-zinc-700"
+            >
+              {emoji && <span aria-hidden>{emoji}</span>}
+              <span className="font-medium">{label}</span>
+              <span className="text-zinc-400">×{count}</span>
+            </span>
+          );
+        })}
       </div>
+    </div>
+  );
+}
+
+// ─── Explicações das fases (expansíveis) ──────────────────────────────────
+//
+// Lucas (2026-05-21): "Seria legal se tivesse algum lugar para colocar
+// as explicações de cada fase." Card no rodapé do dashboard com as 4
+// fases, cada uma collapsable, usando describePhase() + PHASE_COLOR.
+
+function PhaseExplanationsCard() {
+  const phases: CyclePhase[] = ["menstrual", "follicular", "ovulation", "luteal"];
+  const [expandedPhase, setExpandedPhase] = useState<CyclePhase | null>(null);
+  return (
+    <div className="mt-6 px-5">
+      <h3 className="text-[12px] font-semibold uppercase tracking-wide text-zinc-500">
+        Sobre as fases do ciclo
+      </h3>
+      <ul className="mt-2 flex flex-col gap-2">
+        {phases.map((p) => {
+          const color = PHASE_COLOR[p];
+          const isOpen = expandedPhase === p;
+          return (
+            <li key={p}>
+              <button
+                type="button"
+                onClick={() => setExpandedPhase(isOpen ? null : p)}
+                className="flex w-full items-center gap-3 rounded-2xl bg-white px-4 py-3 text-left ring-1 ring-zinc-200 transition hover:bg-zinc-50/60"
+              >
+                <span
+                  className="h-3 w-3 shrink-0 rounded-full"
+                  style={{ backgroundColor: color.ring }}
+                  aria-hidden
+                />
+                <span
+                  className="flex-1 text-[13.5px] font-semibold"
+                  style={{ color: color.text }}
+                >
+                  {PHASE_LABEL[p]}
+                </span>
+                <span className="text-[11px] text-zinc-400">
+                  {isOpen ? "Fechar" : "Ver"}
+                </span>
+              </button>
+              {isOpen && (
+                <p className="mt-1.5 px-4 text-[12.5px] leading-relaxed text-zinc-600">
+                  {describePhase(p)}
+                </p>
+              )}
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

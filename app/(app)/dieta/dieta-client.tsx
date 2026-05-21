@@ -119,6 +119,19 @@ export function DietaClient({
         </p>
       </header>
 
+      {/* Lucas (2026-05-21): "o botão de adicionar refeição tem que
+          estar no topo da aba da dieta." Movido pra cima de tudo. */}
+      <section className="mb-6">
+        <button
+          type="button"
+          onClick={() => setModalOpen(true)}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-br from-brand-700 to-brand-800 px-5 py-4 text-[15px] font-semibold text-white shadow-[0_8px_24px_-10px_rgba(31,93,63,0.4)] transition hover:shadow-[0_12px_32px_-10px_rgba(31,93,63,0.5)] active:scale-[0.99]"
+        >
+          <Plus className="h-5 w-5" strokeWidth={2.5} />
+          Adicionar refeição
+        </button>
+      </section>
+
       {/* Diagnóstico Dr. Lon */}
       {insights.length > 0 && (
         <section className="mb-6 rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50 to-white p-5">
@@ -203,13 +216,15 @@ export function DietaClient({
 
       {/* Vitaminas, minerais e outros nutrientes */}
       <section className="mb-5 overflow-hidden rounded-2xl border border-zinc-200 bg-white">
+        {/* Lucas (2026-05-21): "A aba de vitaminas deixa fechada quando
+            abre a aba de dieta" — sem defaultOpen, NutrientGroup começa
+            colapsada por default. */}
         <NutrientGroup
           title="Vitaminas"
           hint="Lipossolúveis (A, D, E, K) + hidrossolúveis (C, B-complex)"
           keys={VITAMIN_KEYS}
           totals={todayTotals}
           targets={targets}
-          defaultOpen
         />
         <NutrientGroup
           title="Minerais"
@@ -227,18 +242,9 @@ export function DietaClient({
         />
       </section>
 
-      {/* CTA + lista de refeições */}
+      {/* Lista de refeições (CTA movido pro topo) */}
       <section className="mb-8">
-        <button
-          type="button"
-          onClick={() => setModalOpen(true)}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-br from-brand-700 to-brand-800 px-5 py-4 text-[15px] font-semibold text-white shadow-[0_8px_24px_-10px_rgba(31,93,63,0.4)] transition hover:shadow-[0_12px_32px_-10px_rgba(31,93,63,0.5)] active:scale-[0.99]"
-        >
-          <Plus className="h-5 w-5" strokeWidth={2.5} />
-          Adicionar refeição
-        </button>
-
-        <h2 className="mt-7 mb-3 text-[13px] font-medium uppercase tracking-[0.14em] text-muted">
+        <h2 className="mb-3 text-[13px] font-medium uppercase tracking-[0.14em] text-muted">
           Refeições de hoje
         </h2>
         {todayMeals.length === 0 ? (
