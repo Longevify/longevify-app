@@ -52,11 +52,18 @@ export function isIntakeCompleted(): boolean {
   return window.localStorage.getItem(COMPLETED_FLAG_KEY) === "1";
 }
 
-export function createEmptyRecord(variant: IntakeVariant): IntakeRecord {
+/**
+ * Lucas (2026-05-21): "só tenha 1 opção de anamenese". Sempre cria
+ * record "comprehensive" (única variante restante). Parâmetro mantido
+ * pra backward-compat com chamadas legadas — ignorado se !== comp.
+ */
+export function createEmptyRecord(
+  _variant: IntakeVariant = "comprehensive",
+): IntakeRecord {
   const now = new Date().toISOString();
   return {
-    variant,
-    step: variant === "quick" ? "quick-1" : "comp-1",
+    variant: "comprehensive",
+    step: "comp-1",
     data: structuredCloneCompat(EMPTY_INTAKE_DATA),
     startedAt: now,
     updatedAt: now,
