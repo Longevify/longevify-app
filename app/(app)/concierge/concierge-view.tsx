@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { ChatWindow } from "@/components/concierge/chat-window";
 import type { ChatMessage } from "@/components/concierge/message-bubble";
+import { DR_LON_HANDOFF_STORAGE_KEY } from "@/components/app/dr-lon-floating";
 
 const SUGGESTIONS = [
   "Por que meu LDL está alto?",
@@ -44,6 +45,33 @@ export function ConciergeView({ addressName }: ConciergeViewProps) {
   ]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingId, setStreamingId] = useState<string | null>(null);
+
+  // Lucas (2026-05-21): handoff do Dr. Lon floating widget. Se sessionStorage
+  // tem histórico (gravado quando user clicou "Continuar no Concierge"),
+  // substitui o estado inicial pelo histórico, e limpa storage. Mantém
+  // a continuidade da conversa entre widget e full-page.
+  useEffect(() => {
+    try {
+      const raw = window.sessionStorage.getItem(DR_LON_HANDOFF_STORAGE_KEY);
+      if (!raw) return;
+      const handoff = JSON.parse(raw) as ChatMessage[];
+      if (Array.isArray(handoff) && handoff.length > 0) {
+        // Validação básica — espera shape {id, role, content}
+        const valid = handoff.filter(
+          (m) =>
+            typeof m?.id === "string" &&
+            (m?.role === "user" || m?.role === "assistant") &&
+            typeof m?.content === "string",
+        );
+        if (valid.length > 0) {
+          setMessages(valid);
+        }
+      }
+      window.sessionStorage.removeItem(DR_LON_HANDOFF_STORAGE_KEY);
+    } catch {
+      // Silent — mantém greeting default se algo falhar
+    }
+  }, []);
 
   const send = useCallback(
     async (text: string) => {
