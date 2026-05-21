@@ -17,6 +17,7 @@ import { EvolutionCard } from "@/components/home/evolution-card";
 import { BIOMARKERS } from "@/lib/mock-data";
 import { loadDadosForUser } from "@/lib/dados/server";
 import { generateProtocolTasks } from "@/lib/protocolo/tasks";
+import { getStreakDays } from "@/lib/protocolo/streak";
 import { DAILY_METRICS } from "@/lib/wearables-mock";
 
 // Lucas (2026-05-19): "ainda ta demorando".
@@ -101,9 +102,12 @@ export default async function HomePage() {
     patient.chronologicalAge - patient.biologicalAge
   ).toFixed(1);
 
-  // Streak placeholder — pra ter real, precisa de tabela `task_completions`
-  // com data. Por enquanto, deriva uma estimativa otimista do score.
-  const streakDays = Math.min(30, Math.max(1, Math.floor(patient.longevifyScore / 4)));
+  // Streak REAL: lê task_completions do Supabase, conta dias consecutivos
+  // com pelo menos 1 task feita. Demo (mock) pula a query e usa fallback
+  // estimado pelo score pra UX da demo não ficar zerada.
+  const streakDays = user.isDemo
+    ? Math.min(30, Math.max(1, Math.floor(patient.longevifyScore / 4)))
+    : await getStreakDays(user.id);
 
   return (
     <div className="mx-auto w-full max-w-[920px] px-4 py-6 sm:px-6 sm:py-10">

@@ -171,16 +171,33 @@ export function ProtocoloClient({
   const toggleDone = useCallback((taskId: string) => {
     setDoneTasks((prev) => {
       const next = new Set(prev);
-      if (next.has(taskId)) {
-        next.delete(taskId);
-      } else {
+      const isNowDone = !next.has(taskId);
+      if (isNowDone) {
         next.add(taskId);
+      } else {
+        next.delete(taskId);
       }
       try {
         localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify([...next]));
       } catch {
         // ignore storage errors
       }
+
+      // Lucas (2026-05-20): "tem que ser bem gameficado". Streak real
+      // requer persistência no Supabase. Fire-and-forget — UX otimista,
+      // não bloqueia o toggle visual. Se a request falhar (offline,
+      // 5xx), o user só perde o credit do streak desse dia.
+      fetch("/api/protocolo/task-completion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ task_id: taskId, done: isNowDone }),
+        // Mantém vivo se o user sair da página (sendBeacon-like)
+        keepalive: true,
+      }).catch(() => {
+        // Silent fail — localStorage já tem o estado, streak server-side
+        // só não conta esse toggle. Próximo toggle pode recuperar.
+      });
+
       return next;
     });
   }, []);
