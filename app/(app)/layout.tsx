@@ -4,6 +4,7 @@ import { TopNav } from "@/components/app/top-nav";
 import { BottomNav } from "@/components/app/bottom-nav";
 import { Footer } from "@/components/app/footer";
 import { DrLonFloating } from "@/components/app/dr-lon-floating";
+import { FirstTimeTutorial } from "@/components/onboarding/first-time-tutorial";
 import { UserProvider } from "@/lib/auth/user-context";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
@@ -51,6 +52,11 @@ export default async function AppLayout({
           mobile version também"). Em mobile o botão se posiciona
           acima do bottom-nav (ver dr-lon-floating.tsx). */}
       <DrLonFloating />
+
+      {/* Lucas (2026-05-21): "quero que tenha um tutorial de como usar
+          o app e todos os features na primeira vez que eu usar."
+          FirstTimeTutorial decide auto se mostra (localStorage flag). */}
+      <FirstTimeTutorial />
     </UserProvider>
   );
 }
