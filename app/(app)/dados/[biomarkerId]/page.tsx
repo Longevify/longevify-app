@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight, MessageCircle } from "lucide-react";
-import { BIOMARKERS, applyPatientSexToBiomarker } from "@/lib/mock-data";
+import {
+  BIOMARKERS,
+  applyPatientSexToBiomarker,
+  getSexOverride,
+} from "@/lib/mock-data";
 import { getBiomarkerKnowledge, type BiomarkerKnowledge } from "@/lib/biomarker-knowledge";
 import { formatDatePtBR } from "@/lib/utils";
 import { StatusBadge } from "@/components/ui/badge";
@@ -209,6 +213,27 @@ export default async function BiomarkerDetailPage({
             <p className="mt-4 text-[13px] leading-relaxed text-muted">
               {knowledge.rangeContext}
             </p>
+            {/* Nota de faixa por sexo — exibida apenas para biomarcadores
+                com cortes específicos por sexo (HDL, Testo, Ferritin, ALT).
+                Educa o paciente sobre POR QUE a faixa dele é diferente do
+                "padrão" genérico que pode ter visto em outros lugares. */}
+            {(() => {
+              const override = getSexOverride(biomarker.id, dados.patient.sex);
+              if (!override) return null;
+              return (
+                <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50/50 p-4">
+                  <div className="text-[10.5px] font-semibold uppercase tracking-wide text-blue-700">
+                    Faixa específica para seu sexo biológico
+                  </div>
+                  <p className="mt-2 text-[13px] leading-relaxed text-zinc-700">
+                    {override.note}
+                  </p>
+                  <p className="mt-2 text-[11px] italic text-zinc-500">
+                    Fonte: {override.source}
+                  </p>
+                </div>
+              );
+            })()}
           </Card>
 
           <Card className="p-6">

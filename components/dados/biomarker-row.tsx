@@ -117,10 +117,14 @@ export function BiomarkerRow({
   biomarker,
   related,
   className,
+  patientSex,
 }: {
   biomarker: Biomarker;
   related?: Biomarker[];
   className?: string;
+  /** Propagado para o popup; quando definido, popup mostra nota clínica
+   *  de faixa por sexo (HDL/Testo/Ferritin/ALT). */
+  patientSex?: import("@/lib/mock-data").PatientSex;
 }) {
   const [popupOpen, setPopupOpen] = useState(false);
 
@@ -202,6 +206,7 @@ export function BiomarkerRow({
           biomarker={biomarker}
           related={related ?? []}
           onClose={() => setPopupOpen(false)}
+          patientSex={patientSex}
         />
       )}
     </>

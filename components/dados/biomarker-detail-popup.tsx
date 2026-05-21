@@ -14,7 +14,12 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { cn } from "@/lib/utils";
-import type { Biomarker, BiomarkerStatus } from "@/lib/mock-data";
+import {
+  getSexOverride,
+  type Biomarker,
+  type BiomarkerStatus,
+  type PatientSex,
+} from "@/lib/mock-data";
 import { getBiomarkerKnowledge } from "@/lib/biomarker-knowledge";
 import { findSupplementForBiomarker } from "@/lib/biomarker-supplement-map";
 import { computeBiomarkerScale } from "@/lib/dados/biomarker-scale";
@@ -152,13 +157,22 @@ interface BiomarkerDetailPopupProps {
   biomarker: Biomarker;
   related: Biomarker[];
   onClose: () => void;
+  /**
+   * Sexo do paciente — quando informado e o biomarker tem override por sexo
+   * (HDL, Testosterona, Ferritina, ALT), o popup mostra um bloco explicando
+   * por que a faixa é específica para esse sexo e cita a diretriz fonte.
+   */
+  patientSex?: PatientSex;
 }
 
 export function BiomarkerDetailPopup({
   biomarker,
   related,
   onClose,
+  patientSex,
 }: BiomarkerDetailPopupProps) {
+  // Resolve override de sexo SE houver — pro bloco explicativo.
+  const sexOverride = patientSex ? getSexOverride(biomarker.id, patientSex) : null;
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -410,10 +424,27 @@ export function BiomarkerDetailPopup({
             </div>
           </div>
 
-          {/* Diagnóstico Dr. Lon */}
+          {/* Nota clínica de faixa por sexo — quando a faixa do paciente é
+              específica por sexo biológico, mostramos POR QUÊ é diferente
+              e citamos a diretriz fonte. Educa sobre a leitura correta. */}
+          {sexOverride ? (
+            <div className="border-t border-zinc-100 bg-blue-50/40 px-6 py-4">
+              <div className="text-[10.5px] font-semibold uppercase tracking-wide text-blue-700">
+                Faixa específica para seu sexo biológico
+              </div>
+              <p className="mt-2 text-[12.5px] leading-relaxed text-zinc-700">
+                {sexOverride.note}
+              </p>
+              <p className="mt-2 text-[10.5px] italic text-zinc-500">
+                Fonte: {sexOverride.source}
+              </p>
+            </div>
+          ) : null}
+
+          {/* Análise educacional do Dr. Lon (IA) — não é diagnóstico clínico. */}
           <div className="border-t border-zinc-100 bg-gradient-to-br from-brand-50 to-white px-6 py-5">
             <div className="text-[10.5px] font-semibold uppercase tracking-wide text-brand-700">
-              Diagnóstico Dr. Lon
+              Análise educacional · Dr. Lon (IA)
             </div>
             <h3 className="mt-1 text-[15px] font-semibold text-zinc-900">
               Por que está assim e como melhorar
