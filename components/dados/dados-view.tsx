@@ -177,6 +177,7 @@ export function DadosView({ patient, biomarkers, stats }: DadosViewProps) {
           <BiomarkerRow
             key={b.id}
             biomarker={b}
+            patientSex={displaySex}
             related={sexResolvedBiomarkers.filter(
               (other) =>
                 other.id !== b.id && other.categoryId === b.categoryId,
