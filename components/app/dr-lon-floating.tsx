@@ -1,9 +1,17 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import Link from "next/link";
-import { X, Send, ExternalLink, Sparkles } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { X, Send, ArrowRight, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+/**
+ * Storage key compartilhado com Concierge view — Dr. Lon floating grava
+ * o histórico de chat aqui ao clicar "Continuar no Concierge", e o
+ * /concierge consome no mount, limpando depois. Mantém continuidade
+ * conversacional sem precisar de backend.
+ */
+export const DR_LON_HANDOFF_STORAGE_KEY = "longevify.drlon.handoff";
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -61,6 +69,7 @@ function generateFakeResponse(question: string): string {
  * use o /concierge.
  */
 export function DrLonFloating() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([INITIAL_GREETING]);
   const [input, setInput] = useState("");
@@ -70,6 +79,33 @@ export function DrLonFloating() {
   // custom event que BottomNav emite quando MoreSheet abre/fecha.
   const [hiddenByBottomSheet, setHiddenByBottomSheet] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * Lucas (2026-05-21): "ao clicar no botão pequeno Dr Lon (Widget no
+   * canto inferior da tela), quero que apareça um botão para continuar
+   * a conversa na aba do concierge."
+   *
+   * Grava o histórico (convertido pra shape do Concierge: text → content)
+   * em sessionStorage e navega pra /concierge — onde a view consome
+   * e limpa. Mantém continuidade conversacional sem backend.
+   */
+  const handoffToConcierge = useCallback(() => {
+    try {
+      const handoff = messages.map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.text,
+      }));
+      window.sessionStorage.setItem(
+        DR_LON_HANDOFF_STORAGE_KEY,
+        JSON.stringify(handoff),
+      );
+    } catch {
+      // Silent — vai abrir Concierge com saudação default, não é fatal.
+    }
+    setOpen(false);
+    router.push("/concierge");
+  }, [messages, router]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -257,13 +293,16 @@ export function DrLonFloating() {
               <Send className="h-3.5 w-3.5" />
             </button>
           </form>
-          <Link
-            href="/concierge"
-            className="mt-2 flex items-center justify-center gap-1.5 text-[11px] font-medium text-brand-700 transition hover:text-brand-800"
+          {/* Lucas (2026-05-21): botão (não mais link tímido) que leva
+              pro Concierge LEVANDO o histórico do chat junto. */}
+          <button
+            type="button"
+            onClick={handoffToConcierge}
+            className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-full bg-gradient-to-br from-brand-700 to-brand-800 px-4 py-2 text-[12.5px] font-semibold text-white shadow-sm transition hover:from-brand-800 hover:to-brand-900 active:scale-[0.99]"
           >
             Continuar no Concierge
-            <ExternalLink className="h-3 w-3" />
-          </Link>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
     </div>
