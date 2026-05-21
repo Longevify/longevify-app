@@ -107,7 +107,10 @@ export default async function HomePage() {
 
   return (
     <div className="mx-auto w-full max-w-[920px] px-4 py-6 sm:px-6 sm:py-10">
-      <PostExamStories patient={patient} />
+      <PostExamStories
+        patient={patient}
+        prefetchedInsights={dados.insights}
+      />
 
       <header className="flex flex-col gap-1 pb-5 sm:pb-7">
         <span className="text-[13px] text-muted">Olá, {user.firstName}</span>

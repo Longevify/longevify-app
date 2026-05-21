@@ -15,6 +15,7 @@ import {
   computeOrganBioAges,
   computeOrganScores,
 } from "./compute";
+import type { BiomarkerInsight } from "@/lib/dados/personalized-insights";
 
 /**
  * Mapeia category_id CLÍNICA do DB (lipidico, hepatico, renal, etc.)
@@ -67,6 +68,13 @@ export interface DadosData {
   patient: Patient;
   biomarkers: Biomarker[];
   hasExams: boolean;
+  /**
+   * Insights Dr. Lon pré-computados pelo parse-route (GPT-4o-mini) e
+   * persistidos em exams.insights_data. Quando presente, PostExamStories
+   * abre instantâneo sem fetch client-side. Lucas (2026-05-20): "não
+   * quero esperar para a analise do Dr. Lon carregar".
+   */
+  insights?: Record<string, BiomarkerInsight>;
 }
 
 /**
@@ -99,7 +107,7 @@ export async function loadDadosForUser(opts: {
   const [examsRes, defsRes, scoreRes, profileRes] = await Promise.all([
     supabase
       .from("exams")
-      .select("id, taken_at")
+      .select("id, taken_at, insights_data")
       .eq("patient_id", opts.userId)
       .eq("status", "published")
       .order("taken_at", { ascending: false })
@@ -262,7 +270,17 @@ export async function loadDadosForUser(opts: {
     organScores,
   };
 
-  return { patient, biomarkers: withData, hasExams: true };
+  // Insights Dr. Lon pré-computados (parse-route → exams.insights_data).
+  // Estrutura: { insights: {...}, generated_at, provider, biomarker_ids }
+  // Defensivo: se coluna não existe (migration não aplicada) ou jsonb
+  // malformado, retorna undefined e o client cai pro fetch de fallback.
+  const latestExamInsights = exams[0]?.insights_data as
+    | { insights?: Record<string, BiomarkerInsight> }
+    | null
+    | undefined;
+  const insights = latestExamInsights?.insights;
+
+  return { patient, biomarkers: withData, hasExams: true, insights };
 }
 
 /**
