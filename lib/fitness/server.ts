@@ -385,6 +385,51 @@ export async function hydrateProgramExerciseNames(
 // ─── Corrida (running) ────────────────────────────────────────────────
 
 /**
+ * Phase 3H — Detail de uma corrida específica.
+ */
+export async function getRunningSession(
+  id: string,
+): Promise<RunningSession | null> {
+  if (!isSupabaseConfigured()) return null;
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken) return null;
+  const supabase = await createSupabaseWithJwt(accessToken);
+  const { data, error } = await supabase
+    .from("running_sessions")
+    .select(
+      `id, session_id, distance_km, duration_seconds, avg_pace_seconds_per_km,
+       coordinates, pace_segments, created_at,
+       workout_sessions!inner(patient_id, session_date, started_at, notes)`,
+    )
+    .eq("id", id)
+    .eq("workout_sessions.patient_id", userId)
+    .maybeSingle();
+  if (error || !data) return null;
+  const sessionRel = (
+    data as {
+      workout_sessions?: {
+        session_date?: string;
+        started_at?: string;
+        notes?: string | null;
+      };
+    }
+  ).workout_sessions;
+  return {
+    id: data.id as string,
+    sessionId: data.session_id as string,
+    distanceKm: data.distance_km as number | null,
+    durationSeconds: data.duration_seconds as number | null,
+    avgPaceSecondsPerKm: data.avg_pace_seconds_per_km as number | null,
+    coordinates: (data.coordinates as GpsPoint[] | null) ?? null,
+    paceSegments: (data.pace_segments as PaceSegment[] | null) ?? null,
+    createdAt: data.created_at as string,
+    sessionDate: sessionRel?.session_date,
+    startedAt: sessionRel?.started_at,
+    notes: sessionRel?.notes ?? null,
+  };
+}
+
+/**
  * Lista corridas do user, mais recente primeiro. Por padrão retorna
  * top 20.
  */
