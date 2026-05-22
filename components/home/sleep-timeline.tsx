@@ -193,16 +193,23 @@ export function SleepTimeline({
               laneIndex(seg.stage) * laneHeight + laneHeight / 2;
             const y2 =
               laneIndex(next.stage) * laneHeight + laneHeight / 2;
+            /**
+             * Lucas (2026-05-22): "estão meio estranhas essas linhas
+             * entre os blocos. da uma embelezada" → trocamos a linha
+             * reta colorida grossa (stroke=cor da fase + opacity .55 +
+             * width 2) por curva bezier sutil em cinza neutro. Visual
+             * fica orgânico estilo Apple Health.
+             */
+            const midY = (y1 + y2) / 2;
+            const path = `M ${x} ${y1} C ${x} ${midY} ${x} ${midY} ${x} ${y2}`;
             return (
-              <line
+              <path
                 key={`drop-${i}`}
-                x1={x}
-                y1={y1}
-                x2={x}
-                y2={y2}
-                stroke={STAGE_COLOR[seg.stage]}
-                strokeWidth="2"
-                opacity="0.55"
+                d={path}
+                fill="none"
+                stroke="rgba(82, 82, 91, 0.22)"
+                strokeWidth="1.25"
+                strokeLinecap="round"
                 vectorEffect="non-scaling-stroke"
               />
             );

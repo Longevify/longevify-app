@@ -73,6 +73,13 @@ export function CycleDashboard({ profile, initialEntries }: Props) {
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-b from-rose-50/40 via-white to-white pb-16 sm:pb-24">
+      {/*
+        Lucas (2026-05-22): "na aba ciclo no desktop version, o design
+        ta diferente dos demais, parece que ta mais largo do que as
+        demais abas." → wrapper interno mx-auto + max-w-[920px] pra
+        alinhar com /fitness (920px) e demais abas.
+      */}
+      <div className="mx-auto w-full max-w-[920px]">
       {/* Header insights */}
       <PhaseHeader info={phaseInfo} />
 
@@ -150,6 +157,7 @@ export function CycleDashboard({ profile, initialEntries }: Props) {
           }}
         />
       )}
+      </div>
     </div>
   );
 }
