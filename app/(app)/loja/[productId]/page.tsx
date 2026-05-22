@@ -4,7 +4,13 @@ import { ArrowLeft, ArrowRight, Check, Star } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { StatusDot } from "@/components/ui/badge";
 import { BIOMARKERS } from "@/lib/mock-data";
-import { CATEGORY_LABELS, getProductById } from "@/lib/products";
+import {
+  CATEGORY_LABELS,
+  formatBRL,
+  getProductById,
+  isDropshippingProduct,
+} from "@/lib/products";
+import { calculatePaymentFee } from "@/lib/pricing";
 import { getProductMatchedBiomarkers } from "@/lib/product-recommender";
 import { ProductImage } from "@/components/loja/product-image";
 import { BuySection } from "@/components/loja/buy-section";
@@ -94,6 +100,44 @@ export default async function ProductDetailPage({
             </span>
             <p className="text-[14px] text-ink">{product.usage}</p>
           </Card>
+
+          {isDropshippingProduct(product) ? (
+            <Card className="flex flex-col gap-2 border-brand-200 bg-brand-50/40 p-4">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[12px] font-medium uppercase tracking-[0.12em] text-brand-700">
+                  Curadoria médica · sem markup
+                </span>
+              </div>
+              <p className="text-[13px] leading-relaxed text-ink">
+                Curado pela equipe médica Longevify. Distribuído por{" "}
+                <strong className="font-semibold">{product.supplier}</strong>{" "}
+                — quando você confirma a compra, a Longevify compra esse
+                item na loja oficial do fornecedor e pede entrega na sua
+                casa. Não cobramos margem.
+              </p>
+              {product.costBRL !== undefined ? (
+                <dl className="mt-1 grid grid-cols-1 gap-1 text-[12.5px] text-ink/80 sm:grid-cols-2">
+                  <div className="flex justify-between gap-2 sm:block">
+                    <dt className="text-muted">Custo no fornecedor</dt>
+                    <dd className="font-medium">
+                      {formatBRL(product.costBRL)}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-2 sm:block">
+                    <dt className="text-muted">Taxa de pagamento (Stripe)</dt>
+                    <dd className="font-medium">
+                      {formatBRL(calculatePaymentFee(product.priceBRL))}
+                    </dd>
+                  </div>
+                </dl>
+              ) : null}
+              <p className="mt-1 text-[11.5px] text-muted">
+                Se o produto estiver fora de estoque no fornecedor oficial,
+                fica indisponível aqui também. Frete cobrado conforme
+                política do fornecedor.
+              </p>
+            </Card>
+          ) : null}
 
           {targetedBiomarkers.length > 0 && (
             <div className="flex flex-wrap gap-2">

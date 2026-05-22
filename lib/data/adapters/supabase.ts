@@ -264,7 +264,7 @@ function mapProduct(row: Record<string, unknown>): Product {
   const kickerByCategory: Record<ProductCategory, string> = {
     exame: "Exame Diagnóstico",
     suplemento: "Suplemento",
-    "longevify-original": "Suplemento Longevify",
+    natural: "Naturais & Cuidados",
   };
   return {
     id: String(row.id),

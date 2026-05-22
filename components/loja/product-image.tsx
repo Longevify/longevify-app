@@ -7,7 +7,7 @@ import type { Product, ProductCategory } from "@/lib/products";
 const CATEGORY_GRADIENTS: Record<ProductCategory, string> = {
   exame: "from-[#DFF5E9] via-[#C9E9D6] to-[#9FD4B3]",
   suplemento: "from-[#E7F5EC] via-[#9FD4B3] to-[#6DBA8E]",
-  "longevify-original": "from-[#F4FAF6] via-[#E7F5EC] to-[#C9E9D6]",
+  natural: "from-[#F4FAF6] via-[#E7F5EC] to-[#C9E9D6]",
 };
 
 const ASPECT: Record<NonNullable<ProductImageProps["aspect"]>, string> = {
@@ -43,7 +43,10 @@ export function ProductImage({
     return (
       <div
         className={cn(
-          "relative overflow-hidden rounded-[16px] bg-[#F5F5F4]",
+          // bg #e8e4db = mesma cor das fotos dos exames Longevify,
+          // mantém coerência visual quando a imagem do produto tem
+          // fundo padronizado nessa cor (ver scripts/standardize-image-bg.py)
+          "relative overflow-hidden rounded-[16px] bg-[#e8e4db]",
           ASPECT[aspect],
           className,
         )}
