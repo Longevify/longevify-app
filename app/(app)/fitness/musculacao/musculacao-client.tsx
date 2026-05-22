@@ -28,6 +28,8 @@ import {
   type PastSet,
 } from "@/components/fitness/exercise-history-popup";
 import { WeeklyMuscleAnalysis } from "@/components/fitness/weekly-muscle-analysis";
+import { RestTimer } from "@/components/fitness/rest-timer";
+import { PlateCalculator } from "@/components/fitness/plate-calculator";
 
 /**
  * Musculação (Phase 2):
@@ -376,6 +378,11 @@ function LogSetModal({
   const [rpe, setRpe] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
 
+  // Phase 3D: rest timer + plate calc
+  const [timerActive, setTimerActive] = useState(false);
+  const [timerSeconds, setTimerSeconds] = useState(90);
+  const [showPlateCalc, setShowPlateCalc] = useState(false);
+
   const submit = () => {
     const w = parseFloat(weight.replace(",", "."));
     const r = parseInt(reps, 10);
@@ -395,13 +402,15 @@ function LogSetModal({
           title: "Set registrado",
           description: `${exercise.name} · ${Number.isFinite(w) ? `${w}kg × ` : ""}${r} reps`,
         });
-        // Toast extra pra cada nova conquista
+        // Toast extra pra cada nova conquista (Phase 3C)
         for (const ach of result.data?.newAchievements ?? []) {
           toast.success({
             title: `🏆 Nova conquista: ${ach.emoji} ${ach.title}`,
             description: `${ach.description} (+${ach.xp} XP)`,
           });
         }
+        // Inicia rest timer automaticamente (Phase 3D)
+        setTimerActive(true);
         // Limpa campos pra próximo set
         setWeight(weight); // mantém peso (geralmente repete)
         setReps("");
@@ -411,6 +420,10 @@ function LogSetModal({
       }
     });
   };
+
+  // Peso parseado pro plate calculator (só aparece se é treino com barra)
+  const weightForPlates = parseFloat(weight.replace(",", "."));
+  const isBarbellExercise = exercise.equipment === "barbell";
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
@@ -512,6 +525,63 @@ function LogSetModal({
               10 = falha total. 8 = 2 reps na reserva. 6 = leve.
             </p>
           </div>
+
+          {/* Phase 3D: Rest timer (aparece após gravar set) */}
+          {timerActive && (
+            <div className="mt-5">
+              <RestTimer
+                seconds={timerSeconds}
+                onComplete={() => {
+                  /* deixa o usuário ver "Pronto!" */
+                }}
+                onClose={() => setTimerActive(false)}
+              />
+              <div className="mt-2 flex flex-wrap gap-1.5 text-[10.5px]">
+                <span className="text-zinc-500">Sugestão pra duração:</span>
+                {[60, 90, 120, 180].map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setTimerSeconds(s)}
+                    className={cn(
+                      "rounded px-1.5 py-0.5 font-semibold tabular-nums transition",
+                      timerSeconds === s
+                        ? "bg-brand-700 text-white"
+                        : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200",
+                    )}
+                  >
+                    {s < 60 ? `${s}s` : `${Math.floor(s / 60)}min`}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Phase 3D: Calculadora de anilhas */}
+          {isBarbellExercise && (
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => setShowPlateCalc((s) => !s)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-100 px-3 py-1.5 text-[11.5px] font-semibold text-zinc-700 transition hover:bg-zinc-200"
+              >
+                🧮 {showPlateCalc ? "Esconder" : "Mostrar"} cálculo de anilhas
+              </button>
+              {showPlateCalc &&
+                Number.isFinite(weightForPlates) &&
+                weightForPlates > 0 && (
+                  <div className="mt-2">
+                    <PlateCalculator totalKg={weightForPlates} />
+                  </div>
+                )}
+              {showPlateCalc &&
+                (!Number.isFinite(weightForPlates) || weightForPlates <= 0) && (
+                  <p className="mt-2 text-[10.5px] text-zinc-500">
+                    Informe o peso pra calcular as anilhas.
+                  </p>
+                )}
+            </div>
+          )}
 
           {/* Video library hint */}
           {exercise.videoUrl ? (

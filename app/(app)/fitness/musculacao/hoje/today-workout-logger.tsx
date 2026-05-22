@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { logStrengthSet } from "../../actions";
 import { toast } from "@/lib/toast";
 import type { ProgramDay } from "@/lib/fitness/types";
+import { RestTimer } from "@/components/fitness/rest-timer";
 
 /**
  * Logger interativo dos exercícios do treino do dia.
@@ -113,6 +114,7 @@ export function TodayWorkoutLogger({ day }: TodayWorkoutLoggerProps) {
                   targetSets={ex.targetSets}
                   targetReps={ex.targetReps}
                   targetRpe={ex.targetRpe}
+                  restSeconds={ex.restSeconds}
                   notes={ex.notes ?? null}
                   loggedSets={exerciseLogged}
                   onLogged={(set) => setLogged((cur) => [...cur, set])}
@@ -131,6 +133,7 @@ function ExerciseLogger({
   targetSets,
   targetReps,
   targetRpe,
+  restSeconds,
   notes,
   loggedSets,
   onLogged,
@@ -139,6 +142,7 @@ function ExerciseLogger({
   targetSets: number;
   targetReps: string;
   targetRpe: number | null;
+  restSeconds: number;
   notes: string | null;
   loggedSets: LoggedSet[];
   onLogged: (set: LoggedSet) => void;
@@ -154,6 +158,7 @@ function ExerciseLogger({
   );
   const [rpe, setRpe] = useState<number | null>(targetRpe);
   const [pending, startTransition] = useTransition();
+  const [timerActive, setTimerActive] = useState(false);
 
   const submit = () => {
     const w = parseFloat(weight.replace(",", "."));
@@ -184,6 +189,8 @@ function ExerciseLogger({
           title: `Set ${loggedSets.length + 1} ✓`,
           description: `${Number.isFinite(w) ? `${w}kg × ` : ""}${r} reps`,
         });
+        // Inicia rest timer auto (Phase 3D)
+        setTimerActive(true);
         // Limpa reps pra próximo, mantém peso (comum repetir)
         setReps(repsHint);
       } else {
@@ -303,6 +310,16 @@ function ExerciseLogger({
         Target: {targetSets} sets × {targetReps} reps
         {targetRpe && ` @ RPE ${targetRpe}`}
       </p>
+
+      {/* Phase 3D: Rest timer aparece automaticamente após gravar set */}
+      {timerActive && (
+        <div className="mt-3">
+          <RestTimer
+            seconds={restSeconds || 90}
+            onClose={() => setTimerActive(false)}
+          />
+        </div>
+      )}
     </div>
   );
 }
