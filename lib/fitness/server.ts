@@ -7,9 +7,12 @@ import type {
   EquipmentKind,
   ExerciseCategory,
   ExperienceLevel,
+  GpsPoint,
   MuscleGroup,
+  PaceSegment,
   ProgramGoal,
   ProgramStructure,
+  RunningSession,
   WorkoutProgram,
   WorkoutSet,
   WorkoutSession,
@@ -373,5 +376,128 @@ export async function hydrateProgramExerciseNames(
         })),
       })),
     },
+  };
+}
+
+// ─── Corrida (running) ────────────────────────────────────────────────
+
+/**
+ * Lista corridas do user, mais recente primeiro. Por padrão retorna
+ * top 20.
+ */
+export async function getRunningHistory(
+  limit = 20,
+): Promise<RunningSession[]> {
+  if (!isSupabaseConfigured()) return [];
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken) return [];
+  const supabase = await createSupabaseWithJwt(accessToken);
+  const { data, error } = await supabase
+    .from("running_sessions")
+    .select(
+      `
+      id, session_id, distance_km, duration_seconds, avg_pace_seconds_per_km,
+      coordinates, pace_segments, created_at,
+      workout_sessions!inner(patient_id, session_date, started_at, notes)
+      `,
+    )
+    .eq("workout_sessions.patient_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error || !data) return [];
+  return data.map((r) => {
+    const sessionRel = (r as {
+      workout_sessions?: {
+        session_date?: string;
+        started_at?: string;
+        notes?: string | null;
+      };
+    }).workout_sessions;
+    return {
+      id: r.id as string,
+      sessionId: r.session_id as string,
+      distanceKm: r.distance_km as number | null,
+      durationSeconds: r.duration_seconds as number | null,
+      avgPaceSecondsPerKm: r.avg_pace_seconds_per_km as number | null,
+      coordinates: (r.coordinates as GpsPoint[] | null) ?? null,
+      paceSegments: (r.pace_segments as PaceSegment[] | null) ?? null,
+      createdAt: r.created_at as string,
+      sessionDate: sessionRel?.session_date,
+      startedAt: sessionRel?.started_at,
+      notes: sessionRel?.notes ?? null,
+    };
+  });
+}
+
+/**
+ * Stats agregadas pra header da aba Corrida.
+ */
+export async function getRunningStats(): Promise<{
+  totalKmThisMonth: number;
+  totalRunsThisMonth: number;
+  bestPaceSecondsPerKm: number | null;
+  longestRunKm: number | null;
+}> {
+  if (!isSupabaseConfigured())
+    return {
+      totalKmThisMonth: 0,
+      totalRunsThisMonth: 0,
+      bestPaceSecondsPerKm: null,
+      longestRunKm: null,
+    };
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken)
+    return {
+      totalKmThisMonth: 0,
+      totalRunsThisMonth: 0,
+      bestPaceSecondsPerKm: null,
+      longestRunKm: null,
+    };
+  const supabase = await createSupabaseWithJwt(accessToken);
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    .toISOString()
+    .slice(0, 10);
+
+  const { data, error } = await supabase
+    .from("running_sessions")
+    .select(
+      `distance_km, avg_pace_seconds_per_km, workout_sessions!inner(patient_id, session_date)`,
+    )
+    .eq("workout_sessions.patient_id", userId);
+
+  if (error || !data) {
+    return {
+      totalKmThisMonth: 0,
+      totalRunsThisMonth: 0,
+      bestPaceSecondsPerKm: null,
+      longestRunKm: null,
+    };
+  }
+
+  let totalKmThisMonth = 0;
+  let totalRunsThisMonth = 0;
+  let bestPace: number | null = null;
+  let longestKm: number | null = null;
+
+  for (const r of data) {
+    const sessionRel = (r as { workout_sessions?: { session_date?: string } })
+      .workout_sessions;
+    const km = (r.distance_km as number | null) ?? 0;
+    const pace = r.avg_pace_seconds_per_km as number | null;
+    if (sessionRel?.session_date && sessionRel.session_date >= startOfMonth) {
+      totalKmThisMonth += km;
+      totalRunsThisMonth += 1;
+    }
+    if (km > 0 && (longestKm === null || km > longestKm)) longestKm = km;
+    if (pace && pace > 0 && (bestPace === null || pace < bestPace))
+      bestPace = pace;
+  }
+
+  return {
+    totalKmThisMonth,
+    totalRunsThisMonth,
+    bestPaceSecondsPerKm: bestPace,
+    longestRunKm: longestKm,
   };
 }

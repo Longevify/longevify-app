@@ -7,6 +7,8 @@ import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
 import type {
   EquipmentKind,
   ExperienceLevel,
+  GpsPoint,
+  PaceSegment,
   ProgramGoal,
   ProgramStructure,
 } from "@/lib/fitness/types";
@@ -195,6 +197,90 @@ export async function archiveActiveProgram(): Promise<ActionResult> {
   revalidatePath("/fitness/musculacao");
   revalidatePath("/fitness/musculacao/programa");
   return { ok: true };
+}
+
+/**
+ * Salva uma sessão de corrida.
+ *
+ * Cria workout_session (kind='running') + running_session (1:1) com
+ * coords GPS, pace por km, distância total e duração.
+ *
+ * Lucas (2026-05-21): "atuando como cronometro, medidor de pace e
+ * mostrando a localização de onde você está correndo, quanto o pace
+ * ta variando nos determinados pontos do trajeto"
+ */
+export async function saveRunningSession(input: {
+  distanceKm: number;
+  durationSeconds: number;
+  avgPaceSecondsPerKm: number;
+  coordinates: GpsPoint[];
+  paceSegments: PaceSegment[];
+  notes?: string;
+}): Promise<ActionResult<{ sessionId: string; runningId: string }>> {
+  if (!isSupabaseConfigured()) {
+    return { ok: false, error: "Supabase indisponível" };
+  }
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken) {
+    return { ok: false, error: "Não autenticado" };
+  }
+  if (input.distanceKm <= 0 || input.durationSeconds <= 0) {
+    return { ok: false, error: "Distância ou duração inválida" };
+  }
+
+  const supabase = await createSupabaseWithJwt(accessToken);
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Cria a workout_session
+  const { data: session, error: sessErr } = await supabase
+    .from("workout_sessions")
+    .insert({
+      patient_id: userId,
+      kind: "running",
+      session_date: today,
+      notes: input.notes ?? null,
+      ended_at: new Date().toISOString(),
+    })
+    .select("id")
+    .single();
+
+  if (sessErr || !session) {
+    return {
+      ok: false,
+      error: `Erro ao criar sessão: ${sessErr?.message ?? "—"}`,
+    };
+  }
+
+  const sessionId = session.id as string;
+
+  // Cria a running_session
+  const { data: running, error: runErr } = await supabase
+    .from("running_sessions")
+    .insert({
+      session_id: sessionId,
+      distance_km: input.distanceKm,
+      duration_seconds: input.durationSeconds,
+      avg_pace_seconds_per_km: input.avgPaceSecondsPerKm,
+      coordinates: input.coordinates,
+      pace_segments: input.paceSegments,
+    })
+    .select("id")
+    .single();
+
+  if (runErr || !running) {
+    // Rollback parcial: deleta workout_session pra não ter órfão
+    await supabase.from("workout_sessions").delete().eq("id", sessionId);
+    return {
+      ok: false,
+      error: `Erro ao gravar corrida: ${runErr?.message ?? "—"}`,
+    };
+  }
+
+  revalidatePath("/fitness/corrida");
+  return {
+    ok: true,
+    data: { sessionId, runningId: running.id as string },
+  };
 }
 
 /** Deleta um set (rollback de erro de digitação, por exemplo). */
