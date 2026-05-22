@@ -170,8 +170,13 @@ export default async function HomePage() {
           um em cima do outro e a sub aba 'suas tarefas' deve ficar
           ao lado desses 2 cards empilhados". Em desktop: 2 colunas
           com Score+BioAge stacked à esquerda e TodoSidebar à direita.
-          Mobile: linear (Score → BioAge → TodoSidebar). */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_300px]">
+          Mobile: linear (Score → BioAge → TodoSidebar).
+
+          Lucas (2026-05-22): "scores tem que ser mais curtos e maiores
+          de altura (largura menor)" + "aumente a largura e altura desse
+          caderno" → cards stacked numa coluna mais ESTREITA (320px) e
+          TodoSidebar herda o resto da largura disponível (1fr). */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,320px)_1fr]">
         <CompactHealthSummary
           score={patient.longevifyScore}
           scoreStatus={patient.scoreStatus}

@@ -16,16 +16,22 @@ import type { ProtocolTask } from "@/lib/protocolo/tasks";
  * que preenchi ela, quero que apareça a task com um check por cima e
  * que a task não suma simplesmente."
  *
- * Visual: caderno pautado.
- *   - Fundo cream (#fefef0) com linhas horizontais via repeating-linear-gradient
- *   - Margem vermelha vertical à esquerda (estilo fichário)
- *   - Bordas suaves + sombra de papel
- *   - Font handwritten (Caveat ou Patrick Hand via fallback system cursive)
+ * Lucas (2026-05-22, segunda iteração): "Deixe a letra do caderno
+ * igual as demais letras, aumente a largura e altura desse caderno,
+ * a cor não pode ser vermelha e sim verde."
  *
- * Comportamento (mudança importante):
- *   - Lista ÚNICA com TODAS as tasks (não separa "feitas" em seção colapsada).
- *   - Click marca/desmarca — task fica riscada NO LUGAR (não some).
- *   - Mantém persist em localStorage + DB (igual antes).
+ * Visual final do caderno pautado:
+ *   - Background cream (#fdfcf5) com linhas horizontais verdes sutis
+ *     (a cada 36px — antes 28px → mais espaço pra cada task respirar)
+ *   - Margem VERDE vertical à esquerda (era vermelha)
+ *   - Letra padrão sans (era cursive Caveat)
+ *   - Padding interno maior pra caderno ficar mais robusto
+ *   - Mostra até 14 tasks visíveis (era 10)
+ *
+ * Comportamento:
+ *   - Lista ÚNICA com TODAS as tasks (não separa "feitas" em colapso).
+ *   - Click marca/desmarca — task fica riscada NO LUGAR com X verde.
+ *   - Mantém persist em localStorage + DB.
  */
 
 interface TodoSidebarProps {
@@ -77,8 +83,7 @@ export function TodoSidebar({ tasks, className }: TodoSidebarProps) {
     ? tasks.filter((t) => doneIds.has(t.id)).length
     : 0;
 
-  // Mostra até 10 tasks no card; resto via link "Ver tudo".
-  const visibleTasks = tasks.slice(0, 10);
+  const visibleTasks = tasks.slice(0, 14);
   const remaining = tasks.length - visibleTasks.length;
 
   return (
@@ -88,39 +93,39 @@ export function TodoSidebar({ tasks, className }: TodoSidebarProps) {
         className,
       )}
       style={{
-        // Papel cream pautado com linhas horizontais (estilo caderno
-        // pautado clássico). Linha azul sutil a cada 28px.
+        // Papel cream pautado com linhas horizontais VERDES sutis (linha
+        // a cada 36px pra task ficar bem espaçada).
         backgroundColor: "#fdfcf5",
         backgroundImage:
-          "repeating-linear-gradient(to bottom, transparent 0px, transparent 27px, rgba(99, 134, 184, 0.18) 27px, rgba(99, 134, 184, 0.18) 28px)",
-        backgroundPositionY: "40px",
+          "repeating-linear-gradient(to bottom, transparent 0px, transparent 35px, rgba(63, 154, 107, 0.18) 35px, rgba(63, 154, 107, 0.18) 36px)",
+        backgroundPositionY: "48px",
       }}
     >
-      {/* Margem vermelha vertical (fichário) */}
+      {/* Margem VERTICAL VERDE (era vermelha) — estilo fichário */}
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-y-0 left-[28px] w-px"
-        style={{ backgroundColor: "rgba(220, 80, 80, 0.45)" }}
+        className="pointer-events-none absolute inset-y-0 left-[32px] w-px"
+        style={{ backgroundColor: "rgba(42, 122, 83, 0.5)" }}
       />
-      {/* Sombra dobrada do papel no canto */}
+      {/* Sombra dobrada no canto */}
       <span
         aria-hidden
         className="pointer-events-none absolute bottom-0 right-0 h-6 w-6 rounded-br-2xl bg-gradient-to-tl from-zinc-200/40 to-transparent"
       />
 
-      <header className="relative flex items-baseline justify-between gap-2 px-5 pt-4 pb-2">
-        <h3 className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-zinc-700">
-          <ListTodo className="h-3.5 w-3.5 text-rose-500" />
+      <header className="relative flex items-baseline justify-between gap-2 px-5 pt-5 pb-3">
+        <h3 className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-zinc-700">
+          <ListTodo className="h-4 w-4 text-brand-600" />
           Suas tarefas
           {hydrated && doneCount > 0 && (
-            <span className="ml-1 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9.5px] font-bold text-emerald-700 tabular-nums">
+            <span className="ml-1 rounded-full bg-brand-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-700 tabular-nums">
               {doneCount}/{tasks.length}
             </span>
           )}
         </h3>
         <Link
           href="/protocolo"
-          className="inline-flex items-center gap-1 text-[11.5px] font-medium text-zinc-500 hover:text-rose-600"
+          className="inline-flex items-center gap-1 text-[12px] font-medium text-zinc-500 hover:text-brand-700"
         >
           Ver tudo <ArrowRight className="h-3 w-3" />
         </Link>
@@ -128,27 +133,20 @@ export function TodoSidebar({ tasks, className }: TodoSidebarProps) {
 
       {tasks.length === 0 ? (
         <div className="relative px-5 pb-5">
-          <div className="rounded-xl bg-emerald-50/60 px-3 py-4 text-center">
+          <div className="rounded-xl bg-brand-50/60 px-3 py-4 text-center">
             <div className="text-[20px]" aria-hidden>
               🎉
             </div>
-            <div className="mt-1 text-[12.5px] font-semibold text-emerald-800">
+            <div className="mt-1 text-[13px] font-semibold text-brand-800">
               Tudo limpo!
             </div>
-            <div className="mt-0.5 text-[11px] text-emerald-700/70">
+            <div className="mt-0.5 text-[11.5px] text-brand-700/70">
               Sem tarefas pendentes hoje.
             </div>
           </div>
         </div>
       ) : (
-        <ul
-          className="relative flex flex-col pl-12 pr-4 pb-4"
-          style={{
-            // Cada item ocupa exatos 28px de altura pra encaixar nas linhas
-            fontFamily:
-              '"Caveat", "Patrick Hand", "Bradley Hand", "Comic Sans MS", cursive',
-          }}
-        >
+        <ul className="relative flex flex-col pl-14 pr-5 pb-5">
           {visibleTasks.map((task) => {
             const done = hydrated && doneIds.has(task.id);
             return (
@@ -161,13 +159,10 @@ export function TodoSidebar({ tasks, className }: TodoSidebarProps) {
             );
           })}
           {remaining > 0 && (
-            <li
-              className="relative flex items-center h-[28px] text-[15px]"
-              style={{ marginLeft: "-2px" }}
-            >
+            <li className="relative flex items-center h-[36px]">
               <Link
                 href="/protocolo"
-                className="text-[14px] italic text-zinc-500 hover:text-rose-600"
+                className="text-[13px] text-zinc-500 italic hover:text-brand-700"
               >
                 + {remaining} {remaining === 1 ? "outra" : "outras"}…
               </Link>
@@ -188,19 +183,19 @@ interface TodoLineProps {
 }
 
 /**
- * Linha individual estilo "anotação manual em caderno":
- *  - Checkbox redondo manuscrito (border-2 com cor da caneta)
- *  - Quando done: check ❌ ou ✓ desenhado por cima + texto riscado
- *  - Hover bg sutil mas sem destruir o "papel"
- *  - Altura 28px exata pra encaixar nas linhas do fundo
+ * Linha individual estilo anotação em caderno:
+ *  - Checkbox redondo com borda zinc → verde brand quando done
+ *  - Quando done: X verde brand desenhado por cima + line-through verde
+ *  - Altura 36px exata pra encaixar nas linhas do fundo
+ *  - Letra padrão (sans-serif) — não mais cursive
  */
 function TodoLine({ task, done, onToggle }: TodoLineProps) {
   return (
-    <li className="relative flex items-center" style={{ height: "28px" }}>
+    <li className="relative flex items-center" style={{ height: "36px" }}>
       <button
         type="button"
         onClick={onToggle}
-        className="group flex w-full items-center gap-2.5 text-left transition"
+        className="group flex w-full items-center gap-3 text-left transition"
         aria-label={done ? "Desmarcar" : "Marcar como feito"}
       >
         {/* Checkbox manuscrito */}
@@ -208,20 +203,20 @@ function TodoLine({ task, done, onToggle }: TodoLineProps) {
           className={cn(
             "relative grid h-4 w-4 shrink-0 place-items-center rounded-[3px] border-2 transition",
             done
-              ? "border-rose-500"
-              : "border-zinc-400/60 group-hover:border-rose-400",
+              ? "border-brand-600"
+              : "border-zinc-400/60 group-hover:border-brand-500",
           )}
           style={{
-            backgroundColor: done ? "rgba(254, 226, 226, 0.4)" : "transparent",
+            backgroundColor: done ? "rgba(199, 234, 213, 0.5)" : "transparent",
           }}
         >
           {done && (
-            // X manuscrito (mais pra "risquei feito" do que checkmark)
+            // X manuscrito verde (era vermelho)
             <svg
               viewBox="0 0 12 12"
               className="h-3 w-3"
               fill="none"
-              stroke="rgb(220, 38, 38)"
+              stroke="rgb(42, 122, 83)"
               strokeWidth="2"
               strokeLinecap="round"
             >
@@ -231,26 +226,24 @@ function TodoLine({ task, done, onToggle }: TodoLineProps) {
           )}
         </span>
 
-        {/* Texto da task — cursive, riscado quando done */}
+        {/* Texto da task — fonte normal, line-through verde quando done */}
         <span
           className={cn(
-            "min-w-0 flex-1 truncate transition",
+            "min-w-0 flex-1 truncate text-[13.5px] leading-snug transition",
             done
               ? "text-zinc-400"
               : "text-zinc-800 group-hover:text-zinc-900",
           )}
-          style={{
-            fontSize: "16px",
-            lineHeight: "1",
-            // Risco manuscrito SVG via text-decoration nativo não fica
-            // "manuscrito"; usa text-decoration-style wavy/squiggly
-            ...(done && {
-              textDecoration: "line-through",
-              textDecorationColor: "rgba(220, 38, 38, 0.7)",
-              textDecorationThickness: "1.5px",
-              textDecorationStyle: "solid",
-            }),
-          }}
+          style={
+            done
+              ? {
+                  textDecoration: "line-through",
+                  textDecorationColor: "rgba(42, 122, 83, 0.7)",
+                  textDecorationThickness: "1.5px",
+                  textDecorationStyle: "solid",
+                }
+              : undefined
+          }
         >
           {task.label}
         </span>
