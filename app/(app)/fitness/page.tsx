@@ -25,6 +25,7 @@ import { estimateVo2Max, computeRecoveryScore } from "@/lib/fitness/insights";
 import { ActivityHeatmap } from "@/components/fitness/activity-heatmap";
 import { Vo2MaxCard } from "@/components/fitness/vo2max-card";
 import { RecoveryCard } from "@/components/fitness/recovery-card";
+import { DrLonWeeklyInsights } from "@/components/fitness/dr-lon-weekly-insights";
 import {
   MUSCLE_GROUP_LABEL,
   MUSCLE_GROUP_EMOJI,
@@ -112,6 +113,9 @@ export default async function FitnessIndex() {
           {vo2max && <Vo2MaxCard estimate={vo2max} />}
         </section>
       )}
+
+      {/* Dr. Lon weekly AI insights (Phase 3F) */}
+      <DrLonWeeklyInsights />
 
       {/* Heatmap */}
       <ActivityHeatmap days={heatmap} totalDays={90} />
