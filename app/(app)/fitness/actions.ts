@@ -455,3 +455,85 @@ export async function deleteStrengthSet(setId: string): Promise<ActionResult> {
   revalidatePath("/fitness/musculacao");
   return { ok: true };
 }
+
+/**
+ * Phase 3I — Loga/atualiza medidas corporais. Upsert por (patient_id,
+ * measured_at) — 1 medição por dia.
+ */
+export async function logBodyMeasurement(input: {
+  measuredAt?: string; // YYYY-MM-DD, default hoje
+  weightKg?: number | null;
+  bodyFatPct?: number | null;
+  muscleMassKg?: number | null;
+  waistCm?: number | null;
+  chestCm?: number | null;
+  hipCm?: number | null;
+  armCm?: number | null;
+  thighCm?: number | null;
+  calfCm?: number | null;
+  visceralFat?: number | null;
+  boneMassKg?: number | null;
+  waterPct?: number | null;
+  notes?: string | null;
+}): Promise<ActionResult<{ id: string }>> {
+  if (!isSupabaseConfigured()) {
+    return { ok: false, error: "Supabase indisponível" };
+  }
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken) return { ok: false, error: "Não autenticado" };
+
+  const measuredAt = input.measuredAt ?? new Date().toISOString().slice(0, 10);
+
+  const row = {
+    patient_id: userId,
+    measured_at: measuredAt,
+    weight_kg: input.weightKg ?? null,
+    body_fat_pct: input.bodyFatPct ?? null,
+    muscle_mass_kg: input.muscleMassKg ?? null,
+    waist_cm: input.waistCm ?? null,
+    chest_cm: input.chestCm ?? null,
+    hip_cm: input.hipCm ?? null,
+    arm_cm: input.armCm ?? null,
+    thigh_cm: input.thighCm ?? null,
+    calf_cm: input.calfCm ?? null,
+    visceral_fat: input.visceralFat ?? null,
+    bone_mass_kg: input.boneMassKg ?? null,
+    water_pct: input.waterPct ?? null,
+    notes: input.notes ?? null,
+  };
+
+  const supabase = await createSupabaseWithJwt(accessToken);
+  const { data, error } = await supabase
+    .from("body_measurements")
+    .upsert(row, { onConflict: "patient_id,measured_at" })
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    return { ok: false, error: error?.message ?? "Erro ao gravar" };
+  }
+
+  revalidatePath("/fitness/medidas");
+  revalidatePath("/fitness");
+  return { ok: true, data: { id: data.id as string } };
+}
+
+/** Deleta uma medição. */
+export async function deleteBodyMeasurement(
+  id: string,
+): Promise<ActionResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: false, error: "Supabase indisponível" };
+  }
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken) return { ok: false, error: "Não autenticado" };
+  const supabase = await createSupabaseWithJwt(accessToken);
+  const { error } = await supabase
+    .from("body_measurements")
+    .delete()
+    .eq("id", id)
+    .eq("patient_id", userId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/fitness/medidas");
+  return { ok: true };
+}
