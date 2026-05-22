@@ -116,6 +116,12 @@ export interface MenstrualEntry {
   energy: number | null; // 1-5
   libido: number | null; // 1-5
   sleepQuality: number | null; // 1-5
+  /**
+   * Lucas (2026-05-22): "tem que aparecer a opção de registrar se teve
+   * relação sexual naquele dia ou não."
+   * Tri-state: null = não respondeu, true = sim, false = não.
+   */
+  sexualActivity: boolean | null;
   notes: string | null;
 }
 

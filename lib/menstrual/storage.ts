@@ -82,6 +82,7 @@ interface DbEntryRow {
   energy: number | null;
   libido: number | null;
   sleep_quality: number | null;
+  sexual_activity: boolean | null;
   notes: string | null;
 }
 
@@ -95,6 +96,7 @@ function entryFromRow(r: DbEntryRow): MenstrualEntry {
     energy: r.energy,
     libido: r.libido,
     sleepQuality: r.sleep_quality,
+    sexualActivity: r.sexual_activity,
     notes: r.notes,
   };
 }

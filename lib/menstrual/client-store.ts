@@ -145,6 +145,7 @@ export interface EntrySavePayload {
   energy?: number | null;
   libido?: number | null;
   sleep_quality?: number | null;
+  sexual_activity?: boolean | null;
   notes?: string | null;
 }
 
@@ -180,6 +181,7 @@ export async function saveEntry(
       energy: payload.energy ?? null,
       libido: payload.libido ?? null,
       sleepQuality: payload.sleep_quality ?? null,
+      sexualActivity: payload.sexual_activity ?? null,
       notes: payload.notes ?? null,
     };
     const next = [
@@ -241,6 +243,7 @@ function rowToEntry(row: Record<string, unknown>): MenstrualEntry {
     energy: (row.energy as number | null) ?? null,
     libido: (row.libido as number | null) ?? null,
     sleepQuality: (row.sleep_quality as number | null) ?? null,
+    sexualActivity: (row.sexual_activity as boolean | null) ?? null,
     notes: (row.notes as string | null) ?? null,
   };
 }

@@ -25,6 +25,8 @@ interface SaveEntryBody {
   energy?: number | null;
   libido?: number | null;
   sleep_quality?: number | null;
+  /** Lucas (2026-05-22): tri-state — null/true/false */
+  sexual_activity?: boolean | null;
   notes?: string | null;
 }
 
@@ -145,6 +147,17 @@ export async function POST(request: Request) {
 
   const supabase = await createSupabaseWithJwt(accessToken);
 
+  // Valida sexual_activity (tri-state: null/true/false)
+  if (
+    body.sexual_activity != null &&
+    typeof body.sexual_activity !== "boolean"
+  ) {
+    return NextResponse.json(
+      { ok: false, error: "sexual_activity-must-be-boolean-or-null" },
+      { status: 400 },
+    );
+  }
+
   const payload = {
     patient_id: userId,
     entry_date: body.entry_date,
@@ -154,6 +167,7 @@ export async function POST(request: Request) {
     energy: body.energy ?? null,
     libido: body.libido ?? null,
     sleep_quality: body.sleep_quality ?? null,
+    sexual_activity: body.sexual_activity ?? null,
     notes: body.notes ?? null,
   };
 
