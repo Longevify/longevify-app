@@ -9,6 +9,7 @@ import {
   Calendar,
   ArrowRight,
   Target,
+  Scale,
 } from "lucide-react";
 import {
   getActivityHeatmap,
@@ -334,7 +335,7 @@ export default async function FitnessIndex() {
       )}
 
       {/* Quick links pras sub-abas */}
-      <section className="grid grid-cols-3 gap-2.5">
+      <section className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
         <QuickLink
           href="/fitness/musculacao"
           icon={<Dumbbell className="h-5 w-5" />}
@@ -352,6 +353,12 @@ export default async function FitnessIndex() {
           icon={<Activity className="h-5 w-5" />}
           label="Outros"
           accent="bg-sky-50 text-sky-700"
+        />
+        <QuickLink
+          href="/fitness/medidas"
+          icon={<Scale className="h-5 w-5" />}
+          label="Medidas"
+          accent="bg-purple-50 text-purple-700"
         />
       </section>
 
