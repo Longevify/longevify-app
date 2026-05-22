@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Dumbbell, Footprints, Activity } from "lucide-react";
+import { LayoutGrid, Dumbbell, Footprints, Activity } from "lucide-react";
 import { headers } from "next/headers";
 import { cn } from "@/lib/utils";
 
@@ -8,11 +8,15 @@ import { cn } from "@/lib/utils";
  * na aba fitness, tem 2 sub abas, uma aba para musculação, uma para
  * corrida e outra para demais exercícios."
  *
- * 3 sub-tabs renderizadas no header da feature fitness. Active state
+ * Lucas (2026-05-22): "torne essa aba do app perfeita" — adicionada
+ * tab "Visão geral" como página inicial unificada.
+ *
+ * 4 sub-tabs renderizadas no header da feature fitness. Active state
  * via pathname (segments).
  */
 
 const SUB_TABS = [
+  { href: "/fitness", label: "Visão", Icon: LayoutGrid, exact: true },
   { href: "/fitness/musculacao", label: "Musculação", Icon: Dumbbell },
   { href: "/fitness/corrida", label: "Corrida", Icon: Footprints },
   { href: "/fitness/outros", label: "Outros", Icon: Activity },
@@ -37,17 +41,18 @@ export default async function FitnessLayout({
 
       {/* Sub-tabs */}
       <nav className="sticky top-3 z-10 mt-4 mb-5 rounded-2xl border border-border bg-white/95 p-1.5 shadow-[0_4px_18px_-12px_rgba(13,40,24,.12)] backdrop-blur">
-        <ul className="grid grid-cols-3 gap-1">
-          {SUB_TABS.map(({ href, label, Icon }) => {
-            const active =
-              pathname === href || pathname.startsWith(href + "/");
+        <ul className="grid grid-cols-4 gap-1">
+          {SUB_TABS.map(({ href, label, Icon, exact }) => {
+            const active = exact
+              ? pathname === href
+              : pathname === href || pathname.startsWith(href + "/");
             return (
               <li key={href}>
                 <Link
                   href={href}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-semibold transition-colors",
+                    "flex items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-[12px] font-semibold transition-colors sm:text-[13px] sm:px-3",
                     active
                       ? "bg-brand-700 text-white shadow-sm"
                       : "text-zinc-600 hover:bg-zinc-50",
