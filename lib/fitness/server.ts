@@ -3,12 +3,15 @@ import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { getUserIdFromCookie } from "@/lib/auth/jwt";
 import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
 import type {
+  ActivityType,
   Exercise,
   EquipmentKind,
   ExerciseCategory,
   ExperienceLevel,
   GpsPoint,
+  IntensityLevel,
   MuscleGroup,
+  OtherWorkout,
   PaceSegment,
   ProgramGoal,
   ProgramStructure,
@@ -499,5 +502,114 @@ export async function getRunningStats(): Promise<{
     totalRunsThisMonth,
     bestPaceSecondsPerKm: bestPace,
     longestRunKm: longestKm,
+  };
+}
+
+// ─── Outras atividades ───────────────────────────────────────────────
+
+export async function getOtherWorkouts(
+  limit = 30,
+): Promise<OtherWorkout[]> {
+  if (!isSupabaseConfigured()) return [];
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken) return [];
+  const supabase = await createSupabaseWithJwt(accessToken);
+  const { data, error } = await supabase
+    .from("other_workouts")
+    .select(
+      `
+      id, session_id, activity_type, duration_minutes, intensity,
+      distance_km, estimated_calories, created_at,
+      workout_sessions!inner(patient_id, session_date, notes)
+      `,
+    )
+    .eq("workout_sessions.patient_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error || !data) return [];
+  return data.map((r) => {
+    const sessionRel = (r as {
+      workout_sessions?: { session_date?: string; notes?: string | null };
+    }).workout_sessions;
+    return {
+      id: r.id as string,
+      sessionId: r.session_id as string,
+      activityType: r.activity_type as ActivityType,
+      durationMinutes: r.duration_minutes as number,
+      intensity: r.intensity as IntensityLevel,
+      distanceKm: (r.distance_km as number | null) ?? null,
+      estimatedCalories: (r.estimated_calories as number | null) ?? null,
+      createdAt: r.created_at as string,
+      sessionDate: sessionRel?.session_date,
+      notes: sessionRel?.notes ?? null,
+    };
+  });
+}
+
+/**
+ * Stats agregadas pra header da aba Outros — total minutos/calorias do
+ * mês + breakdown por atividade.
+ */
+export async function getOtherStats(): Promise<{
+  totalMinutesThisMonth: number;
+  totalCaloriesThisMonth: number;
+  totalWorkoutsThisMonth: number;
+  breakdown: Array<{ type: ActivityType; minutes: number; count: number }>;
+}> {
+  const empty = {
+    totalMinutesThisMonth: 0,
+    totalCaloriesThisMonth: 0,
+    totalWorkoutsThisMonth: 0,
+    breakdown: [],
+  };
+  if (!isSupabaseConfigured()) return empty;
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken) return empty;
+  const supabase = await createSupabaseWithJwt(accessToken);
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    .toISOString()
+    .slice(0, 10);
+
+  const { data, error } = await supabase
+    .from("other_workouts")
+    .select(
+      `activity_type, duration_minutes, estimated_calories,
+       workout_sessions!inner(patient_id, session_date)`,
+    )
+    .eq("workout_sessions.patient_id", userId);
+
+  if (error || !data) return empty;
+
+  let totalMinutes = 0;
+  let totalCalories = 0;
+  let totalWorkouts = 0;
+  const byType = new Map<ActivityType, { minutes: number; count: number }>();
+
+  for (const r of data) {
+    const sessionRel = (r as { workout_sessions?: { session_date?: string } })
+      .workout_sessions;
+    if (!sessionRel?.session_date || sessionRel.session_date < startOfMonth) continue;
+    const mins = (r.duration_minutes as number) ?? 0;
+    const cals = (r.estimated_calories as number | null) ?? 0;
+    const type = r.activity_type as ActivityType;
+    totalMinutes += mins;
+    totalCalories += cals;
+    totalWorkouts += 1;
+    const cur = byType.get(type) ?? { minutes: 0, count: 0 };
+    cur.minutes += mins;
+    cur.count += 1;
+    byType.set(type, cur);
+  }
+
+  const breakdown = Array.from(byType.entries())
+    .map(([type, v]) => ({ type, ...v }))
+    .sort((a, b) => b.minutes - a.minutes);
+
+  return {
+    totalMinutesThisMonth: totalMinutes,
+    totalCaloriesThisMonth: totalCalories,
+    totalWorkoutsThisMonth: totalWorkouts,
+    breakdown,
   };
 }

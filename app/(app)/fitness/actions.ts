@@ -5,9 +5,11 @@ import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { getUserIdFromCookie } from "@/lib/auth/jwt";
 import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
 import type {
+  ActivityType,
   EquipmentKind,
   ExperienceLevel,
   GpsPoint,
+  IntensityLevel,
   PaceSegment,
   ProgramGoal,
   ProgramStructure,
@@ -281,6 +283,116 @@ export async function saveRunningSession(input: {
     ok: true,
     data: { sessionId, runningId: running.id as string },
   };
+}
+
+/**
+ * Loga uma atividade não-musculação não-corrida (bike, natação, yoga,
+ * etc.). Cria workout_session (kind='cardio' ou 'other' dependendo
+ * da atividade) + other_workouts.
+ *
+ * Phase 2D — Lucas: "outra para demais exercícios."
+ */
+export async function logOtherWorkout(input: {
+  activityType: ActivityType;
+  durationMinutes: number;
+  intensity: IntensityLevel;
+  distanceKm?: number | null;
+  estimatedCalories?: number | null;
+  notes?: string;
+  sessionDate?: string; // YYYY-MM-DD, default today
+}): Promise<ActionResult<{ sessionId: string; otherId: string }>> {
+  if (!isSupabaseConfigured()) {
+    return { ok: false, error: "Supabase indisponível" };
+  }
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken) {
+    return { ok: false, error: "Não autenticado" };
+  }
+  if (input.durationMinutes <= 0) {
+    return { ok: false, error: "Duração inválida" };
+  }
+
+  const supabase = await createSupabaseWithJwt(accessToken);
+  const today = input.sessionDate ?? new Date().toISOString().slice(0, 10);
+
+  // kind = 'cardio' pra bike/swim/walk/row/hiit, 'other' pro resto
+  const cardioActivities: ActivityType[] = [
+    "bike",
+    "swim",
+    "walking",
+    "rowing",
+    "hiit",
+  ];
+  const kind = cardioActivities.includes(input.activityType) ? "cardio" : "other";
+
+  const { data: session, error: sessErr } = await supabase
+    .from("workout_sessions")
+    .insert({
+      patient_id: userId,
+      kind,
+      session_date: today,
+      notes: input.notes ?? null,
+      ended_at: new Date().toISOString(),
+    })
+    .select("id")
+    .single();
+
+  if (sessErr || !session) {
+    return {
+      ok: false,
+      error: `Erro ao criar sessão: ${sessErr?.message ?? "—"}`,
+    };
+  }
+
+  const sessionId = session.id as string;
+
+  const { data: inserted, error: insErr } = await supabase
+    .from("other_workouts")
+    .insert({
+      session_id: sessionId,
+      activity_type: input.activityType,
+      duration_minutes: input.durationMinutes,
+      intensity: input.intensity,
+      distance_km: input.distanceKm ?? null,
+      estimated_calories: input.estimatedCalories ?? null,
+    })
+    .select("id")
+    .single();
+
+  if (insErr || !inserted) {
+    await supabase.from("workout_sessions").delete().eq("id", sessionId);
+    return {
+      ok: false,
+      error: `Erro ao gravar atividade: ${insErr?.message ?? "—"}`,
+    };
+  }
+
+  revalidatePath("/fitness/outros");
+  return {
+    ok: true,
+    data: { sessionId, otherId: inserted.id as string },
+  };
+}
+
+/** Deleta uma atividade other. */
+export async function deleteOtherWorkout(
+  sessionId: string,
+): Promise<ActionResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: false, error: "Supabase indisponível" };
+  }
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken) return { ok: false, error: "Não autenticado" };
+  const supabase = await createSupabaseWithJwt(accessToken);
+  // ON DELETE CASCADE no FK do other_workouts apaga junto
+  const { error } = await supabase
+    .from("workout_sessions")
+    .delete()
+    .eq("id", sessionId)
+    .eq("patient_id", userId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/fitness/outros");
+  return { ok: true };
 }
 
 /** Deleta um set (rollback de erro de digitação, por exemplo). */
