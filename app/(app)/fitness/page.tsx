@@ -374,6 +374,14 @@ export default async function FitnessIndex() {
           </p>
         </section>
       )}
+
+      {/* Footer link pro guia (Phase 3M) */}
+      <Link
+        href="/fitness/guia"
+        className="text-center text-[11px] text-zinc-500 hover:text-brand-700"
+      >
+        📘 O que dá pra fazer aqui? Veja o guia completo →
+      </Link>
     </div>
   );
 }
