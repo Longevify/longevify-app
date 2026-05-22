@@ -198,52 +198,90 @@ export function CycleInsights({ profile, entries, phaseInfo }: Props) {
             );
           }
           const meta = ICON_BY_KIND[i.kind];
-          const Icon = meta.Icon;
+          // Lucas (2026-05-21): "Os outros cards abaixo também
+          // expandiriam ao clicar, apenas aparecendo o título."
           return (
-            <article
+            <CollapsibleSecondaryCard
               key={idx}
-              className={cn(
-                "relative overflow-hidden rounded-2xl bg-white pl-4 pr-4 py-4 sm:py-5",
-                "shadow-[0_2px_8px_-2px_rgba(0,0,0,0.04)] ring-1 ring-zinc-200/70",
-              )}
-            >
-              <span
-                className={cn(
-                  "absolute inset-y-0 left-0 w-1",
-                  meta.accent,
-                )}
-                aria-hidden
-              />
-              <header className="flex items-center gap-2">
-                <span
-                  className={cn(
-                    "grid h-7 w-7 shrink-0 place-items-center rounded-lg",
-                    meta.iconBg,
-                    meta.iconText,
-                  )}
-                >
-                  <Icon className="h-4 w-4" strokeWidth={2.2} />
-                </span>
-                <span
-                  className={cn(
-                    "text-[10.5px] font-semibold uppercase tracking-[0.14em]",
-                    meta.iconText,
-                  )}
-                >
-                  {meta.label}
-                </span>
-              </header>
-              <h4 className="mt-2.5 text-[15px] font-semibold leading-snug tracking-tight text-zinc-900">
-                {i.title}
-              </h4>
-              <p className="mt-1.5 text-[13.5px] leading-[1.55] text-zinc-600">
-                {i.body}
-              </p>
-            </article>
+              meta={meta}
+              title={i.title}
+              body={i.body}
+            />
           );
         })}
       </div>
     </section>
+  );
+}
+
+// ─── CollapsibleSecondaryCard ─────────────────────────────────────────
+//
+// Lucas (2026-05-21): Pattern + Tip cards também colapsam (antes
+// mostravam título + body sempre). Apenas título visível por default,
+// click expande pro body. Mesmo padrão do PhaseInsightCard mas sem
+// cor por fase — usa meta (sky pra padrão, emerald pra tip).
+
+function CollapsibleSecondaryCard({
+  meta,
+  title,
+  body,
+}: {
+  meta: (typeof ICON_BY_KIND)[keyof typeof ICON_BY_KIND];
+  title: string;
+  body: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const Icon = meta.Icon;
+  return (
+    <article className="group relative overflow-hidden rounded-2xl bg-white shadow-[0_2px_8px_-2px_rgba(0,0,0,0.04)] ring-1 ring-zinc-200/70 transition hover:-translate-y-0.5 hover:shadow-[0_8px_22px_-10px_rgba(0,0,0,0.10)]">
+      <span
+        className={cn(
+          "absolute inset-y-0 left-0 w-1",
+          meta.accent,
+        )}
+        aria-hidden
+      />
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-3 pl-4 pr-4 py-4 text-left transition"
+        aria-expanded={open}
+      >
+        <span
+          className={cn(
+            "grid h-7 w-7 shrink-0 place-items-center rounded-lg",
+            meta.iconBg,
+            meta.iconText,
+          )}
+        >
+          <Icon className="h-4 w-4" strokeWidth={2.2} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <span
+            className={cn(
+              "block text-[10.5px] font-semibold uppercase tracking-[0.14em]",
+              meta.iconText,
+            )}
+          >
+            {meta.label}
+          </span>
+          <h4 className="mt-0.5 text-[14.5px] font-semibold leading-snug tracking-tight text-zinc-900">
+            {title}
+          </h4>
+        </div>
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 shrink-0 text-zinc-400 transition-transform group-hover:text-zinc-600",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+      {open && (
+        <p className="px-4 pb-4 text-[13.5px] leading-[1.55] text-zinc-600">
+          {body}
+        </p>
+      )}
+    </article>
   );
 }
 
@@ -270,23 +308,45 @@ function PhaseInsightCard({
   const [open, setOpen] = useState(false);
   const color = PHASE_COLOR[phase];
 
+  // Lucas (2026-05-21): "card de fase atual tivesse um fundo levemente
+  // colorido da cor correspondente. E que o card fosse levemente
+  // chamativo para clicar."
+  //
+  // → Tint sutil do bg (color.bg vem como #fXXxxxx hex). Usamos 30 hex
+  // como alpha (~19%) pra ficar discreto mas perceptível. Hover
+  // intensifica pra ~33% + lift + glow sombra com cor da fase.
   return (
     <article
-      className="relative overflow-hidden rounded-2xl bg-white shadow-[0_2px_8px_-2px_rgba(0,0,0,0.04)] ring-1 ring-zinc-200/70"
+      className="group relative overflow-hidden rounded-2xl transition hover:-translate-y-0.5"
+      style={{
+        backgroundColor: `${color.bg}30`, // ~19% alpha
+        boxShadow: `0 4px 14px -8px ${color.ring}40`,
+      }}
     >
       <span
         className="absolute inset-y-0 left-0 w-1"
         style={{ backgroundColor: color.ring }}
         aria-hidden
       />
+      {/* Decorativo: glow radial sutil no canto sup direito que pulsa
+          quando hover — sinaliza interatividade */}
+      <span
+        className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full opacity-30 blur-xl transition-opacity group-hover:opacity-60"
+        style={{ backgroundColor: color.ring }}
+        aria-hidden
+      />
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-3 pl-4 pr-4 py-4 text-left transition hover:bg-zinc-50/40"
+        className="relative flex w-full items-center gap-3 pl-4 pr-4 py-4 text-left transition-colors hover:bg-white/30"
         aria-expanded={open}
+        style={{
+          // hover bg sobreposto vira mais saturado da cor
+          // (Tailwind hover:bg-white/30 dá ar de "limpa" + mantém color)
+        }}
       >
         <span
-          className="grid h-7 w-7 shrink-0 place-items-center rounded-lg"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-xl ring-1 ring-white/70 shadow-sm"
           style={{
             backgroundColor: color.bg,
             color: color.text,
@@ -301,19 +361,22 @@ function PhaseInsightCard({
           >
             Fase atual
           </span>
-          <h4 className="mt-0.5 text-[15px] font-semibold leading-snug tracking-tight text-zinc-900">
+          <h4 className="mt-0.5 text-[15.5px] font-semibold leading-snug tracking-tight text-zinc-900">
             {title}
           </h4>
         </div>
-        <ChevronDown
-          className={cn(
-            "h-4 w-4 shrink-0 text-zinc-400 transition-transform",
-            open && "rotate-180",
-          )}
-        />
+        <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium" style={{ color: color.text }}>
+          {open ? "Fechar" : "Ver mais"}
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 transition-transform",
+              open && "rotate-180",
+            )}
+          />
+        </span>
       </button>
       {open && (
-        <p className="px-4 pb-4 text-[13.5px] leading-[1.55] text-zinc-600">
+        <p className="relative px-4 pb-4 text-[13.5px] leading-[1.55] text-zinc-700">
           {body}
         </p>
       )}
