@@ -45,6 +45,13 @@ export function TourRunner({ forceShow = false, onClose }: TourRunnerProps) {
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
 
   // Decide se inicia no mount
+  //
+  // Lucas (2026-05-22): "o tutorial não pode aparecer junto com o
+  // onboarding, tem que ser depois" — checa flag de stories
+  // (longevify-stories-shown-v7) antes de auto-iniciar o tour. Se as
+  // stories ainda não foram fechadas (key ausente), o tour fica em
+  // espera. O PostExamStories grava a key ao fechar, e na próxima
+  // visita o tour dispara.
   useEffect(() => {
     if (forceShow) {
       setActive(true);
@@ -53,7 +60,10 @@ export function TourRunner({ forceShow = false, onClose }: TourRunnerProps) {
     }
     try {
       const done = localStorage.getItem(STORAGE_KEY);
-      if (!done) setActive(true);
+      if (done) return; // já viu tutorial
+      const storiesShown = localStorage.getItem("longevify-stories-shown-v7");
+      if (!storiesShown) return; // onboarding stories ainda não foi completado
+      setActive(true);
     } catch {
       // ignore
     }

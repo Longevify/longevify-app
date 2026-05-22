@@ -295,10 +295,14 @@ const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
 // Tarefas lifestyle DIÁRIAS — todas concluíveis em 1 dia, sem prescrições
 // semanais/cumulativas. Lucas (2026-05): "tem que ter apenas tasks que
 // possam ser completadas em 1 dia, não pode ter 150 min de cardio/semana".
+//
+// Lucas (2026-05-22): "seja objetivo no protocolo, em vez de falar manter-se
+// bem hidradatado, coloque beba X litros de agua" — labels com número
+// específico, não instrução vaga. Reasoning mantém o contexto/range.
 const LIFESTYLE_TASKS: ProtocolTask[] = [
   {
     id: "sol-manha",
-    label: "Tomar 10-15 min de sol matinal",
+    label: "Tomar 15 min de sol antes das 10h",
     reasoning:
       "Exposição solar moderada antes das 10h em braços/pernas — 10-15 min em pele clara, 20-30 min em pele mais escura (Fitzpatrick V/VI). Antes das 10h o UV é menor, então o risco de queimadura/dano é baixo. Estimula produção endógena de Vitamina D e regula ritmo circadiano. Em alto risco de melanoma (histórico familiar, fototipo I, lesões suspeitas) consulte dermatologista antes.",
     lifestyleIcon: "sun",
@@ -306,17 +310,17 @@ const LIFESTYLE_TASKS: ProtocolTask[] = [
   },
   {
     id: "agua",
-    label: "Manter-se bem hidratado(a) hoje",
+    label: "Beber 2 litros de água",
     reasoning:
-      "Pra maioria dos adultos, ~2L de líquidos por dia (água + bebidas + alimentos com água como frutas e vegetais) é uma boa referência. A necessidade real varia por peso, clima, exercício e dieta — em dias quentes ou de treino intenso, suba pra 2.5-3L. Cor da urina amarelo-clara é o melhor termômetro prático.",
+      "~2L de água/dia é o alvo prático pra maioria dos adultos (~35ml/kg de peso). A necessidade real varia: em dias quentes ou de treino intenso, suba pra 2.5-3L. Conta tudo (água, chá, café fraco), mas idealmente a maior parte como água pura. Cor da urina amarelo-clara é o melhor termômetro.",
     lifestyleIcon: "droplet",
     kind: "habit",
   },
   {
     id: "sono",
-    label: "Dormir entre 7h e 9h hoje",
+    label: "Dormir 8 horas hoje",
     reasoning:
-      "Priorizar horário consistente (acordar e dormir no mesmo horário) — NSF/AASM recomendam ≥7h em adultos. Sono curto ou fragmentado eleva resistência à insulina, cortisol e PCR já em poucas noites. Pra qualidade: evitar tela 1h antes, manter quarto escuro e fresco (18-20°C), evitar álcool e cafeína à noite.",
+      "8h é o ponto médio da faixa recomendada (7-9h) pela NSF/AASM em adultos. Priorize horário consistente (acordar/dormir no mesmo horário). Sono curto ou fragmentado eleva resistência à insulina, cortisol e PCR já em poucas noites. Pra qualidade: evitar tela 1h antes, manter quarto escuro e fresco (18-20°C), evitar álcool e cafeína à noite.",
     lifestyleIcon: "moon",
     kind: "habit",
   },
