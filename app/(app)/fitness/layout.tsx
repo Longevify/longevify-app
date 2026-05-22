@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LayoutGrid, Dumbbell, Footprints, Activity } from "lucide-react";
 import { headers } from "next/headers";
 import { cn } from "@/lib/utils";
+import { ExportButton } from "@/components/fitness/export-button";
 
 /**
  * Lucas (2026-05-21): "quero criar uma aba para fitness, quando entro
@@ -32,11 +33,14 @@ export default async function FitnessLayout({
 
   return (
     <div className="mx-auto w-full max-w-[920px] px-4 py-6 sm:px-6 sm:py-10">
-      <header className="pb-2">
-        <span className="text-[13px] text-muted">Treino e atividade física</span>
-        <h1 className="text-[28px] leading-[1.1] font-semibold tracking-tight sm:text-[34px]">
-          Fitness
-        </h1>
+      <header className="flex items-end justify-between pb-2">
+        <div>
+          <span className="text-[13px] text-muted">Treino e atividade física</span>
+          <h1 className="text-[28px] leading-[1.1] font-semibold tracking-tight sm:text-[34px]">
+            Fitness
+          </h1>
+        </div>
+        <ExportButton />
       </header>
 
       {/* Sub-tabs */}
