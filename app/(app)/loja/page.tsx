@@ -48,6 +48,16 @@ export default async function LojaPage() {
           se for usar continuamente ou se você tem condição crônica ou faz uso
           de medicação contínua.
         </p>
+        <div className="mt-4 max-w-2xl rounded-[14px] border border-brand-200 bg-brand-50/60 px-4 py-3 text-[12.5px] leading-relaxed text-brand-800">
+          <strong className="font-semibold">
+            Curadoria médica · sem markup
+          </strong>{" "}
+          — produtos curados pela equipe clínica Longevify, comprados pelos
+          fornecedores oficiais (Vitafor, Essential, Dux, True Paleo, Boni
+          Natural, Adcos…) e entregues na sua casa. Não cobramos margem: o
+          preço cobre o custo do produto + taxa de pagamento. Quando o
+          fornecedor está sem estoque, o item fica indisponível aqui.
+        </div>
       </header>
 
       <RecommendationsSection
