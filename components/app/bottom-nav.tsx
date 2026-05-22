@@ -73,6 +73,7 @@ export function BottomNav() {
   return (
     <>
       <nav
+        data-tour="bottom-nav"
         className={cn(
           "fixed inset-x-0 bottom-0 z-30 border-t border-border/70 bg-white/95 backdrop-blur-md",
           "sm:hidden",

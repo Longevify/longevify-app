@@ -4,7 +4,7 @@ import { TopNav } from "@/components/app/top-nav";
 import { BottomNav } from "@/components/app/bottom-nav";
 import { Footer } from "@/components/app/footer";
 import { DrLonFloating } from "@/components/app/dr-lon-floating";
-import { FirstTimeTutorial } from "@/components/onboarding/first-time-tutorial";
+import { TourRunner } from "@/components/onboarding/tour/tour-runner";
 import { UserProvider } from "@/lib/auth/user-context";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
@@ -53,10 +53,14 @@ export default async function AppLayout({
           acima do bottom-nav (ver dr-lon-floating.tsx). */}
       <DrLonFloating />
 
-      {/* Lucas (2026-05-21): "quero que tenha um tutorial de como usar
-          o app e todos os features na primeira vez que eu usar."
-          FirstTimeTutorial decide auto se mostra (localStorage flag). */}
-      <FirstTimeTutorial />
+      {/* Lucas (2026-05-21): "o tutorial tem que interagir com o app
+          de modo a mostrar onde estão as diferentes abas e features,
+          em vez de só mostrar um texto no pop up."
+          TourRunner faz spotlight nos elementos reais com tooltips
+          posicionados perto deles (vs FirstTimeTutorial antigo que
+          era modal carousel). Decide auto se mostra na primeira
+          visita (mesmo localStorage flag). */}
+      <TourRunner />
     </UserProvider>
   );
 }
