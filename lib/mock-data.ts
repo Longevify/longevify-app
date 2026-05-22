@@ -483,6 +483,125 @@ export const BIOMARKER_RANGES_BY_SEX: Record<
         "Em mulher adulta, 'true normal' hepatologia moderna é <19 U/L — corte mais conservador que em homens. Valores entre 19-40 já podem indicar MASLD subclínica. Atenção a uso de anticoncepcionais hormonais, suplementos não-regulados e álcool — todos podem elevar ALT.",
     },
   },
+
+  // ─── AST (TGO) ───────────────────────────────────────────────────────
+  // Mesma referência Prati 2002 / AASLD 2017 (NAFLD/MASLD). Cortes
+  // sex-specific aplicam-se também a AST embora a literatura cite
+  // principalmente ALT. AST tende a ser ligeiramente maior em homens
+  // por massa muscular (origem cardíaca/muscular também).
+  ast: {
+    male: {
+      optimalRange: [0, 30],
+      normalRange: [30, 40],
+      referenceLabel: "< 30 U/L (♂)",
+      source: "Prati et al., Ann Intern Med 2002; AASLD 2017",
+      note:
+        "AST (TGO) é menos específico que ALT (vem também de músculo, coração, hemácias). Em homem adulto, valores >30 com ALT também alta sugerem MASLD. AST/ALT >1 com ALT moderada sugere álcool ou fibrose; razão >2 é forte indicador de hepatite alcoólica.",
+    },
+    female: {
+      optimalRange: [0, 19],
+      normalRange: [19, 40],
+      referenceLabel: "< 19 U/L (♀)",
+      source: "Prati et al., Ann Intern Med 2002; AASLD 2017",
+      note:
+        "Em mulher adulta, AST acima de 19 U/L com ALT também elevada sugere MASLD subclínica. AST pode subir transitoriamente após exercício intenso, hemólise ou lesão muscular — interpretar junto com CK quando elevado e ALT normal.",
+    },
+  },
+
+  // ─── Hemoglobina ─────────────────────────────────────────────────────
+  // WHO + Mayo: critérios de anemia sex-specific. ♂ <13 anemia · ♀ <12
+  // anemia. Pós-menopausa o range converge gradualmente ao masculino,
+  // mas o corte clínico mantém-se distinto.
+  hemoglobin: {
+    male: {
+      optimalRange: [14, 17],
+      normalRange: [13.5, 17.5],
+      referenceLabel: "13.5–17.5 g/dL (♂)",
+      source: "WHO 2011 (anemia critérios); Mayo Clinic reference intervals",
+      note:
+        "Em homem adulto, Hb <13 g/dL define anemia (WHO). Valores >17.5 podem sugerir policitemia (vera ou secundária — tabagismo, SAOS, doença pulmonar). Em altitude elevada o range pode subir 1-2 g/dL fisiologicamente.",
+    },
+    female: {
+      optimalRange: [12.5, 15],
+      normalRange: [12, 15.5],
+      referenceLabel: "12–15.5 g/dL (♀)",
+      source: "WHO 2011 (anemia critérios); Mayo Clinic reference intervals",
+      note:
+        "Em mulher adulta não-gestante, Hb <12 g/dL define anemia (WHO). Gestante tem corte mais baixo (<11 g/dL). Em mulher em idade fértil com Hb baixa, investigar ferro (ferritina, TSAT) — perdas menstruais são causa muito comum.",
+    },
+  },
+
+  // ─── Creatinina ──────────────────────────────────────────────────────
+  // Faixa de referência sex-specific por causa de massa muscular.
+  // Importante: para estimar eGFR, usar CKD-EPI 2021 (sem raça) que
+  // já internaliza sexo. Em sarcopenia (idoso, anorexia) creatinina
+  // pode subestimar lesão renal — considerar cistatina C.
+  creatinine: {
+    male: {
+      optimalRange: [0.7, 1.1],
+      normalRange: [0.7, 1.3],
+      referenceLabel: "0.7–1.3 mg/dL (♂)",
+      source: "KDIGO 2024 CKD; Mayo Clinic reference intervals",
+      note:
+        "Em homem adulto, creatinina 0.7–1.3 é faixa lab padrão. Mas o relevante clinicamente é a TFG estimada (eGFR-EPI 2021) — uma pessoa muito musculosa pode ter creatinina 1.4 com função renal normal; idoso sarcopênico pode ter 1.0 com eGFR já em estágio 3 de DRC. Em dúvida, dosar cistatina C.",
+    },
+    female: {
+      optimalRange: [0.6, 1.0],
+      normalRange: [0.6, 1.1],
+      referenceLabel: "0.6–1.1 mg/dL (♀)",
+      source: "KDIGO 2024 CKD; Mayo Clinic reference intervals",
+      note:
+        "Em mulher adulta, creatinina 0.6–1.1 é faixa lab padrão. Massa muscular menor que em homens explica o corte mais baixo. Em gestante o range cai fisiologicamente (~0.4–0.8). Interpretar SEMPRE via eGFR-EPI 2021 que ajusta por sexo e idade — não pelo número bruto.",
+    },
+  },
+
+  // ─── Ácido Úrico ─────────────────────────────────────────────────────
+  // Faixa sex-specific. Hiperuricemia liga-se a gota, HAS, MASLD, sd
+  // metabólica. Longevity-style mira <5 mg/dL ambos os sexos.
+  uricacid: {
+    male: {
+      optimalRange: [3.5, 5.5],
+      normalRange: [3.4, 7.0],
+      referenceLabel: "3.4–7.0 mg/dL (♂)",
+      source: "ACR 2020 Gout Guideline; Mayo Clinic",
+      note:
+        "Em homem adulto, ácido úrico >7.0 é hiperuricemia. Risco de gota cresce acima de 6.8 (limite de solubilidade). Longevity-style mira <5.5 — ácido úrico elevado correlaciona com HAS, MASLD, síndrome metabólica e doença renal. Diuréticos tiazídicos elevam.",
+    },
+    female: {
+      optimalRange: [2.5, 5.0],
+      normalRange: [2.4, 6.0],
+      referenceLabel: "2.4–6.0 mg/dL (♀)",
+      source: "ACR 2020 Gout Guideline; Mayo Clinic",
+      note:
+        "Em mulher adulta, ácido úrico >6.0 é hiperuricemia (corte mais baixo que em homens por causa do efeito uricosúrico do estrogênio). Pós-menopausa o range sobe e converge ao masculino. Hiperuricemia em mulher merece pesquisar HAS, síndrome metabólica e função renal.",
+    },
+  },
+
+  // ─── GGT (Gama-glutamil transferase) ─────────────────────────────────
+  // Marcador hepatobiliar e de estresse oxidativo. Cortes laboratoriais
+  // tradicionais variam (até 60 U/L), mas literatura moderna (Whitfield
+  // 2001; Kunutsor 2014) usa cortes mais restritivos sex-specific —
+  // GGT elevado correlaciona com mortalidade CV independente.
+  ggt: {
+    male: {
+      optimalRange: [0, 30],
+      normalRange: [30, 55],
+      referenceLabel: "< 30 U/L (♂)",
+      source:
+        "Whitfield 2001 (Crit Rev Clin Lab Sci); Kunutsor et al. 2014 (Eur J Epidemiol)",
+      note:
+        "Em homem adulto, GGT ótimo <30 U/L. Faixas laboratoriais antigas vão até 55-60 mas evidência moderna mostra elevação subclínica de GGT prediz mortalidade CV independente. Causas comuns: álcool (>2 doses/dia), MASLD, medicamentos (anticonvulsivantes, fenobarbital, estatinas, AINH crônico), colestase.",
+    },
+    female: {
+      optimalRange: [0, 20],
+      normalRange: [20, 38],
+      referenceLabel: "< 20 U/L (♀)",
+      source:
+        "Whitfield 2001 (Crit Rev Clin Lab Sci); Kunutsor et al. 2014 (Eur J Epidemiol)",
+      note:
+        "Em mulher adulta, GGT ótimo <20 U/L (corte mais baixo que em homens). Valores entre 20-38 ainda dentro da faixa laboratorial tradicional, mas já flaggam MASLD ou impacto de medicação (incluindo anticoncepcional hormonal). Em mulher gestante a GGT pode subir fisiologicamente.",
+    },
+  },
 };
 
 /**
