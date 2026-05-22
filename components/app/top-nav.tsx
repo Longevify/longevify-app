@@ -33,6 +33,7 @@ const NAV = [
   { href: "/dados", label: "Dados" },
   { href: "/protocolo", label: "Protocolo" },
   { href: "/dieta", label: "Dieta" },
+  { href: "/fitness", label: "Fitness" },
   { href: "/ciclo", label: "Ciclo" },
   { href: "/loja", label: "Loja" },
   { href: "/concierge", label: "Concierge" },
