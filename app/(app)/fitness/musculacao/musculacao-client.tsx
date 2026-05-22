@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   Dumbbell,
   Search,
@@ -9,6 +9,7 @@ import {
   Loader2,
   TrendingUp,
   Flame,
+  History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -20,35 +21,79 @@ import {
 } from "@/lib/fitness/types";
 import { logStrengthSet } from "../actions";
 import { toast } from "@/lib/toast";
+import {
+  ExerciseHistoryPopup,
+  type PastSet,
+} from "@/components/fitness/exercise-history-popup";
+import { WeeklyMuscleAnalysis } from "@/components/fitness/weekly-muscle-analysis";
 
 /**
- * Musculação MVP:
- * - Header com resumo semanal (volume total kg + total sets)
+ * Musculação (Phase 2):
+ * - Resumo semanal (volume total kg + total sets + dias ativos)
+ * - WeeklyMuscleAnalysis: card "🥇 músculo que mais evoluiu" (Lucas pediu)
  * - Lista de exercícios agrupados por muscle_group (filtrável via search)
- * - Click no exercício → modal pra logar set (peso + reps + RPE opcional)
- * - Save via server action `logStrengthSet`
+ * - Click no exercício → popup de histórico/dashboard (PR, chart, sets)
+ * - Botão "+" lateral → modal pra logar set (peso + reps + RPE opcional)
+ * - Vídeo de execução embedado no popup quando exercise.videoUrl existe
  *
- * Lucas (2026-05-21) pediu também:
- *   - AI workout generator (Em breve)
- *   - Video library (Em breve — exibe descrição por enquanto)
- *   - Weekly analysis com "musculo que mais evoluiu" (Em breve)
- *   - Per-exercise dashboard de progressão (próxima PR)
- *
- * Este PR entrega o fluxo core de LOG. Análises avançadas seguem.
+ * Próximas fases (em progresso):
+ *  - AI workout generator (Phase 2B)
+ *  - Corrida full c/ GPS + pace (Phase 2C)
+ *  - Demais exercícios — bike/natação/yoga (Phase 2D)
  */
+
+interface MuscleGroupRow {
+  muscleGroup: string;
+  thisWeekVolume: number;
+  lastWeekVolume: number;
+  thisWeekSets: number;
+  deltaPct: number;
+}
 
 interface MusculacaoClientProps {
   exercises: Exercise[];
   volumeHistory: Array<{ date: string; volumeKg: number; setsCount: number }>;
+  muscleAnalysis: MuscleGroupRow[];
 }
 
 export function MusculacaoClient({
   exercises,
   volumeHistory,
+  muscleAnalysis,
 }: MusculacaoClientProps) {
   const [query, setQuery] = useState("");
   const [groupFilter, setGroupFilter] = useState<MuscleGroup | "all">("all");
   const [openExercise, setOpenExercise] = useState<Exercise | null>(null);
+  // Lucas (2026-05-21) Phase 2: histórico/dashboard popup separado do
+  // log modal — usuário clica num exercício pra VER progressão, ou no
+  // botão "+" pra REGISTRAR set.
+  const [historyExercise, setHistoryExercise] = useState<Exercise | null>(null);
+  const [historyData, setHistoryData] = useState<PastSet[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  // Lazy fetch quando abre popup de histórico
+  useEffect(() => {
+    if (!historyExercise) {
+      setHistoryData([]);
+      return;
+    }
+    let cancelled = false;
+    setHistoryLoading(true);
+    fetch(`/api/fitness/exercises/${historyExercise.id}/history`)
+      .then((r) => r.json())
+      .then((data: { history?: PastSet[] }) => {
+        if (!cancelled) setHistoryData(data.history ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setHistoryData([]);
+      })
+      .finally(() => {
+        if (!cancelled) setHistoryLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [historyExercise]);
 
   // Resumo semanal (últimos 7 dias)
   const weekly = useMemo(() => {
@@ -113,6 +158,9 @@ export function MusculacaoClient({
           hint="de 7"
         />
       </section>
+
+      {/* Weekly muscle analysis (Lucas pediu — "musculo que mais evoluiu") */}
+      <WeeklyMuscleAnalysis data={muscleAnalysis} />
 
       {/* CTA AI workout generator (placeholder) */}
       <section className="mb-5 rounded-2xl border border-dashed border-brand-300 bg-brand-50/40 px-4 py-3.5">
@@ -182,27 +230,39 @@ export function MusculacaoClient({
               <ul className="flex flex-col gap-1.5">
                 {list.map((ex) => (
                   <li key={ex.id}>
-                    <button
-                      type="button"
-                      onClick={() => setOpenExercise(ex)}
-                      className="flex w-full items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-left transition hover:border-brand-300 hover:shadow-sm"
-                    >
-                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-700">
-                        <Dumbbell className="h-4 w-4" strokeWidth={2} />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-[13.5px] font-medium text-zinc-900">
-                          {ex.name}
+                    <div className="flex items-stretch gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setHistoryExercise(ex)}
+                        className="flex flex-1 items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-left transition hover:border-brand-300 hover:shadow-sm"
+                        title="Ver progressão"
+                      >
+                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-700">
+                          <Dumbbell className="h-4 w-4" strokeWidth={2} />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-[13.5px] font-medium text-zinc-900">
+                            {ex.name}
+                          </div>
+                          <div className="mt-0.5 flex flex-wrap gap-1.5 text-[10.5px] text-zinc-500">
+                            {ex.equipment ? (
+                              <span>{EQUIPMENT_LABEL[ex.equipment]}</span>
+                            ) : null}
+                            <span>· {ex.category === "compound" ? "composto" : "isolado"}</span>
+                          </div>
                         </div>
-                        <div className="mt-0.5 flex flex-wrap gap-1.5 text-[10.5px] text-zinc-500">
-                          {ex.equipment ? (
-                            <span>{EQUIPMENT_LABEL[ex.equipment]}</span>
-                          ) : null}
-                          <span>· {ex.category === "compound" ? "composto" : "isolado"}</span>
-                        </div>
-                      </div>
-                      <Plus className="h-4 w-4 shrink-0 text-zinc-400" />
-                    </button>
+                        <History className="h-4 w-4 shrink-0 text-zinc-400" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setOpenExercise(ex)}
+                        aria-label={`Registrar set de ${ex.name}`}
+                        title="Registrar set"
+                        className="grid w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand-700 to-brand-800 text-white shadow-sm transition hover:from-brand-600 hover:to-brand-700"
+                      >
+                        <Plus className="h-4 w-4" strokeWidth={2.5} />
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -216,6 +276,17 @@ export function MusculacaoClient({
         <LogSetModal
           exercise={openExercise}
           onClose={() => setOpenExercise(null)}
+        />
+      )}
+
+      {/* Popup de histórico/dashboard */}
+      {historyExercise && (
+        <ExerciseHistoryPopup
+          open={!!historyExercise}
+          onClose={() => setHistoryExercise(null)}
+          exercise={historyExercise}
+          history={historyData}
+          loading={historyLoading}
         />
       )}
     </>

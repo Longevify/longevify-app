@@ -118,6 +118,104 @@ export async function getTodayStrengthSession(): Promise<WorkoutSession | null> 
 }
 
 /**
+ * Volume agregado POR GRUPO MUSCULAR (last 7d vs prev 7d). Usado pelo
+ * card "Análise semanal" → mostra qual músculo evoluiu mais.
+ */
+export async function getMuscleGroupAnalysis(): Promise<
+  Array<{
+    muscleGroup: string;
+    thisWeekVolume: number;
+    lastWeekVolume: number;
+    thisWeekSets: number;
+    deltaPct: number;
+  }>
+> {
+  if (!isSupabaseConfigured()) return [];
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken) return [];
+  const supabase = await createSupabaseWithJwt(accessToken);
+
+  const today = new Date();
+  const sevenDaysAgo = new Date(today);
+  sevenDaysAgo.setUTCDate(today.getUTCDate() - 7);
+  const fourteenDaysAgo = new Date(today);
+  fourteenDaysAgo.setUTCDate(today.getUTCDate() - 14);
+
+  const sevenStr = sevenDaysAgo.toISOString().slice(0, 10);
+  const fourteenStr = fourteenDaysAgo.toISOString().slice(0, 10);
+
+  const { data, error } = await supabase
+    .from("workout_sets")
+    .select(
+      `
+      weight_kg, reps,
+      exercise_catalog!inner(muscle_group),
+      workout_sessions!inner(session_date, patient_id, kind)
+      `,
+    )
+    .eq("workout_sessions.patient_id", userId)
+    .eq("workout_sessions.kind", "strength")
+    .gte("workout_sessions.session_date", fourteenStr);
+
+  if (error || !data) return [];
+
+  type WeekAgg = { volume: number; sets: number };
+  const byGroup = new Map<string, { thisWeek: WeekAgg; lastWeek: WeekAgg }>();
+
+  for (const row of data) {
+    const cat = (row as { exercise_catalog?: { muscle_group?: string } })
+      .exercise_catalog;
+    const sess = (row as { workout_sessions?: { session_date?: string } })
+      .workout_sessions;
+    const mg = cat?.muscle_group;
+    const date = sess?.session_date;
+    if (!mg || !date) continue;
+    const weight = (row.weight_kg as number | null) ?? 0;
+    const reps = row.reps as number;
+    const volume = weight * reps;
+    const isThisWeek = date >= sevenStr;
+    const cur =
+      byGroup.get(mg) ?? {
+        thisWeek: { volume: 0, sets: 0 },
+        lastWeek: { volume: 0, sets: 0 },
+      };
+    if (isThisWeek) {
+      cur.thisWeek.volume += volume;
+      cur.thisWeek.sets += 1;
+    } else {
+      cur.lastWeek.volume += volume;
+      cur.lastWeek.sets += 1;
+    }
+    byGroup.set(mg, cur);
+  }
+
+  const out: Array<{
+    muscleGroup: string;
+    thisWeekVolume: number;
+    lastWeekVolume: number;
+    thisWeekSets: number;
+    deltaPct: number;
+  }> = [];
+  for (const [mg, agg] of byGroup) {
+    const delta =
+      agg.lastWeek.volume > 0
+        ? ((agg.thisWeek.volume - agg.lastWeek.volume) / agg.lastWeek.volume) * 100
+        : agg.thisWeek.volume > 0
+          ? 100
+          : 0;
+    out.push({
+      muscleGroup: mg,
+      thisWeekVolume: agg.thisWeek.volume,
+      lastWeekVolume: agg.lastWeek.volume,
+      thisWeekSets: agg.thisWeek.sets,
+      deltaPct: Math.round(delta),
+    });
+  }
+  out.sort((a, b) => b.thisWeekVolume - a.thisWeekVolume);
+  return out;
+}
+
+/**
  * Volume total (kg) levantado por dia nos últimos N dias. Volume =
  * sum(weight_kg × reps). Usado no card "Resumo semanal".
  */
