@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button";
 import { SymptomChip } from "@/components/symptoms/symptom-chip";
 import { SeveritySlider } from "@/components/symptoms/severity-slider";
 import { SymptomHeatmap } from "@/components/symptoms/heatmap";
+import { SymptomRedFlagAlert } from "@/components/symptoms/red-flag-alert";
 import { cn, formatDatePtBR } from "@/lib/utils";
 import {
   SYMPTOMS,
+  getSymptomRedFlags,
   type SymptomEntry,
   type SymptomReport,
 } from "@/lib/symptoms/types";
@@ -103,8 +105,32 @@ export default function SintomasPage() {
 
   const selectedCount = Object.keys(draft).length;
 
+  // Red flags ATIVOS no draft atual — dor de cabeça severity ≥ 9,
+  // tontura ≥ 8, ansiedade ≥ 9, digestivo ≥ 9, taquicardia ≥ 7.
+  // Quando paciente seleciona sintoma + ajusta o slider, esta lista
+  // recomputa em tempo real e o card vermelho aparece no topo da página.
+  const redFlagHits = useMemo(
+    () =>
+      getSymptomRedFlags(
+        Object.values(draft).map((d) => ({
+          symptomId: d.symptomId,
+          severity: d.severity,
+        })),
+      ),
+    [draft],
+  );
+
   return (
     <div className="mx-auto w-full max-w-[1100px] px-6 py-10">
+      {/* Red flag de sintoma — renderiza no TOPO da página quando qualquer
+          sintoma registrado no draft atinge a severidade crítica. Antes de
+          qualquer análise/heatmap normal. */}
+      {redFlagHits.length > 0 && (
+        <div className="mb-8">
+          <SymptomRedFlagAlert hits={redFlagHits} />
+        </div>
+      )}
+
       <header className="pb-8">
         <span className="inline-flex items-center gap-1.5 text-[13px] text-muted">
           <Activity className="h-3.5 w-3.5" />
