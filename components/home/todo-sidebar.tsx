@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Check, ArrowRight, CheckCircle2 } from "lucide-react";
+import { ArrowRight, ListTodo } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ProtocolTask } from "@/lib/protocolo/tasks";
 
@@ -10,13 +10,22 @@ import type { ProtocolTask } from "@/lib/protocolo/tasks";
  * Lucas (2026-05-21): "na aba home, coloque a to-do list na lateral,
  * com as tarefas para marcar e as ja marcadas."
  *
- * Sidebar com tasks do dia — lê estado de localStorage (mesma chave
- * do /protocolo), permite marcar/desmarcar inline. Mostra:
- * - Seção "A fazer" (não marcadas) — top do card
- * - Seção "Feitas" (collapse/expand) — embaixo, mais discreto
+ * Lucas (2026-05-22): "a aba de suas tarefas pode imitar o design de
+ * um papel, como se aquilo tivesse sido feito em um caderninho de
+ * papel mesmo com linhas. Além disso, quando eu clicar na task falando
+ * que preenchi ela, quero que apareça a task com um check por cima e
+ * que a task não suma simplesmente."
  *
- * Em desktop fica fixed à direita da home (lg+). Em mobile, vira card
- * inline depois do progresso diário.
+ * Visual: caderno pautado.
+ *   - Fundo cream (#fefef0) com linhas horizontais via repeating-linear-gradient
+ *   - Margem vermelha vertical à esquerda (estilo fichário)
+ *   - Bordas suaves + sombra de papel
+ *   - Font handwritten (Caveat ou Patrick Hand via fallback system cursive)
+ *
+ * Comportamento (mudança importante):
+ *   - Lista ÚNICA com TODAS as tasks (não separa "feitas" em seção colapsada).
+ *   - Click marca/desmarca — task fica riscada NO LUGAR (não some).
+ *   - Mantém persist em localStorage + DB (igual antes).
  */
 
 interface TodoSidebarProps {
@@ -29,7 +38,6 @@ const TASKS_STORAGE_KEY = "longevify-tasks-done";
 export function TodoSidebar({ tasks, className }: TodoSidebarProps) {
   const [doneIds, setDoneIds] = useState<Set<string>>(new Set());
   const [hydrated, setHydrated] = useState(false);
-  const [showDone, setShowDone] = useState(false);
 
   useEffect(() => {
     try {
@@ -39,7 +47,7 @@ export function TodoSidebar({ tasks, className }: TodoSidebarProps) {
         setDoneIds(new Set(Array.isArray(ids) ? ids : []));
       }
     } catch {
-      // ignore
+      /* ignore */
     }
     setHydrated(true);
   }, []);
@@ -48,17 +56,13 @@ export function TodoSidebar({ tasks, className }: TodoSidebarProps) {
     setDoneIds((prev) => {
       const next = new Set(prev);
       const isNowDone = !next.has(taskId);
-      if (isNowDone) {
-        next.add(taskId);
-      } else {
-        next.delete(taskId);
-      }
+      if (isNowDone) next.add(taskId);
+      else next.delete(taskId);
       try {
         localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify([...next]));
       } catch {
-        // ignore
+        /* ignore */
       }
-      // Persiste em DB pro streak — fire-and-forget igual ao /protocolo
       fetch("/api/protocolo/task-completion", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -69,134 +73,184 @@ export function TodoSidebar({ tasks, className }: TodoSidebarProps) {
     });
   }, []);
 
-  // Pra evitar hydration mismatch (server renderiza sem localStorage),
-  // só mostra o estado real depois do useEffect.
-  const pending = hydrated ? tasks.filter((t) => !doneIds.has(t.id)) : tasks;
-  const done = hydrated ? tasks.filter((t) => doneIds.has(t.id)) : [];
+  const doneCount = hydrated
+    ? tasks.filter((t) => doneIds.has(t.id)).length
+    : 0;
+
+  // Mostra até 10 tasks no card; resto via link "Ver tudo".
+  const visibleTasks = tasks.slice(0, 10);
+  const remaining = tasks.length - visibleTasks.length;
 
   return (
     <aside
       className={cn(
-        "flex flex-col gap-3 rounded-2xl border border-zinc-200/80 bg-white p-4 shadow-[0_4px_20px_-12px_rgba(13,40,24,.12)]",
+        "relative flex flex-col rounded-2xl shadow-[0_8px_24px_-12px_rgba(13,40,24,.18)]",
         className,
       )}
+      style={{
+        // Papel cream pautado com linhas horizontais (estilo caderno
+        // pautado clássico). Linha azul sutil a cada 28px.
+        backgroundColor: "#fdfcf5",
+        backgroundImage:
+          "repeating-linear-gradient(to bottom, transparent 0px, transparent 27px, rgba(99, 134, 184, 0.18) 27px, rgba(99, 134, 184, 0.18) 28px)",
+        backgroundPositionY: "40px",
+      }}
     >
-      <header className="flex items-baseline justify-between gap-2">
-        <h3 className="inline-flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-muted">
-          <CheckCircle2 className="h-3.5 w-3.5 text-brand-600" />
+      {/* Margem vermelha vertical (fichário) */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 left-[28px] w-px"
+        style={{ backgroundColor: "rgba(220, 80, 80, 0.45)" }}
+      />
+      {/* Sombra dobrada do papel no canto */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute bottom-0 right-0 h-6 w-6 rounded-br-2xl bg-gradient-to-tl from-zinc-200/40 to-transparent"
+      />
+
+      <header className="relative flex items-baseline justify-between gap-2 px-5 pt-4 pb-2">
+        <h3 className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-zinc-700">
+          <ListTodo className="h-3.5 w-3.5 text-rose-500" />
           Suas tarefas
+          {hydrated && doneCount > 0 && (
+            <span className="ml-1 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9.5px] font-bold text-emerald-700 tabular-nums">
+              {doneCount}/{tasks.length}
+            </span>
+          )}
         </h3>
         <Link
           href="/protocolo"
-          className="inline-flex items-center gap-1 text-[11.5px] font-medium text-brand-700 hover:text-brand-900"
+          className="inline-flex items-center gap-1 text-[11.5px] font-medium text-zinc-500 hover:text-rose-600"
         >
           Ver tudo <ArrowRight className="h-3 w-3" />
         </Link>
       </header>
 
-      {pending.length === 0 ? (
-        <div className="rounded-xl bg-brand-50/60 px-3 py-4 text-center">
-          <div className="text-[20px]" aria-hidden>
-            🎉
-          </div>
-          <div className="mt-1 text-[12.5px] font-semibold text-brand-800">
-            Tudo feito por hoje!
-          </div>
-          <div className="mt-0.5 text-[11px] text-brand-700/70">
-            Volta amanhã pra continuar a sequência.
+      {tasks.length === 0 ? (
+        <div className="relative px-5 pb-5">
+          <div className="rounded-xl bg-emerald-50/60 px-3 py-4 text-center">
+            <div className="text-[20px]" aria-hidden>
+              🎉
+            </div>
+            <div className="mt-1 text-[12.5px] font-semibold text-emerald-800">
+              Tudo limpo!
+            </div>
+            <div className="mt-0.5 text-[11px] text-emerald-700/70">
+              Sem tarefas pendentes hoje.
+            </div>
           </div>
         </div>
       ) : (
-        <ul className="flex flex-col gap-1.5">
-          {pending.slice(0, 6).map((task) => (
-            <TodoItem
-              key={task.id}
-              task={task}
-              done={false}
-              onToggle={() => toggle(task.id)}
-            />
-          ))}
-          {pending.length > 6 && (
-            <li>
+        <ul
+          className="relative flex flex-col pl-12 pr-4 pb-4"
+          style={{
+            // Cada item ocupa exatos 28px de altura pra encaixar nas linhas
+            fontFamily:
+              '"Caveat", "Patrick Hand", "Bradley Hand", "Comic Sans MS", cursive',
+          }}
+        >
+          {visibleTasks.map((task) => {
+            const done = hydrated && doneIds.has(task.id);
+            return (
+              <TodoLine
+                key={task.id}
+                task={task}
+                done={done}
+                onToggle={() => toggle(task.id)}
+              />
+            );
+          })}
+          {remaining > 0 && (
+            <li
+              className="relative flex items-center h-[28px] text-[15px]"
+              style={{ marginLeft: "-2px" }}
+            >
               <Link
                 href="/protocolo"
-                className="block rounded-lg px-2 py-1.5 text-center text-[11px] font-medium text-brand-700 hover:bg-brand-50/60"
+                className="text-[14px] italic text-zinc-500 hover:text-rose-600"
               >
-                +{pending.length - 6} mais
+                + {remaining} {remaining === 1 ? "outra" : "outras"}…
               </Link>
             </li>
           )}
         </ul>
       )}
-
-      {/* Feitas — collapsible */}
-      {done.length > 0 && (
-        <div className="border-t border-zinc-100 pt-3">
-          <button
-            type="button"
-            onClick={() => setShowDone((v) => !v)}
-            className="flex w-full items-center justify-between text-[11px] font-medium text-zinc-500 transition hover:text-zinc-700"
-          >
-            <span>
-              Feitas hoje · <span className="font-semibold text-brand-700">{done.length}</span>
-            </span>
-            <span className="text-[11px]">{showDone ? "Ocultar" : "Ver"}</span>
-          </button>
-          {showDone && (
-            <ul className="mt-2 flex flex-col gap-1.5">
-              {done.slice(0, 8).map((task) => (
-                <TodoItem
-                  key={task.id}
-                  task={task}
-                  done
-                  onToggle={() => toggle(task.id)}
-                />
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
     </aside>
   );
 }
 
-// ─── TodoItem ────────────────────────────────────────────────────────────
+// ─── TodoLine ────────────────────────────────────────────────────────────
 
-interface TodoItemProps {
+interface TodoLineProps {
   task: ProtocolTask;
   done: boolean;
   onToggle: () => void;
 }
 
-function TodoItem({ task, done, onToggle }: TodoItemProps) {
+/**
+ * Linha individual estilo "anotação manual em caderno":
+ *  - Checkbox redondo manuscrito (border-2 com cor da caneta)
+ *  - Quando done: check ❌ ou ✓ desenhado por cima + texto riscado
+ *  - Hover bg sutil mas sem destruir o "papel"
+ *  - Altura 28px exata pra encaixar nas linhas do fundo
+ */
+function TodoLine({ task, done, onToggle }: TodoLineProps) {
   return (
-    <li>
+    <li className="relative flex items-center" style={{ height: "28px" }}>
       <button
         type="button"
         onClick={onToggle}
-        className={cn(
-          "flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left transition",
-          done
-            ? "opacity-60 hover:opacity-100"
-            : "hover:bg-brand-50/40",
-        )}
+        className="group flex w-full items-center gap-2.5 text-left transition"
         aria-label={done ? "Desmarcar" : "Marcar como feito"}
       >
+        {/* Checkbox manuscrito */}
         <span
           className={cn(
-            "mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded border transition",
+            "relative grid h-4 w-4 shrink-0 place-items-center rounded-[3px] border-2 transition",
             done
-              ? "border-brand-500 bg-brand-500"
-              : "border-zinc-300 hover:border-brand-400",
+              ? "border-rose-500"
+              : "border-zinc-400/60 group-hover:border-rose-400",
           )}
+          style={{
+            backgroundColor: done ? "rgba(254, 226, 226, 0.4)" : "transparent",
+          }}
         >
-          {done && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />}
+          {done && (
+            // X manuscrito (mais pra "risquei feito" do que checkmark)
+            <svg
+              viewBox="0 0 12 12"
+              className="h-3 w-3"
+              fill="none"
+              stroke="rgb(220, 38, 38)"
+              strokeWidth="2"
+              strokeLinecap="round"
+            >
+              <path d="M 2 3 Q 6 6 10 10" />
+              <path d="M 10 3 Q 6 6 2 10" />
+            </svg>
+          )}
         </span>
+
+        {/* Texto da task — cursive, riscado quando done */}
         <span
           className={cn(
-            "min-w-0 flex-1 text-[12.5px] leading-snug",
-            done ? "text-zinc-500 line-through decoration-brand-400/60" : "text-zinc-800",
+            "min-w-0 flex-1 truncate transition",
+            done
+              ? "text-zinc-400"
+              : "text-zinc-800 group-hover:text-zinc-900",
           )}
+          style={{
+            fontSize: "16px",
+            lineHeight: "1",
+            // Risco manuscrito SVG via text-decoration nativo não fica
+            // "manuscrito"; usa text-decoration-style wavy/squiggly
+            ...(done && {
+              textDecoration: "line-through",
+              textDecorationColor: "rgba(220, 38, 38, 0.7)",
+              textDecorationThickness: "1.5px",
+              textDecorationStyle: "solid",
+            }),
+          }}
         >
           {task.label}
         </span>
