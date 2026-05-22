@@ -207,38 +207,49 @@ function Sparkline({ values, color, fillFrom, fillTo, invert }: SparklineProps) 
   const lastVal = values[values.length - 1];
   const trendUp = invert ? lastVal < firstVal : lastVal > firstVal;
 
+  // Lucas (2026-05-21): "ta zoado essa bola no gráfico" — o SVG usa
+  // `preserveAspectRatio="none"` (intencional pro line/area preencher
+  // a width 100% do container), mas isso estica também o <circle> do
+  // dot final, virando um oval horizontal. Fix: remover o circle do
+  // SVG e renderizar um <span> CSS absoluto por cima, posicionado em
+  // % do container — não estica porque é HTML, não SVG.
   return (
     <div className="mt-2">
-      <svg
-        viewBox={`0 0 ${w} ${h}`}
-        className="h-12 w-full"
-        preserveAspectRatio="none"
-      >
-        <defs>
-          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={fillFrom} />
-            <stop offset="100%" stopColor={fillTo} />
-          </linearGradient>
-        </defs>
-        <path d={areaPath} fill={`url(#${gradId})`} />
-        <path
-          d={linePath}
-          fill="none"
-          stroke={color}
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+      <div className="relative h-12 w-full">
+        <svg
+          viewBox={`0 0 ${w} ${h}`}
+          className="h-12 w-full"
+          preserveAspectRatio="none"
+        >
+          <defs>
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={fillFrom} />
+              <stop offset="100%" stopColor={fillTo} />
+            </linearGradient>
+          </defs>
+          <path d={areaPath} fill={`url(#${gradId})`} />
+          <path
+            d={linePath}
+            fill="none"
+            stroke={color}
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+        {/* Dot final — HTML overlay, não SVG, pra não esticar com
+            preserveAspectRatio="none". Position em % do container. */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.15)]"
+          style={{
+            left: `${(lastPt.x / w) * 100}%`,
+            top: `${(lastPt.y / h) * 100}%`,
+            border: `2px solid ${color}`,
+          }}
         />
-        {/* Dot final */}
-        <circle
-          cx={lastPt.x}
-          cy={lastPt.y}
-          r="3.5"
-          fill="white"
-          stroke={color}
-          strokeWidth="2"
-        />
-      </svg>
+      </div>
       <div className="mt-1 flex items-center justify-between text-[10px] text-zinc-400">
         <span>{values.length} medições</span>
         <span
