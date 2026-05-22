@@ -6,7 +6,11 @@ import type {
   Exercise,
   EquipmentKind,
   ExerciseCategory,
+  ExperienceLevel,
   MuscleGroup,
+  ProgramGoal,
+  ProgramStructure,
+  WorkoutProgram,
   WorkoutSet,
   WorkoutSession,
 } from "./types";
@@ -269,4 +273,105 @@ export async function getStrengthVolumeHistory(
     out.push({ date: dStr, ...entry });
   }
   return out;
+}
+
+// ─── Workout programs (AI generator) ──────────────────────────────────
+
+function mapWorkoutProgramRow(r: Record<string, unknown>): WorkoutProgram {
+  return {
+    id: r.id as string,
+    patientId: r.patient_id as string,
+    name: r.name as string,
+    goal: r.goal as ProgramGoal,
+    frequencyPerWeek: r.frequency_per_week as number,
+    equipmentAvailable: (r.equipment_available as EquipmentKind[]) ?? [],
+    experienceLevel: r.experience_level as ExperienceLevel,
+    restrictions: (r.restrictions as string | null) ?? null,
+    structure: r.structure as ProgramStructure,
+    aiModel: r.ai_model as string,
+    active: r.active as boolean,
+    createdAt: r.created_at as string,
+    updatedAt: r.updated_at as string,
+  };
+}
+
+/**
+ * Retorna o programa ATIVO do user (1 só por user, garantido por unique
+ * index parcial). Null se nunca gerou.
+ */
+export async function getActiveWorkoutProgram(): Promise<WorkoutProgram | null> {
+  if (!isSupabaseConfigured()) return null;
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken) return null;
+  const supabase = await createSupabaseWithJwt(accessToken);
+  const { data, error } = await supabase
+    .from("workout_programs")
+    .select("*")
+    .eq("patient_id", userId)
+    .eq("active", true)
+    .maybeSingle();
+  if (error || !data) return null;
+  return mapWorkoutProgramRow(data as Record<string, unknown>);
+}
+
+/**
+ * Lista todos os programas do user (ativos + arquivados), do mais
+ * recente pro mais antigo. Usado pra mostrar histórico de programas
+ * gerados.
+ */
+export async function listWorkoutPrograms(): Promise<WorkoutProgram[]> {
+  if (!isSupabaseConfigured()) return [];
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken) return [];
+  const supabase = await createSupabaseWithJwt(accessToken);
+  const { data, error } = await supabase
+    .from("workout_programs")
+    .select("*")
+    .eq("patient_id", userId)
+    .order("created_at", { ascending: false });
+  if (error || !data) return [];
+  return data.map((r) => mapWorkoutProgramRow(r as Record<string, unknown>));
+}
+
+/**
+ * Hidrata `exerciseName` em cada exercício do programa, fazendo lookup
+ * no exercise_catalog. Útil pra UI render sem precisar de outro fetch.
+ */
+export async function hydrateProgramExerciseNames(
+  program: WorkoutProgram,
+): Promise<WorkoutProgram> {
+  if (!isSupabaseConfigured()) return program;
+  const { accessToken } = await getUserIdFromCookie();
+  if (!accessToken) return program;
+  const supabase = await createSupabaseWithJwt(accessToken);
+
+  // Coleta todos exercise_ids únicos
+  const ids = new Set<string>();
+  for (const day of program.structure.days) {
+    for (const ex of day.exercises) ids.add(ex.exerciseId);
+  }
+  if (ids.size === 0) return program;
+
+  const { data, error } = await supabase
+    .from("exercise_catalog")
+    .select("id, name")
+    .in("id", Array.from(ids));
+  if (error || !data) return program;
+
+  const nameMap = new Map<string, string>();
+  for (const r of data) nameMap.set(r.id as string, r.name as string);
+
+  return {
+    ...program,
+    structure: {
+      ...program.structure,
+      days: program.structure.days.map((d) => ({
+        ...d,
+        exercises: d.exercises.map((ex) => ({
+          ...ex,
+          exerciseName: nameMap.get(ex.exerciseId) ?? ex.exerciseId,
+        })),
+      })),
+    },
+  };
 }
