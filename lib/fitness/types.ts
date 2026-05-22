@@ -182,3 +182,83 @@ export interface RunningSession {
   startedAt?: string;
   notes?: string | null;
 }
+
+// ─── Outras atividades (other_workouts) ───────────────────────────────
+
+export type ActivityType =
+  | "bike"
+  | "swim"
+  | "climb"
+  | "yoga"
+  | "pilates"
+  | "hiit"
+  | "mobility"
+  | "walking"
+  | "rowing"
+  | "other";
+
+export type IntensityLevel = "low" | "moderate" | "high";
+
+export const ACTIVITY_LABEL: Record<ActivityType, string> = {
+  bike: "Ciclismo",
+  swim: "Natação",
+  climb: "Escalada",
+  yoga: "Yoga",
+  pilates: "Pilates",
+  hiit: "HIIT",
+  mobility: "Mobilidade",
+  walking: "Caminhada",
+  rowing: "Remo",
+  other: "Outra",
+};
+
+export const ACTIVITY_EMOJI: Record<ActivityType, string> = {
+  bike: "🚴",
+  swim: "🏊",
+  climb: "🧗",
+  yoga: "🧘",
+  pilates: "🤸",
+  hiit: "🔥",
+  mobility: "🤲",
+  walking: "🚶",
+  rowing: "🚣",
+  other: "🏃",
+};
+
+export const INTENSITY_LABEL: Record<IntensityLevel, string> = {
+  low: "Leve",
+  moderate: "Moderado",
+  high: "Intenso",
+};
+
+/**
+ * MET values aproximados por atividade × intensidade.
+ * Fonte: Compendium of Physical Activities 2024 (Ainsworth et al.).
+ * Usado pra estimar calorias quando user não informa.
+ */
+export const ACTIVITY_MET: Record<ActivityType, Record<IntensityLevel, number>> = {
+  bike: { low: 4, moderate: 7, high: 10 },
+  swim: { low: 5.5, moderate: 8, high: 11 },
+  climb: { low: 5, moderate: 8, high: 11 },
+  yoga: { low: 2.5, moderate: 3.5, high: 5 },
+  pilates: { low: 3, moderate: 4, high: 5 },
+  hiit: { low: 6, moderate: 9, high: 12 },
+  mobility: { low: 2, moderate: 2.5, high: 3 },
+  walking: { low: 2.5, moderate: 4, high: 5.5 },
+  rowing: { low: 5, moderate: 7, high: 10 },
+  other: { low: 3, moderate: 5, high: 7 },
+};
+
+export interface OtherWorkout {
+  id: string;
+  sessionId: string;
+  activityType: ActivityType;
+  durationMinutes: number;
+  intensity: IntensityLevel;
+  distanceKm: number | null;
+  estimatedCalories: number | null;
+  createdAt: string;
+  // Joined from workout_sessions
+  sessionDate?: string;
+  notes?: string | null;
+}
