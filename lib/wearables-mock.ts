@@ -1,3 +1,5 @@
+import { generateSleepSegments } from "./sleep-segments";
+
 export type WearableBrand =
   | "apple"
   | "garmin"
@@ -30,6 +32,23 @@ export interface SleepStages {
   coreMinutes: number;
   remMinutes: number;
   awakeMinutes: number;
+  /**
+   * Timeline temporal das fases durante a noite — pra gráfico Apple
+   * Watch style mostrando QUANDO cada fase ocorreu (eixo X = horas).
+   * Cada segmento tem stage + tempo de início/fim em minutos desde
+   * meia-noite. (Negativos pra fases que começam antes da meia-noite,
+   * ex: deitou às 22h30 → -90 minutos.)
+   */
+  segments?: SleepSegment[];
+}
+
+export type SleepStage = "deep" | "core" | "rem" | "awake";
+
+export interface SleepSegment {
+  stage: SleepStage;
+  /** Minutos desde meia-noite (pode ser negativo se deitou antes) */
+  startMin: number;
+  endMin: number;
 }
 
 export interface DailyHealthMetrics {
@@ -146,11 +165,22 @@ function buildMetrics(): DailyHealthMetrics[] {
     const remPct = 0.22 + (rand() - 0.5) * 0.06; // 19-25%
     const awakePct = 0.05 + rand() * 0.06; // 5-11%
     const corePct = 1 - deepPct - remPct - awakePct;
-    const sleepStages: SleepStages = {
+    const stagesTotal = {
       deepMinutes: Math.round(sleepMinutes * deepPct),
       coreMinutes: Math.round(sleepMinutes * corePct),
       remMinutes: Math.round(sleepMinutes * remPct),
       awakeMinutes: Math.round(sleepMinutes * awakePct),
+    };
+    // Gera timeline temporal usando helper deterministic. Seed
+    // diferente por dia pra ter variação noite a noite, mas estável
+    // entre re-renders.
+    const segments = generateSleepSegments(stagesTotal, {
+      bedtimeMin: -60 + Math.round((rand() - 0.5) * 30), // 22:30-23:30
+      seed: 42 + i,
+    });
+    const sleepStages: SleepStages = {
+      ...stagesTotal,
+      segments,
     };
 
     const stepsBase = 7200 + trend * 800;
