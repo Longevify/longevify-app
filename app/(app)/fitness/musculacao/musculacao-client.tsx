@@ -52,16 +52,27 @@ interface MuscleGroupRow {
   deltaPct: number;
 }
 
+interface TodayWorkoutSummary {
+  dayIndex: number;
+  totalDays: number;
+  dayName: string;
+  focus: string[];
+  exerciseCount: number;
+  programName: string;
+}
+
 interface MusculacaoClientProps {
   exercises: Exercise[];
   volumeHistory: Array<{ date: string; volumeKg: number; setsCount: number }>;
   muscleAnalysis: MuscleGroupRow[];
+  todayWorkout?: TodayWorkoutSummary | null;
 }
 
 export function MusculacaoClient({
   exercises,
   volumeHistory,
   muscleAnalysis,
+  todayWorkout,
 }: MusculacaoClientProps) {
   const [query, setQuery] = useState("");
   const [groupFilter, setGroupFilter] = useState<MuscleGroup | "all">("all");
@@ -160,6 +171,34 @@ export function MusculacaoClient({
           hint="de 7"
         />
       </section>
+
+      {/* Treino do dia (Phase 3B) */}
+      {todayWorkout && (
+        <Link
+          href="/fitness/musculacao/hoje"
+          className="mb-5 block overflow-hidden rounded-3xl border border-brand-200 bg-gradient-to-br from-brand-700 via-brand-800 to-brand-900 text-white shadow-md transition hover:shadow-lg"
+        >
+          <div className="flex items-center gap-4 px-5 py-4">
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/15 ring-1 ring-white/20">
+              <Sparkles className="h-5 w-5 text-amber-200" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/70">
+                Treino de hoje · Dia {todayWorkout.dayIndex}/{todayWorkout.totalDays}
+              </div>
+              <div className="mt-0.5 truncate text-[16px] font-semibold leading-tight">
+                {todayWorkout.dayName}
+              </div>
+              <div className="mt-0.5 text-[11px] text-white/70">
+                {todayWorkout.exerciseCount} exercício
+                {todayWorkout.exerciseCount === 1 ? "" : "s"} ·{" "}
+                {todayWorkout.programName}
+              </div>
+            </div>
+            <span className="shrink-0 text-white">→</span>
+          </div>
+        </Link>
+      )}
 
       {/* Weekly muscle analysis (Lucas pediu — "musculo que mais evoluiu") */}
       <WeeklyMuscleAnalysis data={muscleAnalysis} />
