@@ -21,7 +21,10 @@ import {
   getRecentUserAchievements,
   getUserXp,
 } from "@/lib/fitness/achievements";
+import { estimateVo2Max, computeRecoveryScore } from "@/lib/fitness/insights";
 import { ActivityHeatmap } from "@/components/fitness/activity-heatmap";
+import { Vo2MaxCard } from "@/components/fitness/vo2max-card";
+import { RecoveryCard } from "@/components/fitness/recovery-card";
 import {
   MUSCLE_GROUP_LABEL,
   MUSCLE_GROUP_EMOJI,
@@ -55,6 +58,8 @@ export default async function FitnessIndex() {
     program,
     recentAchievements,
     xpInfo,
+    vo2max,
+    recovery,
   ] = await Promise.all([
     getActivityHeatmap(90),
     getFitnessOverview(),
@@ -62,6 +67,8 @@ export default async function FitnessIndex() {
     getActiveWorkoutProgram(),
     getRecentUserAchievements(3),
     getUserXp(),
+    estimateVo2Max(),
+    computeRecoveryScore(),
   ]);
 
   const streak = computeStreak(heatmap);
@@ -97,6 +104,14 @@ export default async function FitnessIndex() {
           </div>
         </div>
       </section>
+
+      {/* Recovery + VO2max insights (Phase 3E) */}
+      {(recovery || vo2max) && (
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {recovery && <RecoveryCard score={recovery} />}
+          {vo2max && <Vo2MaxCard estimate={vo2max} />}
+        </section>
+      )}
 
       {/* Heatmap */}
       <ActivityHeatmap days={heatmap} totalDays={90} />
