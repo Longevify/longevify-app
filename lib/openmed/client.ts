@@ -1,38 +1,50 @@
 /**
- * Medical NLP via HuggingFace Inference Providers.
+ * Medical NLP — OpenMed via self-host + HuggingFace Inference fallback.
  *
- * Originalmente esse módulo usava OpenMed (github.com/maziyarpanahi/openmed) mas
- * a HF marcou os modelos OpenMed como "deprecated" no provider hf-inference em
- * abr/2026, então caímos pra modelos equivalentes que ainda têm inferência
- * gratuita ativa:
+ * Pipeline (em ordem de tentativa):
  *
- *  - blaze999/Medical-NER     — disease + medication num único modelo
- *  - dslim/bert-base-NER      — PII genérico (pessoa, organização, local)
+ *   1) PII PT-BR rica (CPF, CEP, RG, FIRSTNAME, LASTNAME, DATEOFBIRTH...)
+ *      → OpenMed/OpenMed-PII-Portuguese-SnowflakeMed-Large-568M-v1
+ *        — NÃO está em Inference Provider público do HF (mai/2026).
+ *        Requer self-host (Mac mini ou Fly.io). Ativa quando
+ *        `OPENMED_API_URL` está setado.
  *
- * Pra escalar (tier paga, Português específico), considerar:
- *   - Self-host OpenMed via Docker (Render/Fly.io)
- *   - HF Inference Endpoints dedicados ($)
- *   - AWS Comprehend Medical (PT-BR limitado)
+ *   2) Disease NER → OpenMed-NER-DiseaseDetect-SuperClinical-434M
+ *      (HF Inference ativo, Apache 2.0). Usado se self-host falhar
+ *      ou se task é "disease".
  *
- * Env var necessária:
- *   HUGGINGFACE_API_KEY — token gratuito em huggingface.co/settings/tokens
+ *   3) Drug NER → OpenMed-NER-PharmaDetect-SuperClinical-434M
+ *      (HF Inference ativo, Apache 2.0).
+ *
+ *   4) Fallback PII genérico (multi-idioma) → dslim/bert-base-NER
+ *      (PER/ORG/LOC/MISC). Usado quando self-host está down e o
+ *      paciente é PT-BR — perde precisão CPF/CEP mas detecta nomes.
+ *
+ *   5) Fallback medical combinado → blaze999/Medical-NER (HF).
+ *      Combina disease+pharma+chemical em 1 chamada.
+ *
+ * Env vars:
+ *   HUGGINGFACE_API_KEY   — token gratuito em huggingface.co/settings/tokens
+ *   OPENMED_API_URL       — opcional. Ex.: https://openmed.longevify.com.br
+ *   OPENMED_API_TOKEN     — opcional, Bearer auth do self-host
+ *
+ * Self-host docker em `lib/openmed/docker/` — README com instruções
+ * passo a passo pra subir num Mac mini 24/7 via Cloudflare Tunnel.
  */
 
 const HF_BASE = "https://router.huggingface.co/hf-inference/models";
 
-const MODELS = {
-  /** blaze999/Medical-NER — retorna entity_group: DISEASE_DISORDER | MEDICATION | etc. */
-  medical: "blaze999/Medical-NER",
-  /** dslim/bert-base-NER — entity_group: PER | ORG | LOC | MISC */
-  pii: "dslim/bert-base-NER",
+const HF_MODELS = {
+  disease: "OpenMed/OpenMed-NER-DiseaseDetect-SuperClinical-434M",
+  pharma: "OpenMed/OpenMed-NER-PharmaDetect-SuperClinical-434M",
+  /** Fallback combinado (disease+drug+condition) caso OpenMed 434M esteja lento/down. */
+  medicalFallback: "blaze999/Medical-NER",
+  /** PII multilíngue genérico (PER/ORG/LOC/MISC). */
+  piiGeneric: "dslim/bert-base-NER",
 } as const;
 
 export type OpenMedTask = "disease" | "pharma" | "pii";
 
-/**
- * Entidade extraída pelo NER. Cada modelo retorna seus próprios `entity_group`
- * (DISEASE, CONDITION, DRUG, NAME, DATE, etc.) — preservamos como label.
- */
 export interface MedicalEntity {
   text: string;
   label: string;
@@ -49,21 +61,42 @@ interface HFNerResponse {
   end?: number;
 }
 
-function getApiKey(): string | null {
+function getHfKey(): string | null {
   const k = process.env.HUGGINGFACE_API_KEY?.trim();
   return k || null;
 }
 
-export function isOpenMedConfigured(): boolean {
-  return Boolean(getApiKey());
+function getOpenMedSelfHostUrl(): string | null {
+  const u = process.env.OPENMED_API_URL?.trim();
+  return u || null;
 }
 
-/**
- * Chama HF Inference pra um modelo específico.
- * Retorna [] em caso de qualquer erro (degradação graciosa).
- */
+function getOpenMedSelfHostToken(): string | null {
+  const t = process.env.OPENMED_API_TOKEN?.trim();
+  return t || null;
+}
+
+export function isOpenMedConfigured(): boolean {
+  // Configurado se tiver HF key (HF Inference) OU self-host URL.
+  return Boolean(getHfKey() || getOpenMedSelfHostUrl());
+}
+
+export interface OpenMedProvider {
+  hfInference: boolean;
+  selfHost: boolean;
+  selfHostUrl: string | null;
+}
+
+export function getProviderStatus(): OpenMedProvider {
+  return {
+    hfInference: Boolean(getHfKey()),
+    selfHost: Boolean(getOpenMedSelfHostUrl()),
+    selfHostUrl: getOpenMedSelfHostUrl(),
+  };
+}
+
 async function hfNer(modelId: string, text: string): Promise<MedicalEntity[]> {
-  const apiKey = getApiKey();
+  const apiKey = getHfKey();
   if (!apiKey) return [];
 
   try {
@@ -81,7 +114,7 @@ async function hfNer(modelId: string, text: string): Promise<MedicalEntity[]> {
     });
 
     if (!res.ok) {
-      console.warn(`[openmed] ${modelId} ${res.status}`);
+      console.warn(`[openmed] HF ${modelId} ${res.status}`);
       return [];
     }
 
@@ -89,83 +122,119 @@ async function hfNer(modelId: string, text: string): Promise<MedicalEntity[]> {
     if (!Array.isArray(data)) return [];
 
     return data
-      .filter((d): d is Required<HFNerResponse> =>
-        typeof d.word === "string" &&
-        typeof d.entity_group === "string" &&
-        typeof d.score === "number" &&
-        typeof d.start === "number" &&
-        typeof d.end === "number",
+      .filter(
+        (d): d is Required<HFNerResponse> =>
+          typeof d.word === "string" &&
+          typeof d.entity_group === "string" &&
+          typeof d.score === "number" &&
+          typeof d.start === "number" &&
+          typeof d.end === "number",
       )
       .map((d) => ({
         text: d.word,
-        label: d.entity_group,
+        label: d.entity_group.toUpperCase(),
         confidence: d.score,
         start: d.start,
         end: d.end,
       }));
   } catch (err) {
-    console.warn(`[openmed] error calling ${modelId}:`, err);
+    console.warn(`[openmed] HF error ${modelId}:`, err);
     return [];
   }
 }
 
 /**
- * Doenças e medicamentos vêm do mesmo modelo (blaze999/Medical-NER).
- * Pra evitar 2 chamadas, fazemos 1 e separamos as entidades por entity_group.
+ * Chama OpenMed FastAPI self-hosted.
+ * Endpoints (ver `lib/openmed/docker/app.py`):
+ *   POST {OPENMED_API_URL}/pii/extract { text, lang? } -> { entities }
+ *   POST {OPENMED_API_URL}/analyze     { text, task }  -> { entities }
  */
-async function extractMedicalCombined(text: string): Promise<{
-  diseases: MedicalEntity[];
-  medications: MedicalEntity[];
-}> {
-  const all = await hfNer(MODELS.medical, text);
-  const diseases: MedicalEntity[] = [];
-  const medications: MedicalEntity[] = [];
-  for (const e of all) {
-    const lbl = e.label.toUpperCase();
-    if (lbl.includes("DISEASE") || lbl.includes("DISORDER") || lbl.includes("CONDITION")) {
-      diseases.push(e);
-    } else if (lbl.includes("MEDICATION") || lbl.includes("DRUG") || lbl.includes("CHEMICAL")) {
-      medications.push(e);
+async function selfHostNer(
+  endpoint: "analyze" | "pii/extract",
+  payload: Record<string, unknown>,
+): Promise<MedicalEntity[]> {
+  const base = getOpenMedSelfHostUrl();
+  if (!base) return [];
+
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const token = getOpenMedSelfHostToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  try {
+    const res = await fetch(`${base.replace(/\/+$/, "")}/${endpoint}`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      console.warn(`[openmed] self-host ${endpoint} ${res.status}`);
+      return [];
     }
+
+    const data = (await res.json()) as { entities?: HFNerResponse[] };
+    const list = Array.isArray(data.entities) ? data.entities : [];
+
+    return list
+      .filter(
+        (d): d is Required<HFNerResponse> =>
+          typeof d.word === "string" &&
+          typeof d.entity_group === "string" &&
+          typeof d.score === "number" &&
+          typeof d.start === "number" &&
+          typeof d.end === "number",
+      )
+      .map((d) => ({
+        text: d.word,
+        label: d.entity_group.toUpperCase(),
+        confidence: d.score,
+        start: d.start,
+        end: d.end,
+      }));
+  } catch (err) {
+    console.warn(`[openmed] self-host error ${endpoint}:`, err);
+    return [];
   }
-  return { diseases, medications };
 }
 
 export async function extractDiseases(text: string): Promise<MedicalEntity[]> {
-  const { diseases } = await extractMedicalCombined(text);
-  return diseases;
+  const primary = await hfNer(HF_MODELS.disease, text);
+  if (primary.length > 0) return primary;
+  const all = await hfNer(HF_MODELS.medicalFallback, text);
+  return all.filter((e) =>
+    /DISEASE|DISORDER|CONDITION|SYMPTOM/.test(e.label),
+  );
 }
 
 export async function extractMedications(
   text: string,
 ): Promise<MedicalEntity[]> {
-  const { medications } = await extractMedicalCombined(text);
-  return medications;
+  const primary = await hfNer(HF_MODELS.pharma, text);
+  if (primary.length > 0) return primary;
+  const all = await hfNer(HF_MODELS.medicalFallback, text);
+  return all.filter((e) =>
+    /MEDICATION|DRUG|CHEMICAL|CHEM|PHARMA/.test(e.label),
+  );
 }
 
 /**
- * PII detection (genérico). O modelo dslim/bert-base-NER retorna PER/ORG/LOC/MISC.
- * Pra LGPD, foco em PER (nomes) e LOC (endereços/cidades) — ORG geralmente é
- * empresa/instituição, não PII pessoal.
- *
- * Lang param mantido na assinatura por compat — bert-base-NER é multilíngue.
+ * PII detection.
+ *  - lang="pt" + OPENMED_API_URL setado → OpenMed PT-BR (CPF/CEP/RG/...)
+ *  - caso contrário → dslim/bert-base-NER via HF Inference (PER/ORG/LOC/MISC)
  */
 export async function extractPII(
   text: string,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _lang: "pt" | "en" = "pt",
+  lang: "pt" | "en" = "pt",
 ): Promise<MedicalEntity[]> {
-  return hfNer(MODELS.pii, text);
+  if (lang === "pt" && getOpenMedSelfHostUrl()) {
+    const richPt = await selfHostNer("pii/extract", { text, lang: "pt" });
+    if (richPt.length > 0) return richPt;
+  }
+  return hfNer(HF_MODELS.piiGeneric, text);
 }
 
 export type DeidentifyMethod = "mask" | "remove" | "replace";
 
-/**
- * De-identifica texto usando PII detection + substituição.
- *  - mask:    "[NAME]", "[DATE]", etc.
- *  - remove:  apaga a entidade
- *  - replace: substitui por sintético ("Patient Anonymous" / "01/01/1900")
- */
 export async function deidentify(
   text: string,
   options: { method?: DeidentifyMethod; lang?: "pt" | "en" } = {},
@@ -174,7 +243,6 @@ export async function deidentify(
   const entities = await extractPII(text, options.lang ?? "pt");
   if (entities.length === 0) return { text, entitiesRemoved: [] };
 
-  // Ordena reverso pra não invalidar offsets ao substituir
   const sorted = [...entities].sort((a, b) => b.start - a.start);
   let result = text;
 
@@ -199,22 +267,45 @@ export async function deidentify(
 
 function syntheticReplacement(label: string): string {
   const map: Record<string, string> = {
-    NAME: "Anônimo Anônimo",
+    FIRSTNAME: "Anônimo",
+    LASTNAME: "Anônimo",
+    MIDDLENAME: "Anônimo",
+    DATEOFBIRTH: "01/01/1900",
     DATE: "01/01/1900",
-    SSN: "000-00-0000",
+    TIME: "00:00",
+    AGE: "00",
+    GENDER: "[GÊNERO]",
+    OCCUPATION: "[OCUPAÇÃO]",
     CPF: "000.000.000-00",
-    PHONE: "(00) 00000-0000",
+    RG: "00.000.000-0",
+    SSN: "000-00-0000",
     EMAIL: "anonimo@example.com",
-    ADDRESS: "Rua Anônima, 0",
+    PHONE: "(00) 00000-0000",
+    STREET: "Rua Anônima, 0",
+    CITY: "Cidade Anônima",
+    STATE: "XX",
+    ZIPCODE: "00000-000",
     CEP: "00000-000",
+    GPSCOORDINATES: "0.0, 0.0",
+    ORGANIZATION: "[ORG]",
+    JOBTITLE: "[CARGO]",
+    JOBDEPARTMENT: "[DEPARTAMENTO]",
+    BANKACCOUNT: "0000-0000-0000",
+    CREDITCARD: "0000 0000 0000 0000",
+    CVV: "000",
+    IBAN: "AA00 0000 0000 0000 0000 00",
+    AMOUNT: "R$ 0,00",
+    CURRENCY: "BRL",
+    PER: "Anônimo Anônimo",
+    LOC: "[LOCAL]",
+    ORG: "[ORG]",
+    MISC: "[***]",
+    NAME: "Anônimo Anônimo",
+    ADDRESS: "Rua Anônima, 0",
   };
   return map[label] ?? `[${label}]`;
 }
 
-/**
- * Extrai todas as categorias clínicas em paralelo.
- * Útil pro endpoint /api/medical-nlp/extract e pro fluxo do admin.
- */
 export interface MedicalExtraction {
   diseases: MedicalEntity[];
   medications: MedicalEntity[];
@@ -229,20 +320,13 @@ export async function extractAll(
     options.tasks ?? ["disease", "pharma", "pii"],
   );
 
-  // Disease + medication vêm do mesmo modelo — fazemos 1 chamada se ambos pedidos
-  const wantMedical = tasks.has("disease") || tasks.has("pharma");
-  const wantPii = tasks.has("pii");
-
-  const [medical, pii] = await Promise.all([
-    wantMedical
-      ? extractMedicalCombined(text)
-      : Promise.resolve({ diseases: [], medications: [] }),
-    wantPii ? extractPII(text, options.lang ?? "pt") : Promise.resolve([]),
+  const [diseases, medications, pii] = await Promise.all([
+    tasks.has("disease") ? extractDiseases(text) : Promise.resolve([]),
+    tasks.has("pharma") ? extractMedications(text) : Promise.resolve([]),
+    tasks.has("pii")
+      ? extractPII(text, options.lang ?? "pt")
+      : Promise.resolve([]),
   ]);
 
-  return {
-    diseases: tasks.has("disease") ? medical.diseases : [],
-    medications: tasks.has("pharma") ? medical.medications : [],
-    pii,
-  };
+  return { diseases, medications, pii };
 }
