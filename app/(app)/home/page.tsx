@@ -185,7 +185,7 @@ export default async function HomePage() {
         {/* Main column */}
         <div className="flex flex-col gap-6 lg:gap-8 min-w-0">
           {/* 2. Progresso diário — 4 cards (sono, exercício, feitas, pendentes) */}
-          <section>
+          <section data-tour="daily-progress">
             <div className="mb-2 flex items-baseline justify-between gap-2">
               <h2 className="text-[13px] font-medium uppercase tracking-[0.14em] text-muted">
                 Progresso de hoje
@@ -209,32 +209,35 @@ export default async function HomePage() {
           </section>
 
           {/* 3. Metas do mês */}
-          <MonthlyGoals
-            scoreNow={patient.longevifyScore}
-            scoreLastMonth={previousScore}
-            biomarkersOptimal={biomarkersOptimal}
-            biomarkersTotal={biomarkers.length}
-            streakDays={streakDays}
-            biologicalAgeDelta={bioAgeDelta}
-          />
+          <div data-tour="monthly-goals">
+            <MonthlyGoals
+              scoreNow={patient.longevifyScore}
+              scoreLastMonth={previousScore}
+              biomarkersOptimal={biomarkersOptimal}
+              biomarkersTotal={biomarkers.length}
+              streakDays={streakDays}
+              biologicalAgeDelta={bioAgeDelta}
+            />
+          </div>
 
           {/* 4. Evolução geral */}
-          <EvolutionCard
-            scoreHistory={patient.scoreHistory}
-            biologicalAgeHistory={patient.biologicalAgeHistory}
-            chronologicalAge={patient.chronologicalAge}
-            streakDays={streakDays}
-            biomarkersOptimal={biomarkersOptimal}
-            examsCount={patient.scoreHistory.length}
-          />
+          <div data-tour="evolution-card">
+            <EvolutionCard
+              scoreHistory={patient.scoreHistory}
+              biologicalAgeHistory={patient.biologicalAgeHistory}
+              chronologicalAge={patient.chronologicalAge}
+              streakDays={streakDays}
+              biomarkersOptimal={biomarkersOptimal}
+              examsCount={patient.scoreHistory.length}
+            />
+          </div>
         </div>
 
         {/* Sidebar — to-do list. Sticky em desktop pra ficar visível
             enquanto scrolla; vira card normal em mobile. */}
-        <TodoSidebar
-          tasks={tasks}
-          className="lg:sticky lg:top-4 lg:self-start"
-        />
+        <div data-tour="todo-sidebar" className="lg:sticky lg:top-4 lg:self-start">
+          <TodoSidebar tasks={tasks} />
+        </div>
       </div>
 
       {/* 5. Próximos passos / Este mês — timeline operacional */}

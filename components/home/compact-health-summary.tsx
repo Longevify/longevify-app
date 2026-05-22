@@ -69,6 +69,7 @@ export function CompactHealthSummary({
         {/* Score — escuro premium */}
         <button
           type="button"
+          data-tour="score-card"
           onClick={() => setScoreOpen(true)}
           className="group relative overflow-hidden rounded-2xl border border-white/5 bg-gradient-to-br from-[#0d2818] via-[#143D28] to-[#0F3020] p-4 text-left text-white shadow-[0_8px_24px_-12px_rgba(13,40,24,.4)] transition hover:shadow-[0_12px_30px_-12px_rgba(13,40,24,.5)] hover:-translate-y-0.5"
         >
@@ -138,6 +139,7 @@ export function CompactHealthSummary({
         {/* Bio Age — clean white */}
         <button
           type="button"
+          data-tour="bio-age-card"
           onClick={() => setBioOpen(true)}
           className="group relative overflow-hidden rounded-2xl border border-zinc-200/80 bg-white p-4 text-left shadow-[0_8px_24px_-15px_rgba(13,40,24,.18)] transition hover:shadow-[0_12px_30px_-15px_rgba(13,40,24,.22)] hover:-translate-y-0.5"
         >

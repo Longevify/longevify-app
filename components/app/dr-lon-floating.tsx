@@ -159,6 +159,7 @@ export function DrLonFloating() {
     return (
       <button
         type="button"
+        data-tour="dr-lon-button"
         onClick={() => setOpen(true)}
         // Em mobile, fica acima do bottom-nav (h-14 + safe-area).
         // Em desktop (sm+), bottom-6 normal.
