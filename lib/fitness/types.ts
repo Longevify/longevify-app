@@ -156,3 +156,29 @@ export interface ProgramQuestionnaire {
   experienceLevel: ExperienceLevel;
   restrictions: string;
 }
+
+// ─── Corrida (running_sessions) ───────────────────────────────────────
+
+/** Ponto do trajeto: [lat, lon, ts_seconds] (ts = segundos desde started_at) */
+export type GpsPoint = [number, number, number];
+
+export interface PaceSegment {
+  km: number;
+  paceSeconds: number; // segundos por km neste split
+  elevationM?: number;
+}
+
+export interface RunningSession {
+  id: string;
+  sessionId: string;
+  distanceKm: number | null;
+  durationSeconds: number | null;
+  avgPaceSecondsPerKm: number | null;
+  coordinates: GpsPoint[] | null;
+  paceSegments: PaceSegment[] | null;
+  createdAt: string;
+  // Joined from workout_sessions
+  sessionDate?: string;
+  startedAt?: string;
+  notes?: string | null;
+}
