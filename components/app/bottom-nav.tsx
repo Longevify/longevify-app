@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   Activity,
   ClipboardList,
+  Dumbbell,
   Flower2,
   Home,
   MoreHorizontal,
@@ -41,6 +42,7 @@ const PRIMARY_TABS: NavItem[] = [
 ];
 
 const MORE_TABS: NavItem[] = [
+  { href: "/fitness", label: "Fitness", Icon: Dumbbell },
   { href: "/ciclo", label: "Ciclo", Icon: Flower2 },
   { href: "/dieta", label: "Dieta", Icon: UtensilsCrossed },
   { href: "/concierge", label: "Concierge", Icon: Sparkles },

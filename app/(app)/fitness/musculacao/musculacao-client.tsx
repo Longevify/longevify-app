@@ -1,0 +1,430 @@
+"use client";
+
+import { useMemo, useState, useTransition } from "react";
+import {
+  Dumbbell,
+  Search,
+  X,
+  Plus,
+  Loader2,
+  TrendingUp,
+  Flame,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  type Exercise,
+  type MuscleGroup,
+  MUSCLE_GROUP_LABEL,
+  MUSCLE_GROUP_EMOJI,
+  EQUIPMENT_LABEL,
+} from "@/lib/fitness/types";
+import { logStrengthSet } from "../actions";
+import { toast } from "@/lib/toast";
+
+/**
+ * Musculação MVP:
+ * - Header com resumo semanal (volume total kg + total sets)
+ * - Lista de exercícios agrupados por muscle_group (filtrável via search)
+ * - Click no exercício → modal pra logar set (peso + reps + RPE opcional)
+ * - Save via server action `logStrengthSet`
+ *
+ * Lucas (2026-05-21) pediu também:
+ *   - AI workout generator (Em breve)
+ *   - Video library (Em breve — exibe descrição por enquanto)
+ *   - Weekly analysis com "musculo que mais evoluiu" (Em breve)
+ *   - Per-exercise dashboard de progressão (próxima PR)
+ *
+ * Este PR entrega o fluxo core de LOG. Análises avançadas seguem.
+ */
+
+interface MusculacaoClientProps {
+  exercises: Exercise[];
+  volumeHistory: Array<{ date: string; volumeKg: number; setsCount: number }>;
+}
+
+export function MusculacaoClient({
+  exercises,
+  volumeHistory,
+}: MusculacaoClientProps) {
+  const [query, setQuery] = useState("");
+  const [groupFilter, setGroupFilter] = useState<MuscleGroup | "all">("all");
+  const [openExercise, setOpenExercise] = useState<Exercise | null>(null);
+
+  // Resumo semanal (últimos 7 dias)
+  const weekly = useMemo(() => {
+    const last7 = volumeHistory.slice(-7);
+    const totalVolume = last7.reduce((s, d) => s + d.volumeKg, 0);
+    const totalSets = last7.reduce((s, d) => s + d.setsCount, 0);
+    const activeDays = last7.filter((d) => d.setsCount > 0).length;
+    return { totalVolume, totalSets, activeDays };
+  }, [volumeHistory]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return exercises.filter((e) => {
+      if (groupFilter !== "all" && e.muscleGroup !== groupFilter) return false;
+      if (q && !e.name.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [exercises, query, groupFilter]);
+
+  // Agrupa por muscleGroup
+  const grouped = useMemo(() => {
+    const map = new Map<MuscleGroup, Exercise[]>();
+    for (const e of filtered) {
+      const arr = map.get(e.muscleGroup) ?? [];
+      arr.push(e);
+      map.set(e.muscleGroup, arr);
+    }
+    return Array.from(map.entries());
+  }, [filtered]);
+
+  const groupChips: Array<MuscleGroup | "all"> = [
+    "all",
+    "chest",
+    "back",
+    "legs",
+    "shoulders",
+    "arms",
+    "core",
+    "full_body",
+  ];
+
+  return (
+    <>
+      {/* Resumo semanal */}
+      <section className="mb-5 grid grid-cols-3 gap-3">
+        <SummaryCard
+          icon={<TrendingUp className="h-4 w-4 text-emerald-600" />}
+          label="Volume (7d)"
+          value={`${Math.round(weekly.totalVolume).toLocaleString("pt-BR")} kg`}
+          hint="peso × reps"
+        />
+        <SummaryCard
+          icon={<Dumbbell className="h-4 w-4 text-brand-700" />}
+          label="Sets"
+          value={`${weekly.totalSets}`}
+          hint="últimos 7 dias"
+        />
+        <SummaryCard
+          icon={<Flame className="h-4 w-4 text-orange-500" />}
+          label="Dias ativos"
+          value={`${weekly.activeDays}`}
+          hint="de 7"
+        />
+      </section>
+
+      {/* CTA AI workout generator (placeholder) */}
+      <section className="mb-5 rounded-2xl border border-dashed border-brand-300 bg-brand-50/40 px-4 py-3.5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-[12.5px] font-semibold text-brand-900">
+              ✨ Gerador de treino com Dr. Lon
+            </div>
+            <p className="mt-0.5 text-[11.5px] text-brand-700/80">
+              Responda 5 perguntas e o Dr. Lon monta um treino personalizado
+              baseado nos seus objetivos.
+            </p>
+          </div>
+          <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-600">
+            Em breve
+          </span>
+        </div>
+      </section>
+
+      {/* Search + filtro */}
+      <div className="mb-4 flex flex-col gap-3">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar exercício..."
+            className="w-full rounded-full border border-zinc-200 bg-white py-2.5 pl-10 pr-4 text-[13.5px] text-zinc-800 placeholder:text-zinc-400 focus:border-brand-400 focus:outline-none"
+          />
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {groupChips.map((g) => (
+            <button
+              key={g}
+              type="button"
+              onClick={() => setGroupFilter(g)}
+              className={cn(
+                "rounded-full px-3 py-1.5 text-[11.5px] font-medium transition",
+                groupFilter === g
+                  ? "bg-brand-700 text-white shadow-sm"
+                  : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200",
+              )}
+            >
+              {g === "all" ? "Todos" : MUSCLE_GROUP_LABEL[g]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Lista por muscle_group */}
+      <section className="flex flex-col gap-5">
+        {grouped.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/50 px-4 py-8 text-center text-[12.5px] text-zinc-500">
+            Nenhum exercício encontrado com esse filtro.
+          </div>
+        ) : (
+          grouped.map(([group, list]) => (
+            <div key={group}>
+              <h3 className="mb-2 inline-flex items-center gap-1.5 text-[11.5px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                <span aria-hidden>{MUSCLE_GROUP_EMOJI[group]}</span>
+                {MUSCLE_GROUP_LABEL[group]}
+                <span className="ml-1 rounded-full bg-zinc-100 px-1.5 py-0.5 text-[9.5px] text-zinc-500">
+                  {list.length}
+                </span>
+              </h3>
+              <ul className="flex flex-col gap-1.5">
+                {list.map((ex) => (
+                  <li key={ex.id}>
+                    <button
+                      type="button"
+                      onClick={() => setOpenExercise(ex)}
+                      className="flex w-full items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-left transition hover:border-brand-300 hover:shadow-sm"
+                    >
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-700">
+                        <Dumbbell className="h-4 w-4" strokeWidth={2} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[13.5px] font-medium text-zinc-900">
+                          {ex.name}
+                        </div>
+                        <div className="mt-0.5 flex flex-wrap gap-1.5 text-[10.5px] text-zinc-500">
+                          {ex.equipment ? (
+                            <span>{EQUIPMENT_LABEL[ex.equipment]}</span>
+                          ) : null}
+                          <span>· {ex.category === "compound" ? "composto" : "isolado"}</span>
+                        </div>
+                      </div>
+                      <Plus className="h-4 w-4 shrink-0 text-zinc-400" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))
+        )}
+      </section>
+
+      {/* Modal de log */}
+      {openExercise && (
+        <LogSetModal
+          exercise={openExercise}
+          onClose={() => setOpenExercise(null)}
+        />
+      )}
+    </>
+  );
+}
+
+function SummaryCard({
+  icon,
+  label,
+  value,
+  hint,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  hint: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-zinc-200 bg-white px-3 py-3 shadow-[0_2px_8px_-4px_rgba(13,40,24,.08)]">
+      <div className="flex items-center gap-1.5 text-[9.5px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
+        {icon}
+        {label}
+      </div>
+      <div className="mt-1 text-[18px] font-semibold leading-none tracking-tight text-zinc-900 tabular-nums">
+        {value}
+      </div>
+      <div className="mt-0.5 text-[10.5px] text-zinc-400">{hint}</div>
+    </div>
+  );
+}
+
+// ─── Log set modal ────────────────────────────────────────────────────
+
+function LogSetModal({
+  exercise,
+  onClose,
+}: {
+  exercise: Exercise;
+  onClose: () => void;
+}) {
+  const [weight, setWeight] = useState("");
+  const [reps, setReps] = useState("");
+  const [rpe, setRpe] = useState<number | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const submit = () => {
+    const w = parseFloat(weight.replace(",", "."));
+    const r = parseInt(reps, 10);
+    if (!r || r <= 0) {
+      toast.error({ title: "Reps inválido", description: "Informe pelo menos 1 rep." });
+      return;
+    }
+    startTransition(async () => {
+      const result = await logStrengthSet({
+        exerciseId: exercise.id,
+        weightKg: Number.isFinite(w) ? w : null,
+        reps: r,
+        rpe,
+      });
+      if (result.ok) {
+        toast.success({
+          title: "Set registrado",
+          description: `${exercise.name} · ${Number.isFinite(w) ? `${w}kg × ` : ""}${r} reps`,
+        });
+        // Limpa campos pra próximo set
+        setWeight(weight); // mantém peso (geralmente repete)
+        setReps("");
+        setRpe(null);
+      } else {
+        toast.error({ title: "Erro ao gravar", description: result.error });
+      }
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 flex max-h-[92dvh] w-full flex-col overflow-hidden bg-white shadow-2xl sm:max-w-[480px] sm:rounded-3xl rounded-t-3xl">
+        <header className="flex items-start justify-between gap-3 border-b border-zinc-100 px-5 py-4">
+          <div className="min-w-0">
+            <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-brand-700">
+              {MUSCLE_GROUP_LABEL[exercise.muscleGroup]}
+            </div>
+            <h2 className="mt-0.5 text-[17px] font-semibold leading-tight text-zinc-900">
+              {exercise.name}
+            </h2>
+            {exercise.equipment && (
+              <p className="mt-0.5 text-[11px] text-zinc-500">
+                {EQUIPMENT_LABEL[exercise.equipment]} · {exercise.category === "compound" ? "composto" : "isolado"}
+              </p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fechar"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-zinc-100 text-zinc-500 transition hover:bg-zinc-200"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </header>
+
+        <div className="flex-1 overflow-y-auto px-5 py-5">
+          {exercise.description && (
+            <p className="mb-5 rounded-xl bg-zinc-50/70 px-3 py-2.5 text-[12.5px] leading-relaxed text-zinc-600">
+              {exercise.description}
+            </p>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[10.5px] font-semibold uppercase tracking-wide text-zinc-500">
+                Peso (kg)
+              </label>
+              <input
+                type="number"
+                inputMode="decimal"
+                value={weight}
+                onChange={(e) => setWeight(e.target.value)}
+                placeholder="60"
+                min="0"
+                step="any"
+                className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-[16px] tabular-nums text-zinc-900 focus:border-brand-400 focus:outline-none"
+              />
+              <p className="mt-1 text-[10.5px] text-zinc-400">
+                Deixa vazio se for bodyweight
+              </p>
+            </div>
+            <div>
+              <label className="block text-[10.5px] font-semibold uppercase tracking-wide text-zinc-500">
+                Reps
+              </label>
+              <input
+                type="number"
+                inputMode="numeric"
+                value={reps}
+                onChange={(e) => setReps(e.target.value)}
+                placeholder="8"
+                min="1"
+                step="1"
+                className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-[16px] tabular-nums text-zinc-900 focus:border-brand-400 focus:outline-none"
+              />
+              <p className="mt-1 text-[10.5px] text-zinc-400">
+                Quantas repetições?
+              </p>
+            </div>
+          </div>
+
+          {/* RPE opcional */}
+          <div className="mt-4">
+            <label className="block text-[10.5px] font-semibold uppercase tracking-wide text-zinc-500">
+              Esforço percebido (RPE) <span className="text-zinc-400">— opcional</span>
+            </label>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {[6, 7, 8, 9, 10].map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setRpe(rpe === v ? null : v)}
+                  className={cn(
+                    "rounded-full px-3 py-1.5 text-[12px] font-semibold transition",
+                    rpe === v
+                      ? "bg-brand-700 text-white"
+                      : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200",
+                  )}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1 text-[10.5px] text-zinc-400">
+              10 = falha total. 8 = 2 reps na reserva. 6 = leve.
+            </p>
+          </div>
+
+          {/* Video library hint */}
+          {exercise.videoUrl ? (
+            <a
+              href={exercise.videoUrl}
+              target="_blank"
+              rel="noopener"
+              className="mt-4 inline-flex items-center gap-1.5 text-[12px] font-medium text-brand-700 underline-offset-2 hover:underline"
+            >
+              Ver vídeo de execução ↗
+            </a>
+          ) : (
+            <p className="mt-4 text-[10.5px] text-zinc-400">
+              📹 Biblioteca de vídeos · em breve
+            </p>
+          )}
+        </div>
+
+        <footer className="border-t border-zinc-100 px-5 py-3">
+          <button
+            type="button"
+            onClick={submit}
+            disabled={pending || !reps}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-brand-700 to-brand-800 px-5 py-3 text-[14px] font-semibold text-white transition disabled:opacity-50"
+          >
+            {pending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Gravando…
+              </>
+            ) : (
+              <>Registrar set</>
+            )}
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
