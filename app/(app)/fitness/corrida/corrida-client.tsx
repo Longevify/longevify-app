@@ -373,19 +373,25 @@ export function CorridaClient({ history, stats }: CorridaClientProps) {
         />
       </section>
 
-      {/* Start big button */}
+      {/* Start big button — Phase 3H: pulse animation pra atrair atenção */}
       <button
         type="button"
         onClick={start}
-        className="group flex flex-col items-center justify-center gap-2 rounded-3xl bg-gradient-to-br from-brand-700 to-brand-900 px-6 py-10 text-white shadow-[0_8px_30px_-12px_rgba(31,93,63,.6)] transition active:scale-[0.98]"
+        className="group relative flex flex-col items-center justify-center gap-2 overflow-hidden rounded-3xl bg-gradient-to-br from-brand-700 to-brand-900 px-6 py-10 text-white shadow-[0_8px_30px_-12px_rgba(31,93,63,.6)] transition active:scale-[0.98]"
       >
-        <span className="grid h-16 w-16 place-items-center rounded-full bg-white/15 ring-1 ring-white/30 transition group-hover:bg-white/20">
+        {/* Pulse rings (puramente visual) */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute h-24 w-24 animate-ping rounded-full bg-white/10"
+          style={{ animationDuration: "2.4s" }}
+        />
+        <span className="relative grid h-16 w-16 place-items-center rounded-full bg-white/15 ring-1 ring-white/30 transition group-hover:bg-white/25 group-hover:scale-105">
           <Play className="h-7 w-7 fill-white" />
         </span>
-        <span className="text-[16px] font-semibold tracking-tight">
+        <span className="relative text-[16px] font-semibold tracking-tight">
           Iniciar corrida
         </span>
-        <span className="text-[11px] text-white/70">
+        <span className="relative text-[11px] text-white/70">
           GPS + cronômetro + pace em tempo real
         </span>
       </button>
@@ -403,10 +409,9 @@ export function CorridaClient({ history, stats }: CorridaClientProps) {
         ) : (
           <ul className="flex flex-col gap-2">
             {history.map((r) => (
-              <li key={r.id}>
-                <button
-                  type="button"
-                  onClick={() => setShareOpen(r)}
+              <li key={r.id} className="relative">
+                <a
+                  href={`/fitness/corrida/${r.id}`}
                   className="flex w-full items-center gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-left transition hover:border-brand-300 hover:shadow-sm"
                 >
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700">
@@ -421,7 +426,17 @@ export function CorridaClient({ history, stats }: CorridaClientProps) {
                       {fmtPace(r.avgPaceSecondsPerKm)}
                     </div>
                   </div>
-                  <Share2 className="h-4 w-4 shrink-0 text-zinc-400" />
+                </a>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShareOpen(r);
+                  }}
+                  aria-label="Compartilhar"
+                  className="absolute right-3 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-zinc-400 transition hover:bg-zinc-100 hover:text-brand-700"
+                >
+                  <Share2 className="h-4 w-4" />
                 </button>
               </li>
             ))}
