@@ -15,10 +15,28 @@ export interface WearableDevice {
   supported: "v1" | "coming";
 }
 
+/**
+ * Fases do sono em minutos (Apple Watch / Oura padrão).
+ *   - deep: sono profundo (lento, recuperação física)
+ *   - core/light: sono leve (transição)
+ *   - rem: sono REM (memória, sonhos)
+ *   - awake: tempo acordado durante a noite
+ *
+ * Soma normalmente ≤ sleepMinutes total (sleepMinutes inclui awake
+ * intervals breves). Pra display, mostramos as 4 fases stackeadas.
+ */
+export interface SleepStages {
+  deepMinutes: number;
+  coreMinutes: number;
+  remMinutes: number;
+  awakeMinutes: number;
+}
+
 export interface DailyHealthMetrics {
   date: string;
   sleepMinutes: number;
   sleepEfficiency: number;
+  sleepStages?: SleepStages;
   steps: number;
   activeMinutes: number;
   zone2Minutes: number;
@@ -121,6 +139,20 @@ function buildMetrics(): DailyHealthMetrics[] {
     const sleepBase = 395 + trend * 25; // ~6h35 -> ~7h00
     const sleepMinutes = Math.round(sleepBase + (rand() - 0.5) * 55);
 
+    // Fases do sono — distribuição padrão Apple Watch/Oura:
+    // ~20% deep, ~50% core/light, ~22% REM, ~8% awake
+    // Soma awake + deep + core + rem = sleepMinutes (aproximadamente).
+    const deepPct = 0.18 + (rand() - 0.5) * 0.05; // 15-20%
+    const remPct = 0.22 + (rand() - 0.5) * 0.06; // 19-25%
+    const awakePct = 0.05 + rand() * 0.06; // 5-11%
+    const corePct = 1 - deepPct - remPct - awakePct;
+    const sleepStages: SleepStages = {
+      deepMinutes: Math.round(sleepMinutes * deepPct),
+      coreMinutes: Math.round(sleepMinutes * corePct),
+      remMinutes: Math.round(sleepMinutes * remPct),
+      awakeMinutes: Math.round(sleepMinutes * awakePct),
+    };
+
     const stepsBase = 7200 + trend * 800;
     const steps = Math.max(
       1800,
@@ -140,6 +172,7 @@ function buildMetrics(): DailyHealthMetrics[] {
       date: iso,
       sleepMinutes,
       sleepEfficiency,
+      sleepStages,
       steps,
       activeMinutes,
       zone2Minutes,

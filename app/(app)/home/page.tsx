@@ -102,6 +102,7 @@ export default async function HomePage() {
     : realLatestMetric;
   const hasWearableData = Boolean(realLatestMetric || user.isDemo);
   const sleepMinutes = latestMetric?.sleepMinutes ?? 0;
+  const sleepStages = latestMetric?.sleepStages ?? null;
   const exerciseMinutes =
     (latestMetric?.zone2Minutes ?? 0) +
     Math.round((latestMetric?.steps ?? 0) / 130); // ~130 passos/min ritmo médio
@@ -198,6 +199,7 @@ export default async function HomePage() {
         </div>
         <DailyProgressGrid
           sleepMinutes={sleepMinutes}
+          sleepStages={sleepStages}
           sleepTargetMinutes={450}
           exerciseMinutes={exerciseMinutes}
           exerciseTargetMinutes={30}

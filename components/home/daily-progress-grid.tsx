@@ -13,6 +13,7 @@ import {
   WearableMetricPopup,
   type MetricPoint,
 } from "@/components/home/wearable-metric-popup";
+import type { SleepStages } from "@/lib/wearables-mock";
 
 /**
  * Lucas (2026-05-21): "pode tirar os 2 cards 'feitas hoje' e 'a fazer'
@@ -30,6 +31,7 @@ interface DailyHistoryPoint {
 
 interface DailyProgressGridProps {
   sleepMinutes: number;
+  sleepStages?: SleepStages | null;
   sleepTargetMinutes: number;
   exerciseMinutes: number;
   exerciseTargetMinutes: number;
@@ -48,6 +50,7 @@ interface DailyProgressGridProps {
 
 export function DailyProgressGrid({
   sleepMinutes,
+  sleepStages,
   sleepTargetMinutes,
   exerciseMinutes,
   exerciseTargetMinutes,
@@ -85,18 +88,11 @@ export function DailyProgressGrid({
     <>
       <div className={cn("grid grid-cols-2 gap-3", className)}>
         {hasWearableData ? (
-          <ClickableProgressCard
-            icon={Moon}
-            iconAccent="bg-indigo-50 text-indigo-700"
-            label="Sono"
-            value={formatHM(sleepMinutes)}
-            target={`/ ${formatHM(sleepTargetMinutes)}`}
+          <SleepCard
+            sleepMinutes={sleepMinutes}
+            sleepStages={sleepStages ?? null}
+            sleepTargetMinutes={sleepTargetMinutes}
             scoreValue={todaySleepScore}
-            progressPct={Math.min(
-              100,
-              Math.round((sleepMinutes / sleepTargetMinutes) * 100),
-            )}
-            progressColor="from-indigo-400 to-indigo-600"
             onClick={() => setOpenMetric("sleep")}
           />
         ) : (
@@ -237,6 +233,150 @@ function ClickableProgressCard({
           style={{ width: `${progressPct}%` }}
         />
       </div>
+    </button>
+  );
+}
+
+// ─── SleepCard — variante com fases do sono (deep/core/REM/awake) ──────
+
+interface SleepCardProps {
+  sleepMinutes: number;
+  sleepStages: SleepStages | null;
+  sleepTargetMinutes: number;
+  scoreValue: number;
+  onClick: () => void;
+}
+
+/**
+ * Lucas (2026-05-22): "No apple watch tem informações de quanto tempo
+ * você dormiu em cada fase do sono (Profundo, leve, quando você
+ * acordou, etc.) quero que você mostre isso no home também."
+ *
+ * Cores semelhantes Apple Health:
+ *   - deep: roxo escuro (#5145C5)
+ *   - core/light: azul médio (#3D80F0)
+ *   - rem: azul claro (#8EC3F6)
+ *   - awake: laranja/rosa (#E76A56)
+ */
+const STAGE_COLORS: Record<keyof SleepStages, { bg: string; label: string }> = {
+  deepMinutes: { bg: "bg-indigo-800", label: "Profundo" },
+  coreMinutes: { bg: "bg-blue-500", label: "Leve" },
+  remMinutes: { bg: "bg-sky-300", label: "REM" },
+  awakeMinutes: { bg: "bg-orange-400", label: "Acordado" },
+};
+
+function SleepCard({
+  sleepMinutes,
+  sleepStages,
+  sleepTargetMinutes,
+  scoreValue,
+  onClick,
+}: SleepCardProps) {
+  const progressPct = Math.min(
+    100,
+    Math.round((sleepMinutes / sleepTargetMinutes) * 100),
+  );
+
+  // Calcula proporções pra stacked bar (caso falte sleepStages, fallback
+  // pra única barra do sleepMinutes total estilo antes)
+  const hasStages = !!sleepStages && sleepMinutes > 0;
+  const totalForStages = sleepStages
+    ? sleepStages.deepMinutes +
+      sleepStages.coreMinutes +
+      sleepStages.remMinutes +
+      sleepStages.awakeMinutes
+    : 0;
+
+  const order: Array<keyof SleepStages> = [
+    "deepMinutes",
+    "coreMinutes",
+    "remMinutes",
+    "awakeMinutes",
+  ];
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex flex-col gap-2 rounded-2xl border border-zinc-200/80 bg-white p-4 text-left shadow-[0_4px_16px_-10px_rgba(13,40,24,.1)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_22px_-10px_rgba(13,40,24,.15)]"
+    >
+      <div className="flex items-center justify-between">
+        <span className="grid h-8 w-8 place-items-center rounded-xl bg-indigo-50 text-indigo-700">
+          <Moon className="h-4 w-4" />
+        </span>
+        <span
+          className={cn(
+            "rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold tabular-nums",
+            scoreColor(scoreValue),
+          )}
+        >
+          {scoreValue}/100
+        </span>
+      </div>
+      <div>
+        <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+          Sono
+        </div>
+        <div className="mt-0.5 flex items-baseline gap-1">
+          <span className="text-[22px] font-semibold leading-none tracking-tight text-zinc-900 tabular-nums">
+            {formatHM(sleepMinutes)}
+          </span>
+          <span className="text-[11px] text-zinc-500">
+            / {formatHM(sleepTargetMinutes)}
+          </span>
+        </div>
+      </div>
+
+      {/* Stacked bar das fases */}
+      {hasStages ? (
+        <div className="mt-1">
+          <div className="flex h-2 overflow-hidden rounded-full bg-zinc-100">
+            {order.map((key) => {
+              const min = sleepStages![key];
+              if (min <= 0) return null;
+              const widthPct = (min / totalForStages) * 100;
+              return (
+                <span
+                  key={key}
+                  className={cn(STAGE_COLORS[key].bg, "first:rounded-l-full last:rounded-r-full")}
+                  style={{ width: `${widthPct}%` }}
+                  title={`${STAGE_COLORS[key].label}: ${formatHM(min)}`}
+                />
+              );
+            })}
+          </div>
+          {/* Mini legend abaixo: 4 linhas com cor + label + min */}
+          <ul className="mt-1.5 grid grid-cols-2 gap-x-2 gap-y-0.5 text-[9.5px]">
+            {order.map((key) => {
+              const min = sleepStages![key];
+              return (
+                <li
+                  key={key}
+                  className="flex items-center gap-1 truncate text-zinc-600 tabular-nums"
+                >
+                  <span
+                    className={cn(
+                      "h-1.5 w-1.5 shrink-0 rounded-sm",
+                      STAGE_COLORS[key].bg,
+                    )}
+                    aria-hidden
+                  />
+                  <span className="truncate">{STAGE_COLORS[key].label}</span>
+                  <span className="ml-auto text-zinc-500">{formatHM(min)}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : (
+        // Fallback (sem stages): barra única de progresso vs target
+        <div className="relative h-1 overflow-hidden rounded-full bg-zinc-100">
+          <span
+            className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-indigo-400 to-indigo-600 transition-[width] duration-1000"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+      )}
     </button>
   );
 }

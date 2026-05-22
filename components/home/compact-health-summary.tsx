@@ -14,13 +14,16 @@ import type {
 
 /**
  * Lucas (2026-05-20): "quero que o longevify score e idade biológica
- * fiquem menores" — substitui ScoreCard + BioAgeCard (cards grandes
- * ocupando 1/3 da home) por uma linha compacta com os dois números
- * lado a lado. Click ainda abre os popups de detalhe completos.
+ * fiquem menores" — cards compactos.
  *
- * Layout responsivo:
- * - Mobile: 2 cards 50/50, altura ~96px
- * - Desktop: 2 cards 50/50, altura ~120px
+ * Lucas (2026-05-22): "os cards longevify score e idade biológica
+ * sejam um pouco mais robustos e menos longos, dando mais espaço para
+ * a aba de suas tarefas."
+ *
+ * Layout: cada card tem agora 2 colunas horizontais (número grande à
+ * esquerda + barra/status à direita), reduzindo altura em ~50%. Os 2
+ * cards stacked verticalmente continuam ocupando bem menos espaço
+ * vertical → TodoSidebar respira ao lado.
  */
 
 interface CompactHealthSummaryProps {
@@ -65,163 +68,170 @@ export function CompactHealthSummary({
 
   return (
     <>
-      {/* Lucas (2026-05-21): "longevify score e idade biológica ficam
-          um em cima do outro". Stack vertical (era grid-cols-2 lado a
-          lado). Sidebar de tarefas fica ao lado externamente (no
-          home/page.tsx). */}
       <div className={cn("flex flex-col gap-3", className)}>
-        {/* Score — escuro premium */}
+        {/* Score — escuro premium, layout horizontal compacto */}
         <button
           type="button"
           data-tour="score-card"
           onClick={() => setScoreOpen(true)}
-          className="group relative overflow-hidden rounded-2xl border border-white/5 bg-gradient-to-br from-[#0d2818] via-[#143D28] to-[#0F3020] p-4 text-left text-white shadow-[0_8px_24px_-12px_rgba(13,40,24,.4)] transition hover:shadow-[0_12px_30px_-12px_rgba(13,40,24,.5)] hover:-translate-y-0.5"
+          className="group relative overflow-hidden rounded-2xl border border-white/5 bg-gradient-to-br from-[#0d2818] via-[#143D28] to-[#0F3020] px-4 py-3 text-left text-white shadow-[0_8px_24px_-12px_rgba(13,40,24,.4)] transition hover:shadow-[0_12px_30px_-12px_rgba(13,40,24,.5)] hover:-translate-y-0.5"
         >
           <span className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-emerald-500/10 blur-2xl" />
           <span className="pointer-events-none absolute right-3 top-3 text-emerald-300/40">
             <Sparkles className="h-3.5 w-3.5" />
           </span>
 
-          <div className="relative">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/60">
-              Longevify Score
-            </div>
-            <div className="mt-1 flex items-baseline gap-2">
-              <span className="bg-gradient-to-b from-white to-white/80 bg-clip-text text-[34px] font-semibold leading-none tracking-tight text-transparent">
-                {score}
-              </span>
-              {scoreDelta !== 0 && (
-                <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-200">
-                  <TrendingUp
-                    className={cn(
-                      "h-3 w-3",
-                      scoreDelta > 0
-                        ? "text-emerald-300"
-                        : "rotate-180 text-rose-300",
-                    )}
-                  />
-                  {scoreDelta > 0 ? "+" : ""}
-                  {scoreDelta}
+          <div className="relative flex items-center gap-4">
+            {/* Esquerda: label + número grande + delta */}
+            <div className="shrink-0">
+              <div className="text-[9.5px] font-semibold uppercase tracking-[0.16em] text-white/60">
+                Longevify Score
+              </div>
+              <div className="mt-0.5 flex items-baseline gap-1.5">
+                <span className="bg-gradient-to-b from-white to-white/80 bg-clip-text text-[32px] font-semibold leading-none tracking-tight text-transparent">
+                  {score}
                 </span>
-              )}
-            </div>
-            <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-200 ring-1 ring-emerald-400/20">
-              <span className="h-1 w-1 rounded-full bg-emerald-400" />
-              {statusLabel}
+                {scoreDelta !== 0 && (
+                  <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-200">
+                    <TrendingUp
+                      className={cn(
+                        "h-3 w-3",
+                        scoreDelta > 0
+                          ? "text-emerald-300"
+                          : "rotate-180 text-rose-300",
+                      )}
+                    />
+                    {scoreDelta > 0 ? "+" : ""}
+                    {scoreDelta}
+                  </span>
+                )}
+              </div>
             </div>
 
-            {/* Lucas (2026-05-21): "coloque uma linha de 0 a 100" — mini
-                progress bar com thumb saliente posicionado no score atual. */}
-            <div className="relative mt-3 pb-1">
-              <div className="relative h-1 w-full">
-                <div className="absolute inset-0 overflow-hidden rounded-full bg-white/15">
-                  <div
-                    className="absolute inset-y-0 left-0 rounded-full"
-                    style={{
-                      width: "100%",
-                      background:
-                        "linear-gradient(90deg, #E85D5D 0%, #F39A50 25%, #E6B845 50%, #79C98E 75%, #10B981 100%)",
-                    }}
-                  />
-                </div>
-                <div
-                  className="absolute top-1/2 grid h-3 w-3 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,.3)] ring-2 ring-emerald-400"
-                  style={{ left: `${Math.max(0, Math.min(100, score))}%` }}
-                >
-                  <span className="h-1 w-1 rounded-full bg-emerald-500" />
-                </div>
+            {/* Direita: status pill + barra + scale */}
+            <div className="min-w-0 flex-1">
+              <div className="flex justify-end">
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/15 px-2 py-0.5 text-[9.5px] font-semibold text-emerald-200 ring-1 ring-emerald-400/20">
+                  <span className="h-1 w-1 rounded-full bg-emerald-400" />
+                  {statusLabel}
+                </span>
               </div>
-              <div className="mt-1 flex justify-between text-[8.5px] font-medium text-white/40">
-                <span>0</span>
-                <span>50</span>
-                <span>100</span>
+              <div className="relative mt-2">
+                <div className="relative h-1 w-full">
+                  <div className="absolute inset-0 overflow-hidden rounded-full bg-white/15">
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-full"
+                      style={{
+                        width: "100%",
+                        background:
+                          "linear-gradient(90deg, #E85D5D 0%, #F39A50 25%, #E6B845 50%, #79C98E 75%, #10B981 100%)",
+                      }}
+                    />
+                  </div>
+                  <div
+                    className="absolute top-1/2 grid h-3 w-3 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,.3)] ring-2 ring-emerald-400"
+                    style={{ left: `${Math.max(0, Math.min(100, score))}%` }}
+                  >
+                    <span className="h-1 w-1 rounded-full bg-emerald-500" />
+                  </div>
+                </div>
+                <div className="mt-1 flex justify-between text-[8px] font-medium text-white/40">
+                  <span>0</span>
+                  <span>50</span>
+                  <span>100</span>
+                </div>
               </div>
             </div>
           </div>
         </button>
 
-        {/* Bio Age — clean white */}
+        {/* Bio Age — clean white, layout horizontal compacto */}
         <button
           type="button"
           data-tour="bio-age-card"
           onClick={() => setBioOpen(true)}
-          className="group relative overflow-hidden rounded-2xl border border-zinc-200/80 bg-white p-4 text-left shadow-[0_8px_24px_-15px_rgba(13,40,24,.18)] transition hover:shadow-[0_12px_30px_-15px_rgba(13,40,24,.22)] hover:-translate-y-0.5"
+          className="group relative overflow-hidden rounded-2xl border border-zinc-200/80 bg-white px-4 py-3 text-left shadow-[0_8px_24px_-15px_rgba(13,40,24,.18)] transition hover:shadow-[0_12px_30px_-15px_rgba(13,40,24,.22)] hover:-translate-y-0.5"
         >
           <span className="pointer-events-none absolute right-3 top-3 text-emerald-400">
             <Calendar className="h-3.5 w-3.5" />
           </span>
 
-          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
-            Idade Biológica
-          </div>
-          <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-[34px] font-semibold leading-none tracking-tight text-zinc-900">
-              {biologicalAge}
-            </span>
-            <span className="text-[12px] text-zinc-500">anos</span>
-          </div>
-          <div
-            className={cn(
-              "mt-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold",
-              younger
-                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-                : bioDiff === 0
-                  ? "bg-zinc-100 text-zinc-700 ring-1 ring-zinc-200"
-                  : "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
-            )}
-          >
-            {bioDiff === 0
-              ? "igual à cronológica"
-              : younger
-                ? `${Math.abs(bioDiff)}a mais jovem`
-                : `${Math.abs(bioDiff)}a mais velho`}
-          </div>
-
-          {/* Lucas (2026-05-21): "coloque uma linha de 0 a 100 (em idade
-              biológica e no score)". Range 0-100 anos. Thumb na bio age
-              atual + marca discreta na idade cronológica pra comparar. */}
-          <div className="relative mt-3 pb-1">
-            <div className="relative h-1 w-full">
-              <div className="absolute inset-0 overflow-hidden rounded-full bg-zinc-100">
-                <div
-                  className="absolute inset-y-0 left-0 rounded-full"
-                  style={{
-                    width: "100%",
-                    background:
-                      "linear-gradient(90deg, #10B981 0%, #79C98E 30%, #E6B845 60%, #F39A50 80%, #E85D5D 100%)",
-                  }}
-                />
+          <div className="flex items-center gap-4">
+            {/* Esquerda: label + número grande */}
+            <div className="shrink-0">
+              <div className="text-[9.5px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                Idade Biológica
               </div>
-              {/* Marca da idade cronológica — pra contexto */}
-              <div
-                className="absolute top-1/2 h-2 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-zinc-400/60"
-                style={{
-                  left: `${Math.max(0, Math.min(100, chronologicalAge))}%`,
-                }}
-                aria-label={`Idade cronológica: ${chronologicalAge}`}
-              />
-              {/* Thumb da bio age (saliente) */}
-              <div
-                className={cn(
-                  "absolute top-1/2 grid h-3 w-3 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,.25)] ring-2",
-                  younger ? "ring-emerald-500" : "ring-amber-500",
-                )}
-                style={{
-                  left: `${Math.max(0, Math.min(100, biologicalAge))}%`,
-                }}
-              >
-                <span
-                  className={cn(
-                    "h-1 w-1 rounded-full",
-                    younger ? "bg-emerald-500" : "bg-amber-500",
-                  )}
-                />
+              <div className="mt-0.5 flex items-baseline gap-1">
+                <span className="text-[32px] font-semibold leading-none tracking-tight text-zinc-900">
+                  {biologicalAge}
+                </span>
+                <span className="text-[11px] text-zinc-500">anos</span>
               </div>
             </div>
-            <div className="mt-1 flex justify-between text-[8.5px] font-medium text-zinc-400">
-              <span>0</span>
-              <span>50</span>
-              <span>100</span>
+
+            {/* Direita: pill comparativo + barra */}
+            <div className="min-w-0 flex-1">
+              <div className="flex justify-end">
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9.5px] font-semibold",
+                    younger
+                      ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                      : bioDiff === 0
+                        ? "bg-zinc-100 text-zinc-700 ring-1 ring-zinc-200"
+                        : "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+                  )}
+                >
+                  {bioDiff === 0
+                    ? "= cronológica"
+                    : younger
+                      ? `${Math.abs(bioDiff)}a + jovem`
+                      : `${Math.abs(bioDiff)}a + velho`}
+                </span>
+              </div>
+              <div className="relative mt-2">
+                <div className="relative h-1 w-full">
+                  <div className="absolute inset-0 overflow-hidden rounded-full bg-zinc-100">
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-full"
+                      style={{
+                        width: "100%",
+                        background:
+                          "linear-gradient(90deg, #10B981 0%, #79C98E 30%, #E6B845 60%, #F39A50 80%, #E85D5D 100%)",
+                      }}
+                    />
+                  </div>
+                  <div
+                    className="absolute top-1/2 h-2 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-zinc-400/60"
+                    style={{
+                      left: `${Math.max(0, Math.min(100, chronologicalAge))}%`,
+                    }}
+                    aria-label={`Idade cronológica: ${chronologicalAge}`}
+                  />
+                  <div
+                    className={cn(
+                      "absolute top-1/2 grid h-3 w-3 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,.25)] ring-2",
+                      younger ? "ring-emerald-500" : "ring-amber-500",
+                    )}
+                    style={{
+                      left: `${Math.max(0, Math.min(100, biologicalAge))}%`,
+                    }}
+                  >
+                    <span
+                      className={cn(
+                        "h-1 w-1 rounded-full",
+                        younger ? "bg-emerald-500" : "bg-amber-500",
+                      )}
+                    />
+                  </div>
+                </div>
+                <div className="mt-1 flex justify-between text-[8px] font-medium text-zinc-400">
+                  <span>0</span>
+                  <span>50</span>
+                  <span>100</span>
+                </div>
+              </div>
             </div>
           </div>
         </button>
