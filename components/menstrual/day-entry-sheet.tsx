@@ -66,6 +66,10 @@ export function DayEntrySheet({
   const [sleep, setSleep] = useState<number | null>(
     existingEntry?.sleepQuality ?? null,
   );
+  // Lucas (2026-05-22): tri-state pra relação sexual (null/sim/não)
+  const [sexualActivity, setSexualActivity] = useState<boolean | null>(
+    existingEntry?.sexualActivity ?? null,
+  );
   const [notes, setNotes] = useState(existingEntry?.notes ?? "");
 
   const [saving, setSaving] = useState(false);
@@ -99,6 +103,7 @@ export function DayEntrySheet({
           energy,
           libido,
           sleep_quality: sleep,
+          sexual_activity: sexualActivity,
           notes: notes.trim() || null,
         },
         user.isDemo,
@@ -210,6 +215,48 @@ export function DayEntrySheet({
           <ScaleRow label="Energia" value={energy} onChange={setEnergy} />
           <ScaleRow label="Libido" value={libido} onChange={setLibido} />
           <ScaleRow label="Qualidade do sono" value={sleep} onChange={setSleep} />
+
+          {/* Lucas (2026-05-22): tri-state pra relação sexual */}
+          <section className="mt-5">
+            <Label>Teve relação sexual hoje?</Label>
+            <div className="mt-2 grid grid-cols-3 gap-1.5">
+              {(
+                [
+                  { value: true, label: "Sim", emoji: "💞" },
+                  { value: false, label: "Não", emoji: "—" },
+                  { value: null, label: "Não responder", emoji: "·" },
+                ] as Array<{
+                  value: boolean | null;
+                  label: string;
+                  emoji: string;
+                }>
+              ).map((opt) => {
+                const active = sexualActivity === opt.value;
+                return (
+                  <button
+                    key={String(opt.value)}
+                    type="button"
+                    onClick={() =>
+                      setSexualActivity(active ? null : opt.value)
+                    }
+                    className={cn(
+                      "flex flex-col items-center gap-1 rounded-xl border-2 px-2 py-2.5 text-[11px] font-medium transition",
+                      active
+                        ? opt.value === true
+                          ? "border-rose-500 bg-rose-50 text-rose-900"
+                          : opt.value === false
+                            ? "border-zinc-400 bg-zinc-50 text-zinc-800"
+                            : "border-zinc-300 bg-white text-zinc-600"
+                        : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300",
+                    )}
+                  >
+                    <span className="text-[16px] leading-none">{opt.emoji}</span>
+                    <span>{opt.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
 
           {/* Symptoms */}
           <section className="mt-5">

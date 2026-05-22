@@ -80,21 +80,57 @@ interface Props {
   phaseInfo: CyclePhaseInfo;
 }
 
+/**
+ * Lucas (2026-05-22): "o Dr. Lon está refazendo a análise toda vez
+ * que entra na aba. A análise só tem que ser refeita depois do
+ * acrescimo de várias novas informações ou de mudanças relevantes."
+ *
+ * Cache key NÃO inclui:
+ *   - `cycleDay` (muda todo dia → invalidaria toda visita)
+ *   - datas específicas de entries (muda a cada novo registro)
+ *
+ * Cache key INCLUI:
+ *   - `phase` atual (regenera ao mudar de fase do ciclo)
+ *   - `entriesBucket` (Math.floor(entries.length / 3)) — regenera só a
+ *     cada 3 entries novas, não a cada uma
+ *
+ * Persistência: localStorage (era sessionStorage que sumia ao fechar
+ * aba). TTL 7 dias via timestamp embutido.
+ */
+
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 dias
+
+interface CachedValue {
+  insights: InsightCard[];
+  storedAt: number;
+}
+
 function cacheKey(props: Props): string {
   return [
     "menstrual-insights",
     props.phaseInfo.phase,
-    props.phaseInfo.cycleDay,
-    props.entries.length,
-    props.entries.slice(0, 3).map((e) => e.entryDate).join(","),
+    // Bucket de 3 entries — só refaz análise quando user logou pelo
+    // menos 3 novos registros desde último cache
+    Math.floor(props.entries.length / 3),
   ].join("|");
 }
 
 function readCache(key: string): InsightCard[] | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.sessionStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as InsightCard[]) : null;
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as CachedValue;
+    if (!parsed.insights || !Array.isArray(parsed.insights)) return null;
+    // Expira após TTL
+    if (
+      typeof parsed.storedAt === "number" &&
+      Date.now() - parsed.storedAt > CACHE_TTL_MS
+    ) {
+      window.localStorage.removeItem(key);
+      return null;
+    }
+    return parsed.insights;
   } catch {
     return null;
   }
@@ -103,7 +139,11 @@ function readCache(key: string): InsightCard[] | null {
 function writeCache(key: string, value: InsightCard[]) {
   if (typeof window === "undefined") return;
   try {
-    window.sessionStorage.setItem(key, JSON.stringify(value));
+    const payload: CachedValue = {
+      insights: value,
+      storedAt: Date.now(),
+    };
+    window.localStorage.setItem(key, JSON.stringify(payload));
   } catch {
     /* silent */
   }
