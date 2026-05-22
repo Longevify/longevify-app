@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ActivityDay } from "@/lib/fitness/dashboard";
 import { cn } from "@/lib/utils";
 
@@ -63,18 +64,34 @@ export function ActivityHeatmap({
       <div className="flex gap-[3px] overflow-x-auto pb-1">
         {cols.map((col, ci) => (
           <div key={ci} className="flex flex-col gap-[3px]">
-            {col.map((d) => (
-              <span
-                key={d.date}
-                title={`${d.date} · ${d.strengthSets} sets · ${d.runningKm.toFixed(1)}km · ${d.otherMinutes}min`}
-                className={cn(
-                  "h-2.5 w-2.5 rounded-sm transition",
-                  COLORS[d.intensity],
-                  d.intensity > 0 && "ring-1 ring-emerald-700/10",
-                )}
-                aria-label={`${d.date}: intensidade ${d.intensity}`}
-              />
-            ))}
+            {col.map((d) => {
+              const tooltip = `${d.date} · ${d.strengthSets} sets · ${d.runningKm.toFixed(1)}km · ${d.otherMinutes}min`;
+              const cls = cn(
+                "block h-2.5 w-2.5 rounded-sm transition",
+                COLORS[d.intensity],
+                d.intensity > 0 && "ring-1 ring-emerald-700/10 hover:scale-150 hover:ring-2 hover:ring-emerald-700/40",
+              );
+              // Phase 3L: se tem sets de musculação, link pra session detail
+              if (d.strengthSets > 0) {
+                return (
+                  <Link
+                    key={d.date}
+                    href={`/fitness/sessao/${d.date}`}
+                    title={tooltip}
+                    aria-label={tooltip}
+                    className={cls}
+                  />
+                );
+              }
+              return (
+                <span
+                  key={d.date}
+                  title={tooltip}
+                  className={cls}
+                  aria-label={`${d.date}: intensidade ${d.intensity}`}
+                />
+              );
+            })}
           </div>
         ))}
       </div>

@@ -96,6 +96,89 @@ export async function getExerciseHistory(
 }
 
 /**
+ * Phase 3L — Pega todos workout_sets de uma data específica do user,
+ * agrupados por exercise.
+ */
+export interface StrengthSessionDetail {
+  date: string;
+  totalSets: number;
+  totalVolume: number;
+  exercises: Array<{
+    exerciseId: string;
+    exerciseName: string;
+    muscleGroup: string;
+    sets: Array<{
+      setOrder: number;
+      weightKg: number | null;
+      reps: number;
+      rpe: number | null;
+      notes: string | null;
+      createdAt: string;
+    }>;
+  }>;
+}
+
+export async function getStrengthSessionByDate(
+  date: string,
+): Promise<StrengthSessionDetail | null> {
+  if (!isSupabaseConfigured()) return null;
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken) return null;
+  const supabase = await createSupabaseWithJwt(accessToken);
+
+  const { data, error } = await supabase
+    .from("workout_sets")
+    .select(
+      `set_order, weight_kg, reps, rpe, notes, created_at, exercise_id,
+       workout_sessions!inner(patient_id, session_date, kind),
+       exercise_catalog!inner(name, muscle_group)`,
+    )
+    .eq("workout_sessions.patient_id", userId)
+    .eq("workout_sessions.kind", "strength")
+    .eq("workout_sessions.session_date", date)
+    .order("created_at", { ascending: true });
+
+  if (error || !data || data.length === 0) return null;
+
+  const byExercise = new Map<
+    string,
+    StrengthSessionDetail["exercises"][number]
+  >();
+  let totalVolume = 0;
+  for (const r of data) {
+    const cat = (
+      r as { exercise_catalog?: { name?: string; muscle_group?: string } }
+    ).exercise_catalog;
+    const exId = r.exercise_id as string;
+    const w = (r.weight_kg as number | null) ?? 0;
+    const reps = r.reps as number;
+    totalVolume += w * reps;
+    const cur = byExercise.get(exId) ?? {
+      exerciseId: exId,
+      exerciseName: cat?.name ?? exId,
+      muscleGroup: cat?.muscle_group ?? "full_body",
+      sets: [],
+    };
+    cur.sets.push({
+      setOrder: r.set_order as number,
+      weightKg: r.weight_kg as number | null,
+      reps,
+      rpe: r.rpe as number | null,
+      notes: (r.notes as string | null) ?? null,
+      createdAt: r.created_at as string,
+    });
+    byExercise.set(exId, cur);
+  }
+
+  return {
+    date,
+    totalSets: data.length,
+    totalVolume,
+    exercises: Array.from(byExercise.values()),
+  };
+}
+
+/**
  * Última sessão "strength" do user de HOJE (se houver). Permite continuar
  * adicionando sets a uma sessão aberta em vez de criar uma nova a cada
  * exercício.
