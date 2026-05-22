@@ -395,6 +395,13 @@ function LogSetModal({
           title: "Set registrado",
           description: `${exercise.name} · ${Number.isFinite(w) ? `${w}kg × ` : ""}${r} reps`,
         });
+        // Toast extra pra cada nova conquista
+        for (const ach of result.data?.newAchievements ?? []) {
+          toast.success({
+            title: `🏆 Nova conquista: ${ach.emoji} ${ach.title}`,
+            description: `${ach.description} (+${ach.xp} XP)`,
+          });
+        }
         // Limpa campos pra próximo set
         setWeight(weight); // mantém peso (geralmente repete)
         setReps("");

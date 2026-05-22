@@ -17,8 +17,17 @@ import {
   computeStreak,
 } from "@/lib/fitness/dashboard";
 import { getActiveWorkoutProgram } from "@/lib/fitness/server";
+import {
+  getRecentUserAchievements,
+  getUserXp,
+} from "@/lib/fitness/achievements";
 import { ActivityHeatmap } from "@/components/fitness/activity-heatmap";
-import { MUSCLE_GROUP_LABEL, MUSCLE_GROUP_EMOJI, type MuscleGroup } from "@/lib/fitness/types";
+import {
+  MUSCLE_GROUP_LABEL,
+  MUSCLE_GROUP_EMOJI,
+  TIER_COLORS,
+  type MuscleGroup,
+} from "@/lib/fitness/types";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -39,11 +48,20 @@ export const revalidate = 0;
  * Substitui o redirect anterior que mandava direto pra musculação.
  */
 export default async function FitnessIndex() {
-  const [heatmap, overview, records, program] = await Promise.all([
+  const [
+    heatmap,
+    overview,
+    records,
+    program,
+    recentAchievements,
+    xpInfo,
+  ] = await Promise.all([
     getActivityHeatmap(90),
     getFitnessOverview(),
     getRecentPersonalRecords(5),
     getActiveWorkoutProgram(),
+    getRecentUserAchievements(3),
+    getUserXp(),
   ]);
 
   const streak = computeStreak(heatmap);
@@ -187,6 +205,58 @@ export default async function FitnessIndex() {
               </p>
             </div>
             <ArrowRight className="h-4 w-4 shrink-0 text-brand-700 transition group-hover:translate-x-0.5" />
+          </div>
+        </Link>
+      )}
+
+      {/* XP + level + recent achievements */}
+      {(xpInfo.xp > 0 || recentAchievements.length > 0) && (
+        <Link
+          href="/fitness/conquistas"
+          className="group block overflow-hidden rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 via-orange-50 to-white transition hover:shadow-md"
+        >
+          <div className="px-5 py-4">
+            <div className="flex items-start gap-4">
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-sm">
+                <Trophy className="h-5 w-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-amber-800">
+                  Level {xpInfo.level} · {xpInfo.xp.toLocaleString("pt-BR")} XP
+                </div>
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-amber-100">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500"
+                    style={{ width: `${xpInfo.progressPct}%` }}
+                  />
+                </div>
+                <p className="mt-1 text-[10.5px] text-amber-900/70 tabular-nums">
+                  {xpInfo.xpToNextLevel} XP pro Level {xpInfo.level + 1}
+                </p>
+              </div>
+              <ArrowRight className="h-4 w-4 shrink-0 text-amber-700 transition group-hover:translate-x-0.5" />
+            </div>
+            {recentAchievements.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {recentAchievements.map((ua) =>
+                  ua.achievement ? (
+                    <span
+                      key={ua.id}
+                      title={ua.achievement.description}
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1",
+                        TIER_COLORS[ua.achievement.tier].bg,
+                        TIER_COLORS[ua.achievement.tier].text,
+                        TIER_COLORS[ua.achievement.tier].ring,
+                      )}
+                    >
+                      <span>{ua.achievement.emoji}</span>
+                      {ua.achievement.title}
+                    </span>
+                  ) : null,
+                )}
+              </div>
+            )}
           </div>
         </Link>
       )}

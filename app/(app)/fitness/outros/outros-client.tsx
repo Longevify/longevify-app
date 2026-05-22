@@ -313,6 +313,12 @@ function LogActivityModal({
           title: "Atividade registrada",
           description: `${ACTIVITY_LABEL[activityType]} · ${mins}min · ${INTENSITY_LABEL[intensity]}`,
         });
+        for (const ach of result.data?.newAchievements ?? []) {
+          toast.success({
+            title: `🏆 Nova conquista: ${ach.emoji} ${ach.title}`,
+            description: `${ach.description} (+${ach.xp} XP)`,
+          });
+        }
         onSaved();
       } else {
         toast.error({ title: "Erro", description: result.error });
