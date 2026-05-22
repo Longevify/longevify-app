@@ -63,16 +63,34 @@ interface DietaClientProps {
   insights: DietInsight[];
 }
 
-const INSIGHT_STYLE = {
-  good: "bg-emerald-50 border-emerald-200 text-emerald-700",
-  warn: "bg-amber-50 border-amber-200 text-amber-800",
-  info: "bg-blue-50 border-blue-200 text-blue-700",
+/**
+ * Lucas (2026-05-21): "muda o formato de como a análise da semana
+ * está sendo apresentada, não gostei dela colorida em amarelo,
+ * queria que fosse tipo um card, queria que fosse algo mais bonito,
+ * moderno e talvez similar a uma pagina de diagnostico de um
+ * nutricionista."
+ *
+ * Novo design — card branco com header gradient sutil, lista
+ * de insights divididos por borders, accent strip lateral 4px
+ * (sem bg amarelo loud). Severity vira pill discreto + cor do
+ * strip. Estilo "relatório clínico" de nutri.
+ */
+const SEVERITY_BAR = {
+  good: "bg-emerald-400",
+  warn: "bg-amber-400",
+  info: "bg-sky-400",
 } as const;
 
-const INSIGHT_DOT = {
-  good: "bg-emerald-500",
-  warn: "bg-amber-500",
-  info: "bg-blue-500",
+const SEVERITY_PILL = {
+  good: "bg-emerald-100 text-emerald-700",
+  warn: "bg-amber-100 text-amber-700",
+  info: "bg-sky-100 text-sky-700",
+} as const;
+
+const SEVERITY_LABEL = {
+  good: "Ótimo",
+  warn: "Atenção",
+  info: "Insight",
 } as const;
 
 function fmt(n: number, digits = 0): string {
@@ -132,39 +150,70 @@ export function DietaClient({
         </button>
       </section>
 
-      {/* Diagnóstico Dr. Lon */}
+      {/* Diagnóstico nutricional — card estilo relatório clínico
+          Lucas (2026-05-21): visual de "página de diagnóstico de
+          nutricionista" — branco com header gradient sutil, insights
+          em rows divididos por border, accent strip lateral 4px,
+          severity vira pill discreto. Sem mais amarelo loud. */}
       {insights.length > 0 && (
-        <section className="mb-6 rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50 to-white p-5">
-          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-brand-700">
-            <Sparkles className="h-3.5 w-3.5" />
-            Análise da semana — Dr. Lon
-          </div>
-          <ul className="mt-3 flex flex-col gap-2">
+        <section className="mb-6 overflow-hidden rounded-3xl border border-zinc-200/80 bg-white shadow-[0_8px_28px_-16px_rgba(13,40,24,.12)]">
+          <header className="border-b border-zinc-100 bg-gradient-to-br from-brand-50/40 via-white to-white px-5 py-5 sm:px-6">
+            <div className="flex items-center gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-brand-600 to-brand-800 text-white shadow-sm">
+                <Sparkles className="h-4 w-4" strokeWidth={2.2} />
+              </span>
+              <div className="min-w-0">
+                <h2 className="text-[17px] font-semibold tracking-tight text-zinc-900">
+                  Diagnóstico nutricional
+                </h2>
+                <p className="mt-0.5 text-[11.5px] text-zinc-500">
+                  Por Dr. Lon · análise dos últimos 7 dias
+                </p>
+              </div>
+              <span className="ml-auto hidden rounded-full bg-zinc-100 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-zinc-600 sm:inline-flex">
+                {insights.length} pt{insights.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+          </header>
+
+          <ul className="divide-y divide-zinc-100">
             {insights.map((ins) => (
               <li
                 key={ins.id}
-                className={cn(
-                  "flex gap-3 rounded-xl border px-3 py-2.5",
-                  INSIGHT_STYLE[ins.severity],
-                )}
+                className="flex gap-4 px-5 py-4 transition hover:bg-zinc-50/40 sm:px-6"
               >
                 <span
                   className={cn(
-                    "mt-1.5 h-2 w-2 shrink-0 rounded-full",
-                    INSIGHT_DOT[ins.severity],
+                    "mt-1 h-10 w-1 shrink-0 rounded-full",
+                    SEVERITY_BAR[ins.severity],
                   )}
+                  aria-hidden
                 />
-                <div className="min-w-0">
-                  <div className="text-[13px] font-semibold leading-snug">
-                    {ins.title}
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-baseline gap-2">
+                    <h3 className="text-[14.5px] font-semibold leading-snug text-zinc-900">
+                      {ins.title}
+                    </h3>
+                    <span
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                        SEVERITY_PILL[ins.severity],
+                      )}
+                    >
+                      {SEVERITY_LABEL[ins.severity]}
+                    </span>
                   </div>
-                  <div className="mt-0.5 text-[12px] leading-relaxed opacity-85">
+                  <p className="mt-1.5 text-[12.5px] leading-relaxed text-zinc-600">
                     {ins.detail}
-                  </div>
+                  </p>
                 </div>
               </li>
             ))}
           </ul>
+
+          <footer className="border-t border-zinc-100 bg-zinc-50/40 px-5 py-2.5 text-[10.5px] text-zinc-500 sm:px-6">
+            Análise automatizada · não substitui consulta com nutricionista
+          </footer>
         </section>
       )}
 
