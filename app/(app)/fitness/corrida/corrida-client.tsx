@@ -287,6 +287,12 @@ export function CorridaClient({ history, stats }: CorridaClientProps) {
           title: "Corrida salva!",
           description: `${distanceKm.toFixed(2)} km · ${fmtDuration(elapsedSecs)} · ${fmtPace(avgPace)}`,
         });
+        for (const ach of result.data?.newAchievements ?? []) {
+          toast.success({
+            title: `🏆 Nova conquista: ${ach.emoji} ${ach.title}`,
+            description: `${ach.description} (+${ach.xp} XP)`,
+          });
+        }
         setRunState("idle");
         setCoords([]);
         setDistanceM(0);

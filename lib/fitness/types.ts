@@ -262,3 +262,89 @@ export interface OtherWorkout {
   sessionDate?: string;
   notes?: string | null;
 }
+
+// ─── Achievements (Phase 3C) ──────────────────────────────────────────
+
+export type AchievementTier = "common" | "rare" | "epic" | "legendary";
+
+export type AchievementCategory =
+  | "strength"
+  | "running"
+  | "consistency"
+  | "volume"
+  | "other";
+
+export type AchievementCriterion =
+  | { kind: "strength_sets_total"; threshold: number }
+  | { kind: "strength_volume_total"; threshold: number }
+  | { kind: "exercise_max_weight"; exerciseId: string; threshold: number }
+  | { kind: "exercise_max_reps"; exerciseId: string; threshold: number }
+  | { kind: "running_total"; threshold: number }
+  | { kind: "running_max_distance"; threshold: number }
+  | { kind: "running_best_pace"; threshold: number }
+  | { kind: "running_km_month"; threshold: number }
+  | { kind: "streak"; threshold: number }
+  | { kind: "other_total"; threshold: number }
+  | { kind: "other_distinct_types"; threshold: number };
+
+export interface Achievement {
+  id: string;
+  category: AchievementCategory;
+  title: string;
+  description: string;
+  criterion: AchievementCriterion;
+  tier: AchievementTier;
+  xp: number;
+  emoji: string;
+}
+
+export interface UserAchievement {
+  id: string;
+  patientId: string;
+  achievementId: string;
+  unlockedAt: string;
+  context: Record<string, unknown> | null;
+  // Joined from catalog
+  achievement?: Achievement;
+}
+
+export const TIER_LABEL: Record<AchievementTier, string> = {
+  common: "Comum",
+  rare: "Rara",
+  epic: "Épica",
+  legendary: "Lendária",
+};
+
+export const TIER_COLORS: Record<
+  AchievementTier,
+  { ring: string; bg: string; text: string }
+> = {
+  common: {
+    ring: "ring-zinc-300",
+    bg: "bg-zinc-50",
+    text: "text-zinc-700",
+  },
+  rare: {
+    ring: "ring-sky-300",
+    bg: "bg-sky-50",
+    text: "text-sky-800",
+  },
+  epic: {
+    ring: "ring-purple-300",
+    bg: "bg-purple-50",
+    text: "text-purple-800",
+  },
+  legendary: {
+    ring: "ring-amber-400",
+    bg: "bg-gradient-to-br from-amber-50 to-orange-100",
+    text: "text-amber-900",
+  },
+};
+
+export const CATEGORY_LABEL: Record<AchievementCategory, string> = {
+  strength: "Musculação",
+  running: "Corrida",
+  consistency: "Consistência",
+  volume: "Volume",
+  other: "Outras",
+};

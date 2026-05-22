@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { getUserIdFromCookie } from "@/lib/auth/jwt";
 import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
+import { evaluateAchievements } from "@/lib/fitness/achievements";
 import type {
+  Achievement,
   ActivityType,
   EquipmentKind,
   ExperienceLevel,
@@ -29,7 +31,13 @@ export async function logStrengthSet(input: {
   weightKg: number | null;
   reps: number;
   rpe?: number | null;
-}): Promise<ActionResult<{ setId: string; sessionId: string }>> {
+}): Promise<
+  ActionResult<{
+    setId: string;
+    sessionId: string;
+    newAchievements: Achievement[];
+  }>
+> {
   if (!isSupabaseConfigured()) {
     return { ok: false, error: "Supabase indisponível" };
   }
@@ -106,7 +114,21 @@ export async function logStrengthSet(input: {
   }
 
   revalidatePath("/fitness/musculacao");
-  return { ok: true, data: { setId: inserted.id as string, sessionId } };
+
+  // Avalia conquistas (Phase 3C). Fire-and-forget — não bloqueia o
+  // retorno. Mas precisamos do resultado pra tocar o toast no client.
+  // Como server actions são síncronas, esperamos rápido (~50ms total
+  // pra avaliar mesmo com 30 conquistas).
+  const unlocked = await evaluateAchievements();
+
+  return {
+    ok: true,
+    data: {
+      setId: inserted.id as string,
+      sessionId,
+      newAchievements: unlocked,
+    },
+  };
 }
 
 /**
@@ -218,7 +240,13 @@ export async function saveRunningSession(input: {
   coordinates: GpsPoint[];
   paceSegments: PaceSegment[];
   notes?: string;
-}): Promise<ActionResult<{ sessionId: string; runningId: string }>> {
+}): Promise<
+  ActionResult<{
+    sessionId: string;
+    runningId: string;
+    newAchievements: Achievement[];
+  }>
+> {
   if (!isSupabaseConfigured()) {
     return { ok: false, error: "Supabase indisponível" };
   }
@@ -279,9 +307,14 @@ export async function saveRunningSession(input: {
   }
 
   revalidatePath("/fitness/corrida");
+  const unlocked = await evaluateAchievements();
   return {
     ok: true,
-    data: { sessionId, runningId: running.id as string },
+    data: {
+      sessionId,
+      runningId: running.id as string,
+      newAchievements: unlocked,
+    },
   };
 }
 
@@ -300,7 +333,13 @@ export async function logOtherWorkout(input: {
   estimatedCalories?: number | null;
   notes?: string;
   sessionDate?: string; // YYYY-MM-DD, default today
-}): Promise<ActionResult<{ sessionId: string; otherId: string }>> {
+}): Promise<
+  ActionResult<{
+    sessionId: string;
+    otherId: string;
+    newAchievements: Achievement[];
+  }>
+> {
   if (!isSupabaseConfigured()) {
     return { ok: false, error: "Supabase indisponível" };
   }
@@ -368,9 +407,14 @@ export async function logOtherWorkout(input: {
   }
 
   revalidatePath("/fitness/outros");
+  const unlocked = await evaluateAchievements();
   return {
     ok: true,
-    data: { sessionId, otherId: inserted.id as string },
+    data: {
+      sessionId,
+      otherId: inserted.id as string,
+      newAchievements: unlocked,
+    },
   };
 }
 
