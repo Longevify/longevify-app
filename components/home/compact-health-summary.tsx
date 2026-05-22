@@ -65,7 +65,11 @@ export function CompactHealthSummary({
 
   return (
     <>
-      <div className={cn("grid grid-cols-2 gap-3", className)}>
+      {/* Lucas (2026-05-21): "longevify score e idade biológica ficam
+          um em cima do outro". Stack vertical (era grid-cols-2 lado a
+          lado). Sidebar de tarefas fica ao lado externamente (no
+          home/page.tsx). */}
+      <div className={cn("flex flex-col gap-3", className)}>
         {/* Score — escuro premium */}
         <button
           type="button"

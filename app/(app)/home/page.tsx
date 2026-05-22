@@ -165,79 +165,69 @@ export default async function HomePage() {
         </div>
       </header>
 
-      {/* 1. Resumo compacto — Score + Idade biológica (menores) */}
-      <CompactHealthSummary
-        score={patient.longevifyScore}
-        scoreStatus={patient.scoreStatus}
-        scoreHistory={patient.scoreHistory}
-        organScores={patient.organScores}
-        biologicalAge={patient.biologicalAge}
-        chronologicalAge={patient.chronologicalAge}
-        biologicalAgeHistory={patient.biologicalAgeHistory}
-        organBioAges={patient.organBioAges}
-      />
-
-      {/* Lucas (2026-05-21): "na aba home, colo que a to-do list na
-          lateral, com as tarefas para marcar e as ja marcadas." →
-          grid 2-col em lg+ com sidebar de tasks à direita. Mobile
-          continua linear (sidebar vira card normal abaixo). */}
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_300px]">
-        {/* Main column */}
-        <div className="flex flex-col gap-6 lg:gap-8 min-w-0">
-          {/* 2. Progresso diário — 4 cards (sono, exercício, feitas, pendentes) */}
-          <section data-tour="daily-progress">
-            <div className="mb-2 flex items-baseline justify-between gap-2">
-              <h2 className="text-[13px] font-medium uppercase tracking-[0.14em] text-muted">
-                Progresso de hoje
-              </h2>
-              <span className="text-[11px] text-zinc-500">
-                atualizado agora
-              </span>
-            </div>
-            <DailyProgressGrid
-              sleepMinutes={sleepMinutes}
-              sleepTargetMinutes={450}
-              exerciseMinutes={exerciseMinutes}
-              exerciseTargetMinutes={30}
-              totalTasks={totalTasks}
-              metricsHistory={metricsHistory}
-              hasWearableData={hasWearableData}
-              tasks={tasks}
-              completionsHistory={completionsHistory}
-              streakDays={streakDays}
-            />
-          </section>
-
-          {/* 3. Metas do mês */}
-          <div data-tour="monthly-goals">
-            <MonthlyGoals
-              scoreNow={patient.longevifyScore}
-              scoreLastMonth={previousScore}
-              biomarkersOptimal={biomarkersOptimal}
-              biomarkersTotal={biomarkers.length}
-              streakDays={streakDays}
-              biologicalAgeDelta={bioAgeDelta}
-            />
-          </div>
-
-          {/* 4. Evolução geral */}
-          <div data-tour="evolution-card">
-            <EvolutionCard
-              scoreHistory={patient.scoreHistory}
-              biologicalAgeHistory={patient.biologicalAgeHistory}
-              chronologicalAge={patient.chronologicalAge}
-              streakDays={streakDays}
-              biomarkersOptimal={biomarkersOptimal}
-              examsCount={patient.scoreHistory.length}
-            />
-          </div>
-        </div>
-
-        {/* Sidebar — to-do list. Sticky em desktop pra ficar visível
-            enquanto scrolla; vira card normal em mobile. */}
-        <div data-tour="todo-sidebar" className="lg:sticky lg:top-4 lg:self-start">
+      {/* Lucas (2026-05-21): "longevify score e idade biológica ficam
+          um em cima do outro e a sub aba 'suas tarefas' deve ficar
+          ao lado desses 2 cards empilhados". Em desktop: 2 colunas
+          com Score+BioAge stacked à esquerda e TodoSidebar à direita.
+          Mobile: linear (Score → BioAge → TodoSidebar). */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_300px]">
+        <CompactHealthSummary
+          score={patient.longevifyScore}
+          scoreStatus={patient.scoreStatus}
+          scoreHistory={patient.scoreHistory}
+          organScores={patient.organScores}
+          biologicalAge={patient.biologicalAge}
+          chronologicalAge={patient.chronologicalAge}
+          biologicalAgeHistory={patient.biologicalAgeHistory}
+          organBioAges={patient.organBioAges}
+        />
+        <div data-tour="todo-sidebar">
           <TodoSidebar tasks={tasks} />
         </div>
+      </div>
+
+      {/* Lucas (2026-05-21): "pode tirar os 2 cards 'feitas hoje' e
+          'a fazer' do /home" → DailyProgressGrid agora só tem Sono e
+          Exercício. Section completa abaixo da row Score/BioAge/Tasks. */}
+      <section data-tour="daily-progress" className="mt-6">
+        <div className="mb-2 flex items-baseline justify-between gap-2">
+          <h2 className="text-[13px] font-medium uppercase tracking-[0.14em] text-muted">
+            Progresso de hoje
+          </h2>
+          <span className="text-[11px] text-zinc-500">atualizado agora</span>
+        </div>
+        <DailyProgressGrid
+          sleepMinutes={sleepMinutes}
+          sleepTargetMinutes={450}
+          exerciseMinutes={exerciseMinutes}
+          exerciseTargetMinutes={30}
+          metricsHistory={metricsHistory}
+          hasWearableData={hasWearableData}
+        />
+      </section>
+
+      {/* Metas do mês */}
+      <div data-tour="monthly-goals" className="mt-8">
+        <MonthlyGoals
+          scoreNow={patient.longevifyScore}
+          scoreLastMonth={previousScore}
+          biomarkersOptimal={biomarkersOptimal}
+          biomarkersTotal={biomarkers.length}
+          streakDays={streakDays}
+          biologicalAgeDelta={bioAgeDelta}
+        />
+      </div>
+
+      {/* Evolução geral */}
+      <div data-tour="evolution-card" className="mt-6">
+        <EvolutionCard
+          scoreHistory={patient.scoreHistory}
+          biologicalAgeHistory={patient.biologicalAgeHistory}
+          chronologicalAge={patient.chronologicalAge}
+          streakDays={streakDays}
+          biomarkersOptimal={biomarkersOptimal}
+          examsCount={patient.scoreHistory.length}
+        />
       </div>
 
       {/* 5. Próximos passos / Este mês — timeline operacional */}
@@ -250,11 +240,11 @@ export default async function HomePage() {
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-100 text-brand-700">
               <FlaskConical className="h-5 w-5" />
             </span>
-            <div className="flex-1">
-              <div className="text-[15px] font-medium">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[15px] font-medium">
                 Revisar protocolo
               </div>
-              <div className="text-[13px] text-muted">
+              <div className="truncate text-[13px] text-muted">
                 {totalTasks} ações personalizadas pra você
               </div>
             </div>
@@ -269,9 +259,9 @@ export default async function HomePage() {
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600">
               <Plus className="h-5 w-5" />
             </span>
-            <div className="flex-1">
-              <div className="text-[15px] font-medium">Agendar novo serviço</div>
-              <div className="text-[13px] text-muted">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[15px] font-medium">Agendar novo serviço</div>
+              <div className="truncate text-[13px] text-muted">
                 Exames de imagem, VO2max, DEXA
               </div>
             </div>
@@ -291,11 +281,11 @@ export default async function HomePage() {
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#DFF5E9] text-[#0E7B45]">
               <CheckCircle2 className="h-5 w-5" />
             </span>
-            <div className="flex-1">
-              <div className="text-[15px] font-medium">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[15px] font-medium">
                 Coleta Longevify
               </div>
-              <div className="text-[13px] text-muted">
+              <div className="truncate text-[13px] text-muted">
                 Realizada em {formatDatePtBR(patient.latestExamDate)}
               </div>
             </div>
@@ -314,11 +304,11 @@ export default async function HomePage() {
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#E7F0FD] text-[#2562A8]">
                 <Calendar className="h-5 w-5" />
               </span>
-              <div className="flex-1">
-                <div className="text-[15px] font-medium">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[15px] font-medium">
                   Próxima coleta agendada
                 </div>
-                <div className="text-[13px] text-muted">
+                <div className="truncate text-[13px] text-muted">
                   {formatDatePtBR(nextBookingHome.scheduledAtISO.slice(0, 10))}{" "}
                   {nextBookingHome.location === "home" ? "· em casa" : "· no laboratório"}
                 </div>
@@ -334,11 +324,11 @@ export default async function HomePage() {
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600">
                 <Calendar className="h-5 w-5" />
               </span>
-              <div className="flex-1">
-                <div className="text-[15px] font-medium">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[15px] font-medium">
                   Sem próxima coleta agendada
                 </div>
-                <div className="text-[13px] text-muted">
+                <div className="truncate text-[13px] text-muted">
                   Reavaliação a cada 6 meses (2 coletas/ano)
                 </div>
               </div>
