@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import {
   Dumbbell,
   Search,
@@ -10,6 +11,7 @@ import {
   TrendingUp,
   Flame,
   History,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -162,23 +164,26 @@ export function MusculacaoClient({
       {/* Weekly muscle analysis (Lucas pediu — "musculo que mais evoluiu") */}
       <WeeklyMuscleAnalysis data={muscleAnalysis} />
 
-      {/* CTA AI workout generator (placeholder) */}
-      <section className="mb-5 rounded-2xl border border-dashed border-brand-300 bg-brand-50/40 px-4 py-3.5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="text-[12.5px] font-semibold text-brand-900">
-              ✨ Gerador de treino com Dr. Lon
+      {/* CTA AI workout generator (Phase 2B: ativo) */}
+      <Link
+        href="/fitness/musculacao/programa"
+        className="mb-5 block rounded-2xl border border-brand-300 bg-gradient-to-br from-brand-50 via-brand-50/60 to-white px-4 py-3.5 transition hover:shadow-md"
+      >
+        <div className="flex items-start gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand-700 to-brand-800 text-white shadow-sm">
+            <Sparkles className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-[13px] font-semibold text-brand-900">
+              Gerar treino com Dr. Lon
             </div>
             <p className="mt-0.5 text-[11.5px] text-brand-700/80">
-              Responda 5 perguntas e o Dr. Lon monta um treino personalizado
-              baseado nos seus objetivos.
+              5 perguntas → programa personalizado pra seus objetivos.
             </p>
           </div>
-          <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-600">
-            Em breve
-          </span>
+          <span className="shrink-0 self-center text-brand-700">→</span>
         </div>
-      </section>
+      </Link>
 
       {/* Search + filtro */}
       <div className="mb-4 flex flex-col gap-3">

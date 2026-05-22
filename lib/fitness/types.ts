@@ -84,3 +84,75 @@ export const EQUIPMENT_LABEL: Record<EquipmentKind, string> = {
   cable: "Cabo",
   kettlebell: "Kettlebell",
 };
+
+// ─── Workout programs (AI-gerados) ────────────────────────────────────
+
+export type ProgramGoal =
+  | "hipertrofia"
+  | "forca"
+  | "perda_gordura"
+  | "condicionamento"
+  | "saude_geral";
+
+export type ExperienceLevel = "iniciante" | "intermediario" | "avancado";
+
+export const PROGRAM_GOAL_LABEL: Record<ProgramGoal, string> = {
+  hipertrofia: "Hipertrofia (ganho de massa)",
+  forca: "Força máxima",
+  perda_gordura: "Perda de gordura",
+  condicionamento: "Condicionamento físico",
+  saude_geral: "Saúde geral",
+};
+
+export const EXPERIENCE_LABEL: Record<ExperienceLevel, string> = {
+  iniciante: "Iniciante (< 1 ano)",
+  intermediario: "Intermediário (1-3 anos)",
+  avancado: "Avançado (3+ anos)",
+};
+
+export interface ProgramDayExercise {
+  exerciseId: string;
+  exerciseName?: string; // pra display, populado pelo backend join
+  targetSets: number;
+  targetReps: string; // e.g. "6-8" ou "10" ou "AMRAP"
+  targetRpe: number | null;
+  restSeconds: number;
+  notes: string | null;
+}
+
+export interface ProgramDay {
+  dayIndex: number;
+  name: string; // e.g. "Push A", "Treino A", "Pernas"
+  focus: MuscleGroup[]; // grupos musculares focados
+  exercises: ProgramDayExercise[];
+}
+
+export interface ProgramStructure {
+  days: ProgramDay[];
+  warmupNotes?: string;
+  progressionStrategy?: string;
+}
+
+export interface WorkoutProgram {
+  id: string;
+  patientId: string;
+  name: string;
+  goal: ProgramGoal;
+  frequencyPerWeek: number;
+  equipmentAvailable: EquipmentKind[];
+  experienceLevel: ExperienceLevel;
+  restrictions: string | null;
+  structure: ProgramStructure;
+  aiModel: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProgramQuestionnaire {
+  goal: ProgramGoal;
+  frequencyPerWeek: number;
+  equipmentAvailable: EquipmentKind[];
+  experienceLevel: ExperienceLevel;
+  restrictions: string;
+}

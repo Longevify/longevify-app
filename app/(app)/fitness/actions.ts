@@ -4,6 +4,12 @@ import { revalidatePath } from "next/cache";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { getUserIdFromCookie } from "@/lib/auth/jwt";
 import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
+import type {
+  EquipmentKind,
+  ExperienceLevel,
+  ProgramGoal,
+  ProgramStructure,
+} from "@/lib/fitness/types";
 
 export type ActionResult<T = unknown> =
   | { ok: true; data?: T }
@@ -97,6 +103,98 @@ export async function logStrengthSet(input: {
 
   revalidatePath("/fitness/musculacao");
   return { ok: true, data: { setId: inserted.id as string, sessionId } };
+}
+
+/**
+ * Salva um programa gerado por IA. Faz "deactivate-all + insert active"
+ * em transação manual — programa novo vira o ativo, antigos viram
+ * histórico (active = false).
+ *
+ * Phase 2B — Lucas pediu "AI workout generator com base em perguntas
+ * iniciais".
+ */
+export async function saveAiWorkoutProgram(input: {
+  name: string;
+  goal: ProgramGoal;
+  frequencyPerWeek: number;
+  equipmentAvailable: EquipmentKind[];
+  experienceLevel: ExperienceLevel;
+  restrictions: string;
+  structure: ProgramStructure;
+  aiModel?: string;
+}): Promise<ActionResult<{ programId: string }>> {
+  if (!isSupabaseConfigured()) {
+    return { ok: false, error: "Supabase indisponível" };
+  }
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken) {
+    return { ok: false, error: "Não autenticado" };
+  }
+  if (!input.structure?.days?.length) {
+    return { ok: false, error: "Estrutura do programa inválida" };
+  }
+
+  const supabase = await createSupabaseWithJwt(accessToken);
+
+  // Desativa programas anteriores (uniqueness do índice parcial exige isso)
+  const { error: deactErr } = await supabase
+    .from("workout_programs")
+    .update({ active: false })
+    .eq("patient_id", userId)
+    .eq("active", true);
+  if (deactErr) {
+    return {
+      ok: false,
+      error: `Erro ao desativar programa anterior: ${deactErr.message}`,
+    };
+  }
+
+  const { data: inserted, error: insErr } = await supabase
+    .from("workout_programs")
+    .insert({
+      patient_id: userId,
+      name: input.name,
+      goal: input.goal,
+      frequency_per_week: input.frequencyPerWeek,
+      equipment_available: input.equipmentAvailable,
+      experience_level: input.experienceLevel,
+      restrictions: input.restrictions || null,
+      structure: input.structure,
+      ai_model: input.aiModel ?? "claude-sonnet-4-6",
+      active: true,
+    })
+    .select("id")
+    .single();
+
+  if (insErr || !inserted) {
+    return {
+      ok: false,
+      error: `Erro ao salvar programa: ${insErr?.message ?? "—"}`,
+    };
+  }
+
+  revalidatePath("/fitness/musculacao");
+  revalidatePath("/fitness/musculacao/programa");
+  return { ok: true, data: { programId: inserted.id as string } };
+}
+
+/** Arquiva o programa ativo (deactivate). */
+export async function archiveActiveProgram(): Promise<ActionResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: false, error: "Supabase indisponível" };
+  }
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken) return { ok: false, error: "Não autenticado" };
+  const supabase = await createSupabaseWithJwt(accessToken);
+  const { error } = await supabase
+    .from("workout_programs")
+    .update({ active: false })
+    .eq("patient_id", userId)
+    .eq("active", true);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/fitness/musculacao");
+  revalidatePath("/fitness/musculacao/programa");
+  return { ok: true };
 }
 
 /** Deleta um set (rollback de erro de digitação, por exemplo). */
