@@ -6,31 +6,76 @@ Tunnel pro app Vercel consumir.
 
 **Custo total recorrente: ~R$5/mês** (eletricidade do Mac mini idle).
 
-## Por que Mac mini self-host vs cloud paga
+## Dois caminhos — escolha um
 
-| Caminho | Custo/mês | Setup | Performance |
-|---------|-----------|-------|-------------|
-| **Mac mini M-series + Cloudflare Tunnel** | ~R$5 (eletricidade) | 60min | Excelente (<1s/req nativo MLX) |
-| Mac mini Intel + Cloudflare Tunnel | ~R$5 (eletricidade) | 60min | OK (~2-3s/req) |
-| Fly.io shared-cpu-2x | ~$5-10 USD (~R$25-50) | 15min | Bom (~1s/req) |
-| HuggingFace Inference Endpoint dedicado | $50-1000+ USD | 5min | Excelente |
+### Caminho recomendado pra Mac mini M-series: NATIVO (sem Docker)
 
-## Pré-requisitos
+Roda Python direto no macOS, acelera inferência via GPU integrada (Metal
+Performance Shaders / MPS). **5-10x mais rápido** que Docker porque Docker
+Desktop não compartilha GPU com containers.
 
-1. **Mac mini** (qualquer ano, Apple Silicon preferível)
-2. **Docker Desktop pro Mac** — https://www.docker.com/products/docker-desktop/
-3. **Internet sempre conectada** no Mac (Wi-Fi ou cabo)
-4. **Conta Cloudflare grátis** (https://dash.cloudflare.com/sign-up)
-5. **Um domínio** — pode ser do seu projeto OU pegar grátis em https://www.is-a.dev
+```bash
+cd lib/openmed/docker
+bash setup-mac-native.sh
+```
 
-## Setup rápido (script automatizado)
+Performance: **~100-200ms por requisição** (vs ~1s no Docker).
+Porta padrão: **8765**.
+Serviço: launchd (`com.longevify.openmed`), sobrevive reboot.
+Sem dependência: nada de Docker Desktop.
+
+### Caminho alternativo: Docker (Apple Silicon ou Intel)
+
+Se preferir Docker (mais portável, mais fácil de mover pra outro host depois):
 
 ```bash
 cd lib/openmed/docker
 bash setup-mac-mini.sh
 ```
 
-O script faz:
+Performance: ~1s/req em Apple Silicon, ~2-3s em Intel.
+Porta padrão: **8000**.
+Container `openmed-longevify` com `--restart always`.
+Requer Docker Desktop instalado.
+
+## Comparação de caminhos
+
+| Caminho | Custo/mês | Setup | Performance | Requer Docker |
+|---------|-----------|-------|-------------|---------------|
+| **Mac mini M-series NATIVO (MPS)** | ~R$5 (luz) | 30min | ~100-200ms/req | Não |
+| Mac mini M-series Docker | ~R$5 (luz) | 30min | ~1s/req | Sim |
+| Mac mini Intel Docker | ~R$5 (luz) | 30min | ~2-3s/req | Sim |
+| Fly.io shared-cpu-2x | ~$5-10 USD | 15min | ~1s/req | — |
+| HF Inference Endpoint dedicado | $50-1000+ USD | 5min | Excelente | — |
+
+## Pré-requisitos
+
+### Pra ambos os caminhos
+1. **Mac mini** ligado 24h, internet sempre conectada
+2. **Conta Cloudflare grátis** (https://dash.cloudflare.com/sign-up)
+3. **Um domínio** — pode ser do seu projeto OU pegar grátis em https://www.is-a.dev
+
+### Específico do nativo (`setup-mac-native.sh`)
+- Apple Silicon (M1/M2/M3/M4) — o script verifica e aborta em Intel
+- Homebrew (o script instala Python 3.11 se faltar)
+
+### Específico do Docker (`setup-mac-mini.sh`)
+- Docker Desktop pro Mac — https://www.docker.com/products/docker-desktop/
+
+## Setup nativo — o que o script faz
+
+1. Verifica que é Apple Silicon (aborta em Intel — use Docker nesse caso)
+2. Instala Python 3.11 via Homebrew se faltar
+3. Cria venv em `~/.openmed-longevify/`
+4. Instala PyTorch 2.4.1 com suporte MPS
+5. Pre-download dos modelos OpenMed (~5GB, primeira vez ~15min)
+6. Gera token de auth (salvo em `~/.openmed-longevify/.token` chmod 600)
+7. Cria launchd plist `com.longevify.openmed` (sobrevive reboot)
+8. Carrega o serviço e smoke test do `/health`
+9. Mostra próximos passos (Cloudflare Tunnel + Vercel env vars)
+
+## Setup Docker — o que o script faz
+
 1. Verifica Docker, arquitetura, etc.
 2. Gera token de auth automaticamente (anote — vai pro Vercel)
 3. Build da imagem Docker (pesa 5GB, demora ~15min na primeira vez)
@@ -137,6 +182,21 @@ Request:
 Response: extrai doenças/medicamentos conforme `task`.
 
 ## Manutenção
+
+### Caminho nativo (`setup-mac-native.sh`)
+
+- **Status**: `launchctl list | grep com.longevify.openmed`
+- **Logs**: `tail -f ~/.openmed-longevify/stdout.log`
+- **Erros**: `tail -f ~/.openmed-longevify/stderr.log`
+- **Stop**: `launchctl unload ~/Library/LaunchAgents/com.longevify.openmed.plist`
+- **Start**: `launchctl load ~/Library/LaunchAgents/com.longevify.openmed.plist`
+- **Restart**: `launchctl unload …plist && launchctl load …plist`
+- **Atualizar modelos / código**: rode `bash setup-mac-native.sh` de novo. É idempotente —
+  pega novas dependências, reinstala se preciso, e recarrega o serviço.
+- **Desinstalar**: `launchctl unload ~/Library/LaunchAgents/com.longevify.openmed.plist`
+  + `rm -rf ~/.openmed-longevify ~/Library/LaunchAgents/com.longevify.openmed.plist`
+
+### Caminho Docker (`setup-mac-mini.sh`)
 
 - **Logs**: `docker logs -f openmed-longevify`
 - **Reiniciar**: `docker restart openmed-longevify`

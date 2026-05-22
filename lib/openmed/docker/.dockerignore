@@ -7,4 +7,5 @@ venv
 .env.local
 README.md
 setup-mac-mini.sh
+setup-mac-native.sh
 .dockerignore
