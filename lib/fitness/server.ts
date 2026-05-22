@@ -613,3 +613,58 @@ export async function getOtherStats(): Promise<{
     breakdown,
   };
 }
+
+// ─── Today's workout (Phase 3B) ───────────────────────────────────────
+
+/**
+ * Calcula qual treino do programa ativo é o "de hoje" baseado em ciclo
+ * round-robin: count de strength sessions desde a criação do programa
+ * mod length(days) + 1.
+ *
+ * Lógica simples — não trava o user em "deve ser dia X específico". Só
+ * sugere o próximo do split.
+ *
+ * Retorna null se não há programa ativo.
+ */
+export async function getTodaysWorkout(): Promise<{
+  program: WorkoutProgram;
+  dayIndex: number;
+  /** O ProgramDay que toca hoje, com nomes hidratados. */
+  day: WorkoutProgram["structure"]["days"][number];
+  /** Quantos strength workouts completados desde criação. */
+  completedSinceStart: number;
+} | null> {
+  const program = await getActiveWorkoutProgram();
+  if (!program) return null;
+  const hydrated = await hydrateProgramExerciseNames(program);
+
+  if (!isSupabaseConfigured()) return null;
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken) return null;
+  const supabase = await createSupabaseWithJwt(accessToken);
+
+  // Conta workout_sessions kind=strength desde a criação do programa
+  const { count, error } = await supabase
+    .from("workout_sessions")
+    .select("id", { count: "exact", head: true })
+    .eq("patient_id", userId)
+    .eq("kind", "strength")
+    .gte("created_at", hydrated.createdAt);
+
+  if (error) return null;
+  const completedSinceStart = count ?? 0;
+
+  const totalDays = hydrated.structure.days.length;
+  if (totalDays === 0) return null;
+
+  // dayIndex de 1 a N: próximo treino na rotação
+  const cycleIdx = completedSinceStart % totalDays; // 0-based
+  const day = hydrated.structure.days[cycleIdx];
+
+  return {
+    program: hydrated,
+    dayIndex: cycleIdx + 1,
+    day,
+    completedSinceStart,
+  };
+}
