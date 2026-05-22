@@ -13,6 +13,11 @@ import {
   WearableMetricPopup,
   type MetricPoint,
 } from "@/components/home/wearable-metric-popup";
+import {
+  SleepDetailPopup,
+  type SleepHistoryPoint,
+} from "@/components/home/sleep-detail-popup";
+import { SleepTimeline } from "@/components/home/sleep-timeline";
 import type { SleepStages } from "@/lib/wearables-mock";
 
 /**
@@ -26,6 +31,8 @@ import type { SleepStages } from "@/lib/wearables-mock";
 interface DailyHistoryPoint {
   date: string; // ISO YYYY-MM-DD
   sleepMinutes: number;
+  /** Phase 3 sleep — alimenta SleepDetailPopup tabs W/M */
+  sleepStages?: SleepStages | null;
   exerciseMinutes: number;
 }
 
@@ -65,12 +72,12 @@ export function DailyProgressGrid({
   const todayExerciseScore = exerciseScore(exerciseMinutes);
 
   // Pré-computa histórico de scores pra alimentar o popup
-  const sleepHistory = useMemo<MetricPoint[]>(
+  const sleepHistory = useMemo<SleepHistoryPoint[]>(
     () =>
       metricsHistory.map((p) => ({
         date: p.date,
-        value: p.sleepMinutes,
-        score: sleepScore(p.sleepMinutes),
+        sleepMinutes: p.sleepMinutes,
+        stages: p.sleepStages ?? null,
       })),
     [metricsHistory],
   );
@@ -128,15 +135,14 @@ export function DailyProgressGrid({
 
       {/* Popups de detalhe — abrem ao clicar nos cards de sono/exercício.
           Lucas (2026-05-21): cards "Feitas hoje" / "A fazer" removidos —
-          tarefas vivem só na TodoSidebar à direita (na home). */}
-      <WearableMetricPopup
+          tarefas vivem só na TodoSidebar à direita (na home).
+          Lucas (2026-05-22): sleep ganhou popup dedicado com tabs D/W/M
+          (Apple-Health-style timeline na visão diária + stacked bars
+          na semanal/mensal). */}
+      <SleepDetailPopup
         open={openMetric === "sleep"}
         onClose={() => setOpenMetric(null)}
-        metricKind="sleep"
-        title="Sono"
-        unit="min"
         history={sleepHistory}
-        accentColor="#4f46e5"
       />
       <WearableMetricPopup
         open={openMetric === "exercise"}
@@ -258,7 +264,9 @@ interface SleepCardProps {
  *   - rem: azul claro (#8EC3F6)
  *   - awake: laranja/rosa (#E76A56)
  */
-const STAGE_COLORS: Record<keyof SleepStages, { bg: string; label: string }> = {
+type StageMinKey = "deepMinutes" | "coreMinutes" | "remMinutes" | "awakeMinutes";
+
+const STAGE_COLORS: Record<StageMinKey, { bg: string; label: string }> = {
   deepMinutes: { bg: "bg-indigo-800", label: "Profundo" },
   coreMinutes: { bg: "bg-blue-500", label: "Leve" },
   remMinutes: { bg: "bg-sky-300", label: "REM" },
@@ -287,7 +295,7 @@ function SleepCard({
       sleepStages.awakeMinutes
     : 0;
 
-  const order: Array<keyof SleepStages> = [
+  const order: StageMinKey[] = [
     "deepMinutes",
     "coreMinutes",
     "remMinutes",
@@ -327,8 +335,39 @@ function SleepCard({
         </div>
       </div>
 
-      {/* Stacked bar das fases */}
-      {hasStages ? (
+      {/* Mini timeline Apple-style (se houver segments) ou stacked bar */}
+      {hasStages && sleepStages?.segments && sleepStages.segments.length > 0 ? (
+        <div className="mt-1">
+          <SleepTimeline
+            segments={sleepStages.segments}
+            height={52}
+            compact
+          />
+          {/* Legend compacta com 4 fases — mais valor que stacked bar simples */}
+          <ul className="mt-1.5 grid grid-cols-2 gap-x-2 gap-y-0.5 text-[9.5px]">
+            {order.map((key) => {
+              const min = sleepStages![key];
+              return (
+                <li
+                  key={key}
+                  className="flex items-center gap-1 truncate text-zinc-600 tabular-nums"
+                >
+                  <span
+                    className={cn(
+                      "h-1.5 w-1.5 shrink-0 rounded-sm",
+                      STAGE_COLORS[key].bg,
+                    )}
+                    aria-hidden
+                  />
+                  <span className="truncate">{STAGE_COLORS[key].label}</span>
+                  <span className="ml-auto text-zinc-500">{formatHM(min)}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : hasStages ? (
+        // Tem stages mas não segments — fallback pra stacked bar
         <div className="mt-1">
           <div className="flex h-2 overflow-hidden rounded-full bg-zinc-100">
             {order.map((key) => {
@@ -345,7 +384,6 @@ function SleepCard({
               );
             })}
           </div>
-          {/* Mini legend abaixo: 4 linhas com cor + label + min */}
           <ul className="mt-1.5 grid grid-cols-2 gap-x-2 gap-y-0.5 text-[9.5px]">
             {order.map((key) => {
               const min = sleepStages![key];

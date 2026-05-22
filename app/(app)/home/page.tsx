@@ -107,11 +107,12 @@ export default async function HomePage() {
     (latestMetric?.zone2Minutes ?? 0) +
     Math.round((latestMetric?.steps ?? 0) / 130); // ~130 passos/min ritmo médio
 
-  // Histórico pro popup de detalhe — converte cada dia em
-  // { date, sleepMinutes, exerciseMinutes } (calculo igual ao "today").
+  // Histórico pro popup de detalhe — inclui sleepStages quando
+  // existirem (mock os tem; real Apple Health ingest ainda não).
   const metricsHistory = metricsSource.map((m) => ({
     date: m.date,
     sleepMinutes: m.sleepMinutes ?? 0,
+    sleepStages: m.sleepStages ?? null,
     exerciseMinutes:
       (m.zone2Minutes ?? 0) + Math.round((m.steps ?? 0) / 130),
   }));
