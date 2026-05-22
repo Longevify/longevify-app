@@ -407,6 +407,15 @@ export function ProgramaClient({ program }: ProgramaClientProps) {
       <p className="mt-3 text-center text-[10.5px] text-zinc-400">
         Powered by Claude Sonnet 4.6 · 100% no Brasil 🇧🇷
       </p>
+
+      {/* Phase 3K: Templates alternative */}
+      <Link
+        href="/fitness/musculacao/programa/templates"
+        className="mt-5 block rounded-2xl border border-dashed border-zinc-300 bg-zinc-50/50 px-4 py-3.5 text-center text-[12px] text-zinc-600 transition hover:border-brand-300 hover:bg-brand-50/30"
+      >
+        📚 Prefere começar com um <strong>template pronto</strong>? Veja splits
+        clássicos →
+      </Link>
     </div>
   );
 }
