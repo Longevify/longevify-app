@@ -317,11 +317,16 @@ function SleepCard({
     <button
       type="button"
       onClick={onClick}
-      className="group flex h-full flex-col gap-2 rounded-2xl border border-zinc-200/80 bg-white p-4 text-left shadow-[0_4px_16px_-10px_rgba(13,40,24,.1)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_22px_-10px_rgba(13,40,24,.15)]"
+      className="group flex h-full flex-col gap-1.5 rounded-2xl border border-zinc-200/80 bg-white p-3 text-left shadow-[0_4px_16px_-10px_rgba(13,40,24,.1)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_22px_-10px_rgba(13,40,24,.15)]"
     >
+      {/* Lucas (2026-05-23 v2): "cards de sono e exercício muito altos —
+          a barra colorida do sono quero que fique mais alongada e as
+          legendas do sono estão muito pequenas". Reduzi padding (p-4 →
+          p-3), gap (2→1.5), encolhi header/value, e dei MAIS espaço pra
+          timeline (130px) + legendas em fonte 11.5px. */}
       <div className="flex items-center justify-between">
-        <span className="grid h-8 w-8 place-items-center rounded-xl bg-indigo-50 text-indigo-700">
-          <Moon className="h-4 w-4" />
+        <span className="grid h-7 w-7 place-items-center rounded-xl bg-indigo-50 text-indigo-700">
+          <Moon className="h-3.5 w-3.5" />
         </span>
         <span
           className={cn(
@@ -337,7 +342,7 @@ function SleepCard({
           Sono
         </div>
         <div className="mt-0.5 flex items-baseline gap-1">
-          <span className="text-[22px] font-semibold leading-none tracking-tight text-zinc-900 tabular-nums">
+          <span className="text-[20px] font-semibold leading-none tracking-tight text-zinc-900 tabular-nums">
             {formatHM(sleepMinutes)}
           </span>
           <span className="text-[11px] text-zinc-500">
@@ -346,36 +351,32 @@ function SleepCard({
         </div>
       </div>
 
-      {/* Mini timeline Apple-style (se houver segments) ou stacked bar */}
+      {/* Timeline Apple-style — bar alongada + legenda maior */}
       {hasStages && sleepStages?.segments && sleepStages.segments.length > 0 ? (
-        <div className="mt-1 flex-1 flex flex-col">
-          {/*
-            Lucas (2026-05-23): "quero que a barra de sono fique até o
-            final do card de sono" → timeline mais alta (110px) preenche
-            verticalmente. flex-1 do wrapper estica o card até o final.
-          */}
+        <div className="flex-1 flex flex-col">
           <SleepTimeline
             segments={sleepStages.segments}
-            height={110}
+            height={130}
             compact
           />
-          {/* Legend compacta com 4 fases — mais valor que stacked bar simples */}
-          <ul className="mt-1.5 grid grid-cols-2 gap-x-2 gap-y-0.5 text-[9.5px]">
+          <ul className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11.5px]">
             {order.map((key) => {
               const min = sleepStages![key];
               return (
                 <li
                   key={key}
-                  className="flex items-center gap-1 truncate text-zinc-600 tabular-nums"
+                  className="flex items-center gap-1.5 truncate text-zinc-700 tabular-nums"
                 >
                   <span
                     className={cn(
-                      "h-1.5 w-1.5 shrink-0 rounded-sm",
+                      "h-2 w-2 shrink-0 rounded-sm",
                       STAGE_COLORS[key].bg,
                     )}
                     aria-hidden
                   />
-                  <span className="truncate">{STAGE_COLORS[key].label}</span>
+                  <span className="truncate font-medium">
+                    {STAGE_COLORS[key].label}
+                  </span>
                   <span className="ml-auto text-zinc-500">{formatHM(min)}</span>
                 </li>
               );
@@ -384,8 +385,8 @@ function SleepCard({
         </div>
       ) : hasStages ? (
         // Tem stages mas não segments — fallback pra stacked bar
-        <div className="mt-1">
-          <div className="flex h-2 overflow-hidden rounded-full bg-zinc-100">
+        <div className="flex-1 flex flex-col justify-center">
+          <div className="flex h-3 overflow-hidden rounded-full bg-zinc-100">
             {order.map((key) => {
               const min = sleepStages![key];
               if (min <= 0) return null;
@@ -393,29 +394,34 @@ function SleepCard({
               return (
                 <span
                   key={key}
-                  className={cn(STAGE_COLORS[key].bg, "first:rounded-l-full last:rounded-r-full")}
+                  className={cn(
+                    STAGE_COLORS[key].bg,
+                    "first:rounded-l-full last:rounded-r-full",
+                  )}
                   style={{ width: `${widthPct}%` }}
                   title={`${STAGE_COLORS[key].label}: ${formatHM(min)}`}
                 />
               );
             })}
           </div>
-          <ul className="mt-1.5 grid grid-cols-2 gap-x-2 gap-y-0.5 text-[9.5px]">
+          <ul className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11.5px]">
             {order.map((key) => {
               const min = sleepStages![key];
               return (
                 <li
                   key={key}
-                  className="flex items-center gap-1 truncate text-zinc-600 tabular-nums"
+                  className="flex items-center gap-1.5 truncate text-zinc-700 tabular-nums"
                 >
                   <span
                     className={cn(
-                      "h-1.5 w-1.5 shrink-0 rounded-sm",
+                      "h-2 w-2 shrink-0 rounded-sm",
                       STAGE_COLORS[key].bg,
                     )}
                     aria-hidden
                   />
-                  <span className="truncate">{STAGE_COLORS[key].label}</span>
+                  <span className="truncate font-medium">
+                    {STAGE_COLORS[key].label}
+                  </span>
                   <span className="ml-auto text-zinc-500">{formatHM(min)}</span>
                 </li>
               );
@@ -479,11 +485,13 @@ function RichExerciseCard({
     <button
       type="button"
       onClick={onClick}
-      className="group flex h-full flex-col gap-3 rounded-2xl border border-zinc-200/80 bg-white p-4 text-left shadow-[0_4px_16px_-10px_rgba(13,40,24,.1)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_22px_-10px_rgba(13,40,24,.15)]"
+      className="group flex h-full flex-col gap-2 rounded-2xl border border-zinc-200/80 bg-white p-3 text-left shadow-[0_4px_16px_-10px_rgba(13,40,24,.1)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_22px_-10px_rgba(13,40,24,.15)]"
     >
+      {/* Lucas (2026-05-23 v2): "cards de sono e de exercício muito
+          altos" → padding p-4 → p-3, gap menor, header h-7. */}
       <div className="flex items-center justify-between">
-        <span className="grid h-8 w-8 place-items-center rounded-xl bg-emerald-50 text-emerald-700">
-          <Activity className="h-4 w-4" />
+        <span className="grid h-7 w-7 place-items-center rounded-xl bg-emerald-50 text-emerald-700">
+          <Activity className="h-3.5 w-3.5" />
         </span>
         <span
           className={cn(
@@ -500,7 +508,7 @@ function RichExerciseCard({
           Exercício
         </div>
         <div className="mt-0.5 flex items-baseline gap-1">
-          <span className="text-[22px] font-semibold leading-none tracking-tight text-zinc-900 tabular-nums">
+          <span className="text-[20px] font-semibold leading-none tracking-tight text-zinc-900 tabular-nums">
             {exerciseMinutes} min
           </span>
           <span className="text-[11px] text-zinc-500">
@@ -509,11 +517,8 @@ function RichExerciseCard({
         </div>
       </div>
 
-      {/* Stats — Lucas (2026-05-23): "ta muito alto, quero que preencha
-          mais para o lado não para cima empilhando as coisas." → layout
-          horizontal: 4 stats em uma única row (grid-cols-4), cada stat
-          é uma "tile" compacta. Em mobile mantém 2×2 (grid-cols-2). */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      {/* Stats em row horizontal — flex-1 estica até o final do card */}
+      <div className="flex-1 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <ExStat
           emoji="👟"
           value={
@@ -524,11 +529,7 @@ function RichExerciseCard({
           label="passos"
           hint={distanceKm > 0 ? `${distanceKm} km` : undefined}
         />
-        <ExStat
-          emoji="🔥"
-          value={`${calories}`}
-          label="kcal"
-        />
+        <ExStat emoji="🔥" value={`${calories}`} label="kcal" />
         <ExStat
           emoji="🏃"
           value={`${zone2}`}
