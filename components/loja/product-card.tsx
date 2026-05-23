@@ -80,6 +80,13 @@ function DefaultCard({
             aspect="square"
             className="max-h-48 sm:max-h-none transition-transform duration-200 group-hover:scale-[1.01]"
           />
+          {/* Tag "Feito pela Longevify" — só pra marca própria, sempre visível no topo */}
+          {product.isLongevifyOriginal ? (
+            <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-brand-900/95 px-2.5 py-1 text-[10.5px] font-semibold uppercase tracking-wide text-white shadow-sm backdrop-blur-sm">
+              <span aria-hidden className="grid h-1.5 w-1.5 place-items-center rounded-full bg-brand-300" />
+              Longevify
+            </span>
+          ) : null}
           <QuickAddButton product={product} overlay />
           <QuickSubscribeButton product={product} overlay />
         </div>
@@ -155,6 +162,11 @@ function CompactCard({
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.1em] text-muted">
             <span className="truncate">{product.kicker}</span>
+            {product.isLongevifyOriginal ? (
+              <span className="rounded-full bg-brand-900 px-1.5 py-0.5 font-semibold tracking-wide text-white">
+                Longevify
+              </span>
+            ) : null}
             {highlight ? (
               <span className="rounded-full bg-brand-500/15 px-1.5 py-0.5 font-semibold tracking-wide text-brand-700">
                 pra você

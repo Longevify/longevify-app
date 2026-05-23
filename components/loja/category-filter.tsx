@@ -5,6 +5,7 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Product, ProductCategory } from "@/lib/products";
+import { sortLongevifyFirst } from "@/lib/products";
 import { ProductCard } from "./product-card";
 
 type FilterKey = "all" | ProductCategory;
@@ -68,9 +69,15 @@ export function CategoryFilter({ products }: { products: Product[] }) {
     commitQuery("");
   }
 
-  const filtered = products
-    .filter((p) => (active === "all" ? true : p.category === active))
-    .filter((p) => matchesQuery(p, query));
+  // Sort Longevify-first: produtos da marca própria sempre vêm primeiro
+  // dentro do mesmo filtro/busca. Quando o paciente digita "vitamina c",
+  // a Vitamina C Longevify aparece antes do Bio Vit C+ Puravida.
+  // Pra termos sem produto Longevify (ex: "café"), só os curados aparecem.
+  const filtered = sortLongevifyFirst(
+    products
+      .filter((p) => (active === "all" ? true : p.category === active))
+      .filter((p) => matchesQuery(p, query)),
+  );
 
   return (
     <div>
