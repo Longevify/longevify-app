@@ -1,0 +1,667 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import {
+  Trophy,
+  Users,
+  Globe,
+  Plus,
+  Heart,
+  MessageCircle,
+  Share2,
+  MapPin,
+  Sparkles,
+  Lock,
+  Settings,
+  Footprints,
+  Dumbbell,
+  Zap,
+  Crown,
+  Medal,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  type HealthPoints,
+  type SocialPost,
+  type SocialPrivacy,
+  type UserLocation,
+  type RankingEntry,
+  type RankingScope,
+  type SocialPostKind,
+  RANKING_SCOPE_LABEL,
+  levelTitle,
+  pointsForLevel,
+} from "@/lib/social/types";
+import type { FriendSummary } from "@/lib/social/server";
+import { PrivacyConsentModal } from "./privacy-consent-modal";
+
+/**
+ * Cliente da aba Social — 4 tabs:
+ *  1. Feed — runs/achievements de amigos
+ *  2. Ranking — entre amigos / cidade / estado / nacional
+ *  3. Amigos — lista + convidar
+ *  4. Perfil — meus pontos / level / breakdown
+ *
+ * Cuidado privacidade: rankings public exigem consent explícito via
+ * PrivacyConsentModal. Default: opt-in só em "friends".
+ */
+
+interface SocialClientProps {
+  points: HealthPoints | null;
+  friends: FriendSummary[];
+  friendsRanking: RankingEntry[];
+  feed: SocialPost[];
+  privacy: SocialPrivacy | null;
+  location: UserLocation | null;
+}
+
+type Tab = "feed" | "ranking" | "friends" | "me";
+
+export function SocialClient({
+  points,
+  friends,
+  friendsRanking,
+  feed,
+  privacy,
+  location,
+}: SocialClientProps) {
+  const [tab, setTab] = useState<Tab>("feed");
+  const [rankingScope, setRankingScope] = useState<RankingScope>("friends");
+  const [consentModalOpen, setConsentModalOpen] = useState(false);
+  const [requestedScope, setRequestedScope] = useState<RankingScope | null>(
+    null,
+  );
+
+  // Fetch ranking on-demand quando troca scope (lazy via API client)
+  const [scopedRanking, setScopedRanking] =
+    useState<RankingEntry[]>(friendsRanking);
+  const [loadingRanking, setLoadingRanking] = useState(false);
+
+  const switchScope = async (scope: RankingScope) => {
+    setRankingScope(scope);
+    // Pra escopos públicos, exige consent
+    if (scope !== "friends") {
+      const optedIn =
+        scope === "city"
+          ? privacy?.showInCityRanking
+          : scope === "state"
+            ? privacy?.showInStateRanking
+            : privacy?.showInCountryRanking;
+      if (!optedIn) {
+        setRequestedScope(scope);
+        setConsentModalOpen(true);
+        return;
+      }
+    }
+    setLoadingRanking(true);
+    try {
+      const res = await fetch(`/api/social/ranking?scope=${scope}`);
+      const data = (await res.json()) as { ranking?: RankingEntry[] };
+      setScopedRanking(data.ranking ?? []);
+    } catch {
+      setScopedRanking([]);
+    } finally {
+      setLoadingRanking(false);
+    }
+  };
+
+  return (
+    <div className="mx-auto w-full max-w-[920px] px-4 py-6 sm:px-6 sm:py-10">
+      <header className="pb-2">
+        <span className="text-[13px] text-muted">Comunidade Longevify</span>
+        <h1 className="text-[28px] leading-[1.1] font-semibold tracking-tight sm:text-[34px]">
+          Social
+        </h1>
+      </header>
+
+      {/* User hero — points + level */}
+      {points && <PointsHero points={points} />}
+
+      {/* Tabs */}
+      <nav className="sticky top-3 z-10 mt-5 mb-5 rounded-2xl border border-border bg-white/95 p-1.5 shadow-[0_4px_18px_-12px_rgba(13,40,24,.12)] backdrop-blur">
+        <ul className="grid grid-cols-4 gap-1">
+          <TabBtn label="Feed" Icon={Heart} active={tab === "feed"} onClick={() => setTab("feed")} />
+          <TabBtn label="Ranking" Icon={Trophy} active={tab === "ranking"} onClick={() => setTab("ranking")} />
+          <TabBtn label="Amigos" Icon={Users} active={tab === "friends"} onClick={() => setTab("friends")} />
+          <TabBtn label="Perfil" Icon={Sparkles} active={tab === "me"} onClick={() => setTab("me")} />
+        </ul>
+      </nav>
+
+      {/* Content por tab */}
+      {tab === "feed" && <FeedView feed={feed} />}
+      {tab === "ranking" && (
+        <RankingView
+          scope={rankingScope}
+          ranking={scopedRanking}
+          loading={loadingRanking}
+          onSwitch={switchScope}
+          location={location}
+        />
+      )}
+      {tab === "friends" && <FriendsView friends={friends} />}
+      {tab === "me" && points && <ProfileView points={points} />}
+
+      {/* Privacy modal */}
+      {consentModalOpen && requestedScope && (
+        <PrivacyConsentModal
+          scope={requestedScope}
+          onClose={() => {
+            setConsentModalOpen(false);
+            setRequestedScope(null);
+          }}
+          onConsented={async () => {
+            setConsentModalOpen(false);
+            await switchScope(requestedScope);
+            setRequestedScope(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Sub-componentes ──────────────────────────────────────────────────
+
+function TabBtn({
+  label,
+  Icon,
+  active,
+  onClick,
+}: {
+  label: string;
+  Icon: React.ComponentType<{ className?: string }>;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onClick}
+        aria-current={active ? "page" : undefined}
+        className={cn(
+          "flex w-full items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-[12px] font-semibold transition-colors sm:px-3 sm:text-[13px]",
+          active
+            ? "bg-brand-700 text-white shadow-sm"
+            : "text-zinc-600 hover:bg-zinc-50",
+        )}
+      >
+        <Icon className="h-4 w-4" />
+        <span className="hidden sm:inline">{label}</span>
+      </button>
+    </li>
+  );
+}
+
+function PointsHero({ points }: { points: HealthPoints }) {
+  const nextLevelPoints = pointsForLevel(points.level + 1);
+  const currentLevelPoints = pointsForLevel(points.level);
+  const progressInLevel = points.totalPoints - currentLevelPoints;
+  const levelRange = nextLevelPoints - currentLevelPoints;
+  const pct = Math.min(100, Math.round((progressInLevel / levelRange) * 100));
+
+  return (
+    <section className="overflow-hidden rounded-3xl border border-brand-200 bg-gradient-to-br from-brand-700 via-brand-800 to-brand-900 text-white shadow-md">
+      <div className="px-5 py-5">
+        <div className="flex items-start gap-4">
+          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-md">
+            <Trophy className="h-6 w-6" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-white/70">
+              Level {points.level} · {levelTitle(points.level)}
+            </div>
+            <div className="mt-1 flex items-baseline gap-1.5">
+              <span className="text-[28px] font-semibold leading-none tracking-tight tabular-nums">
+                {points.totalPoints.toLocaleString("pt-BR")}
+              </span>
+              <span className="text-[12px] font-medium text-white/70">pontos</span>
+            </div>
+          </div>
+        </div>
+        <div className="mt-3">
+          <div className="h-1.5 overflow-hidden rounded-full bg-white/15">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <p className="mt-1.5 text-[10.5px] tabular-nums text-white/70">
+            {nextLevelPoints - points.totalPoints} pts pro Level {points.level + 1}
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FeedView({ feed }: { feed: SocialPost[] }) {
+  if (feed.length === 0) {
+    return (
+      <EmptyState
+        icon={<Heart className="h-8 w-8 text-zinc-300" />}
+        title="Nada no feed ainda"
+        body="Adicione amigos e veja as conquistas deles aparecerem aqui."
+      />
+    );
+  }
+  return (
+    <ul className="flex flex-col gap-3">
+      {feed.map((post) => (
+        <li key={post.id}>
+          <FeedPostCard post={post} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function FeedPostCard({ post }: { post: SocialPost }) {
+  const KIND_META: Record<
+    SocialPostKind,
+    { Icon: typeof Heart; accent: string; label: string }
+  > = {
+    running: { Icon: Footprints, accent: "bg-orange-50 text-orange-700", label: "Corrida" },
+    workout: { Icon: Dumbbell, accent: "bg-brand-50 text-brand-700", label: "Treino" },
+    achievement: { Icon: Medal, accent: "bg-amber-50 text-amber-700", label: "Conquista" },
+    level_up: { Icon: Crown, accent: "bg-purple-50 text-purple-700", label: "Level up" },
+    biomarker: { Icon: Zap, accent: "bg-emerald-50 text-emerald-700", label: "Biomarker" },
+    milestone: { Icon: Sparkles, accent: "bg-sky-50 text-sky-700", label: "Marco" },
+  };
+  const meta = KIND_META[post.kind] ?? KIND_META.workout;
+  const { Icon } = meta;
+
+  return (
+    <article className="rounded-2xl border border-zinc-200 bg-white px-4 py-3.5 shadow-[0_2px_8px_-4px_rgba(13,40,24,.06)]">
+      <header className="flex items-center gap-3">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-50 text-[14px] font-semibold text-brand-700">
+          {post.authorFirstName?.[0]?.toUpperCase() ?? "?"}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] font-semibold text-zinc-900">
+            {post.authorFirstName}
+          </div>
+          <div className="mt-0.5 inline-flex items-center gap-1 text-[10.5px] text-zinc-500">
+            <span
+              className={cn(
+                "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-medium",
+                meta.accent,
+              )}
+            >
+              <Icon className="h-2.5 w-2.5" />
+              {meta.label}
+            </span>
+            <span>·</span>
+            <span>{relativeTime(post.createdAt)}</span>
+          </div>
+        </div>
+      </header>
+
+      <div className="mt-3">
+        <h3 className="text-[14px] font-semibold text-zinc-900">
+          {post.payload.title}
+        </h3>
+        {post.payload.body && (
+          <p className="mt-1 text-[12.5px] leading-relaxed text-zinc-600">
+            {post.payload.body}
+          </p>
+        )}
+
+        {/* Stats específicas por kind */}
+        {post.kind === "running" && (
+          <div className="mt-2 flex flex-wrap gap-3 text-[11px] tabular-nums">
+            {post.payload.distanceKm && (
+              <span className="rounded-full bg-orange-50 px-2.5 py-1 font-semibold text-orange-800">
+                🏃 {post.payload.distanceKm.toFixed(2)}km
+              </span>
+            )}
+            {post.payload.paceSecondsPerKm && (
+              <span className="rounded-full bg-zinc-100 px-2.5 py-1 font-semibold text-zinc-700">
+                ⏱ {fmtPace(post.payload.paceSecondsPerKm)}
+              </span>
+            )}
+            {post.payload.durationSeconds && (
+              <span className="rounded-full bg-zinc-100 px-2.5 py-1 font-semibold text-zinc-700">
+                {fmtDuration(post.payload.durationSeconds)}
+              </span>
+            )}
+          </div>
+        )}
+
+        {post.kind === "achievement" && post.payload.achievementEmoji && (
+          <div className="mt-2 inline-flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2">
+            <span className="text-[24px]">{post.payload.achievementEmoji}</span>
+            <span className="text-[12.5px] font-semibold text-amber-900">
+              {post.payload.title}
+            </span>
+          </div>
+        )}
+
+        {post.kind === "level_up" && post.payload.level && (
+          <div className="mt-2 inline-flex items-center gap-2 rounded-xl bg-purple-50 px-3 py-2 text-[12.5px] font-semibold text-purple-900">
+            👑 Level {post.payload.level} desbloqueado
+          </div>
+        )}
+      </div>
+
+      <footer className="mt-3 flex items-center gap-3 border-t border-zinc-100 pt-2.5 text-[11.5px] text-zinc-500">
+        <button type="button" className="inline-flex items-center gap-1 hover:text-rose-600">
+          <Heart className="h-3.5 w-3.5" /> {post.likesCount || ""}
+        </button>
+        <button type="button" className="inline-flex items-center gap-1 hover:text-brand-700">
+          <MessageCircle className="h-3.5 w-3.5" /> {post.commentsCount || ""}
+        </button>
+        <button type="button" className="ml-auto inline-flex items-center gap-1 hover:text-brand-700">
+          <Share2 className="h-3.5 w-3.5" />
+        </button>
+      </footer>
+    </article>
+  );
+}
+
+function RankingView({
+  scope,
+  ranking,
+  loading,
+  onSwitch,
+  location,
+}: {
+  scope: RankingScope;
+  ranking: RankingEntry[];
+  loading: boolean;
+  onSwitch: (s: RankingScope) => void;
+  location: UserLocation | null;
+}) {
+  const scopes: RankingScope[] = ["friends", "city", "state", "country"];
+
+  // Encontra posição do user atual
+  const myRank = ranking.find((r) => r.isCurrentUser);
+
+  return (
+    <div>
+      {/* Scope picker */}
+      <div className="mb-3 flex flex-wrap gap-1.5">
+        {scopes.map((s) => {
+          const requiresPublic = s !== "friends";
+          const labelExtra =
+            s === "city" && location?.city
+              ? ` (${location.city})`
+              : s === "state" && location?.state
+                ? ` (${location.state})`
+                : "";
+          return (
+            <button
+              key={s}
+              type="button"
+              onClick={() => onSwitch(s)}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[11.5px] font-semibold transition",
+                scope === s
+                  ? "bg-brand-700 text-white"
+                  : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200",
+              )}
+            >
+              {requiresPublic && <Lock className="h-2.5 w-2.5" />}
+              {RANKING_SCOPE_LABEL[s]}
+              {labelExtra}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Minha posição highlight (se não tô no top) */}
+      {myRank && myRank.rank > 5 && (
+        <div className="mb-3 rounded-xl bg-brand-50/60 px-4 py-2.5 text-[12px] text-brand-900">
+          <strong>Você está na posição #{myRank.rank}</strong>{" "}
+          {scope === "city" && location?.city && `em ${location.city}`}
+          {scope === "state" && location?.state && `no ${location.state}`}
+          {scope === "country" && "no Brasil"}
+          {scope === "friends" && "entre amigos"}
+          {" "}com {myRank.totalPoints.toLocaleString("pt-BR")} pontos.
+        </div>
+      )}
+
+      {loading ? (
+        <div className="rounded-2xl bg-zinc-50/60 px-4 py-10 text-center text-[12.5px] text-zinc-500">
+          Carregando ranking…
+        </div>
+      ) : ranking.length === 0 ? (
+        <EmptyState
+          icon={<Trophy className="h-8 w-8 text-zinc-300" />}
+          title="Sem ranking disponível"
+          body={
+            scope === "friends"
+              ? "Adicione amigos pra começar a se comparar."
+              : "Ninguém compartilha publicamente nessa região ainda."
+          }
+        />
+      ) : (
+        <ol className="flex flex-col gap-1.5">
+          {ranking.map((entry) => (
+            <li key={entry.patientId}>
+              <RankingRow entry={entry} />
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+function RankingRow({ entry }: { entry: RankingEntry }) {
+  const trophyColor =
+    entry.rank === 1
+      ? "from-amber-400 to-orange-500"
+      : entry.rank === 2
+        ? "from-zinc-300 to-zinc-400"
+        : entry.rank === 3
+          ? "from-orange-300 to-amber-700"
+          : "from-zinc-200 to-zinc-300";
+
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-3 rounded-xl border px-3 py-2.5",
+        entry.isCurrentUser
+          ? "border-brand-300 bg-brand-50/60"
+          : "border-zinc-200 bg-white",
+      )}
+    >
+      <span
+        className={cn(
+          "grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br font-bold text-white",
+          trophyColor,
+        )}
+      >
+        {entry.rank <= 3 ? (
+          <Trophy className="h-4 w-4" />
+        ) : (
+          <span className="text-[12px] tabular-nums">{entry.rank}</span>
+        )}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-1.5 truncate">
+          <span className="text-[13px] font-semibold text-zinc-900">
+            {entry.firstName}
+            {entry.isCurrentUser && (
+              <span className="ml-1 text-[10px] font-normal text-brand-700">(você)</span>
+            )}
+          </span>
+          <span className="text-[10px] text-zinc-500">Level {entry.level}</span>
+        </div>
+        {entry.city && (
+          <div className="mt-0.5 inline-flex items-center gap-1 text-[10.5px] text-zinc-500">
+            <MapPin className="h-2.5 w-2.5" />
+            {entry.city}
+            {entry.state && ` · ${entry.state}`}
+          </div>
+        )}
+      </div>
+      <div className="text-right">
+        <div className="text-[14px] font-semibold tabular-nums text-zinc-900">
+          {entry.totalPoints.toLocaleString("pt-BR")}
+        </div>
+        <div className="text-[9.5px] text-zinc-400">pontos</div>
+      </div>
+    </div>
+  );
+}
+
+function FriendsView({ friends }: { friends: FriendSummary[] }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <button
+        type="button"
+        className="flex items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-br from-brand-700 to-brand-800 px-5 py-3 text-[13px] font-semibold text-white shadow-md transition active:scale-[0.98]"
+        onClick={() => alert("Em breve — convite por link / username")}
+      >
+        <Plus className="h-4 w-4" /> Adicionar amigo
+      </button>
+
+      {friends.length === 0 ? (
+        <EmptyState
+          icon={<Users className="h-8 w-8 text-zinc-300" />}
+          title="Você ainda não tem amigos por aqui"
+          body="Adicione amigos pra ver runs, achievements e disputar rankings."
+        />
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {friends.map((f) => (
+            <li
+              key={f.patientId}
+              className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-2.5"
+            >
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-50 text-[14px] font-semibold text-brand-700">
+                {f.firstName[0]?.toUpperCase() ?? "?"}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[13.5px] font-semibold text-zinc-900">
+                  {f.firstName}
+                </div>
+                <div className="mt-0.5 text-[11px] text-zinc-500">
+                  Level {f.level} · {f.totalPoints.toLocaleString("pt-BR")} pts
+                </div>
+              </div>
+              {f.city && (
+                <span className="text-[10px] text-zinc-500">
+                  <MapPin className="-mt-0.5 mr-0.5 inline h-2.5 w-2.5" />
+                  {f.city}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function ProfileView({ points }: { points: HealthPoints }) {
+  const breakdown: Array<{ label: string; value: number; color: string }> = [
+    { label: "Fitness", value: points.fitnessPoints, color: "bg-emerald-500" },
+    { label: "Nutrição", value: points.nutritionPoints, color: "bg-orange-500" },
+    {
+      label: "Consistência",
+      value: points.consistencyPoints,
+      color: "bg-amber-500",
+    },
+    { label: "Biomarcadores", value: points.biomarkerPoints, color: "bg-sky-500" },
+    { label: "Social", value: points.socialPoints, color: "bg-rose-500" },
+  ];
+  const total = breakdown.reduce((s, b) => s + b.value, 0) || 1;
+
+  return (
+    <div className="flex flex-col gap-4">
+      <section className="rounded-2xl border border-zinc-200 bg-white px-4 py-3.5">
+        <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+          De onde vêm seus pontos
+        </h3>
+        <div className="flex h-2.5 overflow-hidden rounded-full bg-zinc-100">
+          {breakdown.map((b) => (
+            <span
+              key={b.label}
+              className={b.color}
+              style={{ width: `${(b.value / total) * 100}%` }}
+            />
+          ))}
+        </div>
+        <ul className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11.5px]">
+          {breakdown.map((b) => (
+            <li key={b.label} className="flex items-center gap-1.5 tabular-nums">
+              <span className={cn("h-2 w-2 rounded-full", b.color)} />
+              <span className="text-zinc-700">{b.label}</span>
+              <span className="ml-auto font-semibold text-zinc-900">
+                {b.value}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <Link
+        href="/social/privacidade"
+        className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 transition hover:border-brand-300"
+      >
+        <Settings className="h-4 w-4 text-zinc-500" />
+        <div className="flex-1">
+          <div className="text-[13px] font-semibold text-zinc-800">
+            Privacidade dos rankings
+          </div>
+          <div className="mt-0.5 text-[11px] text-zinc-500">
+            Controle em quais rankings públicos você aparece
+          </div>
+        </div>
+        <Globe className="h-4 w-4 text-zinc-400" />
+      </Link>
+    </div>
+  );
+}
+
+function EmptyState({
+  icon,
+  title,
+  body,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/50 px-4 py-10 text-center">
+      <div className="mx-auto mb-2 inline-block">{icon}</div>
+      <h3 className="text-[14px] font-semibold text-zinc-700">{title}</h3>
+      <p className="mt-1 text-[12px] text-zinc-500">{body}</p>
+    </div>
+  );
+}
+
+// ─── Utils ────────────────────────────────────────────────────────────
+
+function relativeTime(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(ms / 60000);
+  if (min < 1) return "agora";
+  if (min < 60) return `${min}min atrás`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `${h}h atrás`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `${d}d atrás`;
+  return new Date(iso).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "short",
+  });
+}
+
+function fmtPace(secs: number): string {
+  const m = Math.floor(secs / 60);
+  const s = Math.floor(secs % 60);
+  return `${m}:${String(s).padStart(2, "0")}/km`;
+}
+
+function fmtDuration(secs: number): string {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  if (h > 0) return `${h}h${String(m).padStart(2, "0")}`;
+  return `${m}min`;
+}

@@ -34,6 +34,7 @@ const NAV = [
   { href: "/protocolo", label: "Protocolo" },
   { href: "/dieta", label: "Dieta" },
   { href: "/fitness", label: "Fitness" },
+  { href: "/social", label: "Social" },
   { href: "/ciclo", label: "Ciclo" },
   { href: "/loja", label: "Loja" },
   { href: "/concierge", label: "Concierge" },
