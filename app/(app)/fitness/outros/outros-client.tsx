@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   Plus,
   X,
@@ -10,6 +10,11 @@ import {
   Activity,
   Trash2,
   Calendar,
+  Play,
+  Pause,
+  Square,
+  Check,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -30,10 +35,18 @@ import { toast } from "@/lib/toast";
  * Tracking simples (não-musculação, não-corrida): bike, natação,
  * escalada, yoga, pilates, HIIT, mobilidade, caminhada, remo.
  *
- * Form curto: atividade + duração + intensidade + distância (opcional)
- *   → estimativa de calorias via MET (Compendium 2024)
+ * Lucas (2026-05-23): "Quero que tenha a opção de registrar começo da
+ * atividade que nem como é no de corrida. Escolhe o esporte, dá play
+ * no cronometro e pronto"
  *
- * Lista histórico abaixo do form.
+ * Estados do tracker (espelha corrida-client):
+ *   - idle: hero com chip de modalidade + botão Iniciar, abaixo histórico
+ *   - tracking: cronômetro ativo em foreground, modalidade selecionada
+ *   - paused: cronômetro pausado, mantém estado
+ *   - done: tela de resumo com intensidade/distância/notas + Salvar
+ *
+ * Mantém o LogActivityModal pra retroactive logging (botão "Registrar
+ * sem cronômetro" no idle screen).
  */
 
 interface OutrosClientProps {
@@ -61,9 +74,63 @@ const ACTIVITIES: ActivityType[] = [
 
 const INTENSITIES: IntensityLevel[] = ["low", "moderate", "high"];
 
+// Atividades cuja distância faz sentido capturar
+const DISTANCE_ACTIVITIES: ActivityType[] = [
+  "bike",
+  "swim",
+  "walking",
+  "rowing",
+];
+
+type TrackState = "idle" | "tracking" | "paused" | "done";
+
+function fmtDuration(secs: number): string {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = Math.floor(secs % 60);
+  if (h > 0)
+    return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
 export function OutrosClient({ history, stats }: OutrosClientProps) {
+  // ─── Live tracker state ───────────────────────────────────────────────
+  const [trackState, setTrackState] = useState<TrackState>("idle");
+  const [selectedActivity, setSelectedActivity] =
+    useState<ActivityType>("bike");
+  const [elapsedSecs, setElapsedSecs] = useState(0);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // ─── Form (post-tracking ou retroactive) ─────────────────────────────
   const [modalOpen, setModalOpen] = useState(false);
   const [deleting, startDeleting] = useTransition();
+
+  // Cronômetro: tica a cada segundo durante tracking
+  useEffect(() => {
+    if (trackState === "tracking") {
+      timerRef.current = setInterval(() => {
+        setElapsedSecs((prev) => prev + 1);
+      }, 1000);
+    }
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [trackState]);
+
+  // Reseta o tracker
+  const resetTracker = () => {
+    setTrackState("idle");
+    setElapsedSecs(0);
+  };
+
+  const startTracking = (activity: ActivityType) => {
+    setSelectedActivity(activity);
+    setElapsedSecs(0);
+    setTrackState("tracking");
+  };
 
   const handleDelete = (sessionId: string, label: string) => {
     if (!confirm(`Apagar "${label}"? Não dá pra desfazer.`)) return;
@@ -78,6 +145,41 @@ export function OutrosClient({ history, stats }: OutrosClientProps) {
     });
   };
 
+  // ─── Render: live tracking ────────────────────────────────────────────
+  if (trackState === "tracking" || trackState === "paused") {
+    return (
+      <TrackerView
+        activity={selectedActivity}
+        elapsedSecs={elapsedSecs}
+        paused={trackState === "paused"}
+        onPause={() => setTrackState("paused")}
+        onResume={() => setTrackState("tracking")}
+        onStop={() => setTrackState("done")}
+        onDiscard={() => {
+          if (!confirm("Descartar essa atividade? Os dados não serão salvos."))
+            return;
+          resetTracker();
+        }}
+      />
+    );
+  }
+
+  // ─── Render: done view (saving form) ──────────────────────────────────
+  if (trackState === "done") {
+    return (
+      <DoneTrackerView
+        activity={selectedActivity}
+        elapsedSecs={elapsedSecs}
+        onCancel={resetTracker}
+        onSaved={() => {
+          resetTracker();
+          window.location.reload();
+        }}
+      />
+    );
+  }
+
+  // ─── Idle render ──────────────────────────────────────────────────────
   return (
     <div className="flex flex-col gap-4">
       {/* Stats header */}
@@ -102,6 +204,66 @@ export function OutrosClient({ history, stats }: OutrosClientProps) {
         />
       </section>
 
+      {/* Iniciar atividade — chip grid + big start button */}
+      <section className="rounded-3xl bg-gradient-to-br from-brand-700 to-brand-900 px-5 py-5 text-white shadow-[0_8px_30px_-12px_rgba(31,93,63,.6)]">
+        <div className="flex items-center justify-between">
+          <h3 className="text-[14px] font-semibold tracking-tight">
+            Iniciar atividade
+          </h3>
+          <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-medium text-white/80">
+            <Zap className="h-3 w-3" />
+            cronômetro ao vivo
+          </span>
+        </div>
+
+        <div className="mt-3 grid grid-cols-4 gap-1.5 sm:grid-cols-5">
+          {ACTIVITIES.map((a) => (
+            <button
+              key={a}
+              type="button"
+              onClick={() => setSelectedActivity(a)}
+              className={cn(
+                "flex flex-col items-center gap-0.5 rounded-xl border px-1 py-2 text-[9.5px] font-medium transition",
+                selectedActivity === a
+                  ? "border-white/60 bg-white/20 text-white shadow-sm"
+                  : "border-white/20 bg-white/5 text-white/80 hover:bg-white/10",
+              )}
+            >
+              <span className="text-[18px]">{ACTIVITY_EMOJI[a]}</span>
+              <span className="leading-tight">{ACTIVITY_LABEL[a]}</span>
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => startTracking(selectedActivity)}
+          className="group relative mt-4 flex w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-white px-5 py-3.5 text-[14px] font-semibold text-brand-900 shadow-md transition active:scale-[0.98]"
+        >
+          <span
+            aria-hidden
+            className="pointer-events-none absolute h-16 w-16 animate-ping rounded-full bg-brand-700/10"
+            style={{ animationDuration: "2.4s" }}
+          />
+          <span className="relative grid h-9 w-9 place-items-center rounded-full bg-brand-700 text-white">
+            <Play className="h-4 w-4 fill-white" />
+          </span>
+          <span className="relative">
+            Começar {ACTIVITY_LABEL[selectedActivity].toLowerCase()}{" "}
+            <span aria-hidden>{ACTIVITY_EMOJI[selectedActivity]}</span>
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setModalOpen(true)}
+          className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-transparent px-3 py-2 text-[11.5px] font-medium text-white/70 transition hover:bg-white/5 hover:text-white"
+        >
+          <Plus className="h-3 w-3" />
+          Registrar atividade passada (sem cronômetro)
+        </button>
+      </section>
+
       {/* Breakdown por tipo */}
       {stats.breakdown.length > 0 && (
         <section className="rounded-2xl border border-zinc-200 bg-white px-4 py-3.5">
@@ -114,8 +276,14 @@ export function OutrosClient({ history, stats }: OutrosClientProps) {
               const max = stats.breakdown[0].minutes;
               const pct = (b.minutes / max) * 100;
               return (
-                <li key={b.type} className="flex items-center gap-3 text-[12.5px]">
-                  <span className="w-7 text-center text-[15px]" aria-hidden>
+                <li
+                  key={b.type}
+                  className="flex items-center gap-3 text-[12.5px]"
+                >
+                  <span
+                    className="w-7 text-center text-[15px]"
+                    aria-hidden
+                  >
                     {ACTIVITY_EMOJI[b.type]}
                   </span>
                   <span className="w-24 truncate text-zinc-800">
@@ -137,16 +305,6 @@ export function OutrosClient({ history, stats }: OutrosClientProps) {
         </section>
       )}
 
-      {/* CTA principal */}
-      <button
-        type="button"
-        onClick={() => setModalOpen(true)}
-        className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-br from-brand-700 to-brand-800 px-5 py-3.5 text-[14px] font-semibold text-white shadow-md transition active:scale-[0.98]"
-      >
-        <Plus className="h-4 w-4" />
-        Registrar atividade
-      </button>
-
       {/* Histórico */}
       <section>
         <h3 className="mb-2 px-1 text-[11.5px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
@@ -154,8 +312,8 @@ export function OutrosClient({ history, stats }: OutrosClientProps) {
         </h3>
         {history.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/50 px-4 py-8 text-center text-[12.5px] text-zinc-500">
-            Nenhuma atividade registrada ainda. Bike, natação, yoga, escalada —
-            tudo aqui 🏊
+            Nenhuma atividade registrada ainda. Bike, natação, yoga, escalada
+            — tudo aqui 🏊
           </div>
         ) : (
           <ul className="flex flex-col gap-2">
@@ -187,13 +345,19 @@ export function OutrosClient({ history, stats }: OutrosClientProps) {
                   </div>
                   <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[10.5px] text-zinc-500 tabular-nums">
                     <span>{w.durationMinutes} min</span>
-                    {w.distanceKm && <span>· {w.distanceKm.toFixed(1)} km</span>}
+                    {w.distanceKm && (
+                      <span>· {w.distanceKm.toFixed(1)} km</span>
+                    )}
                     {w.estimatedCalories && (
                       <span>· {w.estimatedCalories} kcal</span>
                     )}
                     {w.sessionDate && (
                       <span>
-                        · {new Date(w.sessionDate + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                        ·{" "}
+                        {new Date(w.sessionDate + "T00:00").toLocaleDateString(
+                          "pt-BR",
+                          { day: "2-digit", month: "short" },
+                        )}
                       </span>
                     )}
                   </div>
@@ -258,6 +422,310 @@ function StatCard({
   );
 }
 
+/**
+ * Tela de tracking — cronômetro grande em foreground com pause/finalizar.
+ * Sem GPS (só corrida usa GPS).
+ */
+function TrackerView({
+  activity,
+  elapsedSecs,
+  paused,
+  onPause,
+  onResume,
+  onStop,
+  onDiscard,
+}: {
+  activity: ActivityType;
+  elapsedSecs: number;
+  paused: boolean;
+  onPause: () => void;
+  onResume: () => void;
+  onStop: () => void;
+  onDiscard: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Hero: modalidade + cronômetro */}
+      <section className="rounded-3xl bg-gradient-to-br from-brand-700 to-brand-900 px-6 py-10 text-center text-white shadow-md">
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-white/80">
+          <span className="text-[16px]" aria-hidden>
+            {ACTIVITY_EMOJI[activity]}
+          </span>
+          {ACTIVITY_LABEL[activity]}
+        </div>
+        <div className="mt-6 text-[64px] font-semibold leading-none tracking-tight tabular-nums">
+          {fmtDuration(elapsedSecs)}
+        </div>
+        <div className="mt-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
+          {paused ? "Pausado" : "Em andamento"}
+        </div>
+
+        {/* Pulse ring visual indicating live recording */}
+        {!paused && (
+          <div className="mt-4 inline-flex items-center gap-1.5">
+            <span className="relative grid h-2 w-2 place-items-center">
+              <span className="absolute inset-0 animate-ping rounded-full bg-rose-400/60" />
+              <span className="relative h-2 w-2 rounded-full bg-rose-400" />
+            </span>
+            <span className="text-[10.5px] font-medium text-white/80">
+              gravando
+            </span>
+          </div>
+        )}
+      </section>
+
+      {/* Controles */}
+      <section className="grid grid-cols-3 gap-3">
+        <button
+          type="button"
+          onClick={onDiscard}
+          className="flex items-center justify-center gap-1.5 rounded-2xl border border-zinc-200 bg-white py-3 text-[12px] font-semibold text-zinc-600 transition hover:bg-zinc-50"
+        >
+          <X className="h-4 w-4" />
+          Descartar
+        </button>
+        {paused ? (
+          <button
+            type="button"
+            onClick={onResume}
+            className="col-span-1 flex items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-br from-brand-700 to-brand-800 py-3 text-[13px] font-semibold text-white shadow-sm"
+          >
+            <Play className="h-4 w-4 fill-white" />
+            Continuar
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onPause}
+            className="col-span-1 flex items-center justify-center gap-1.5 rounded-2xl bg-amber-100 py-3 text-[13px] font-semibold text-amber-900 transition hover:bg-amber-200"
+          >
+            <Pause className="h-4 w-4" />
+            Pausar
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onStop}
+          className="flex items-center justify-center gap-1.5 rounded-2xl bg-rose-600 py-3 text-[13px] font-semibold text-white shadow-sm hover:bg-rose-700"
+        >
+          <Square className="h-4 w-4 fill-white" />
+          Finalizar
+        </button>
+      </section>
+
+      <p className="text-center text-[10.5px] text-zinc-400">
+        Mantenha o app aberto pra cronômetro continuar contando
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Tela "done" — captura intensidade, distância (se aplicável) e notas.
+ * Auto-preenche durationMinutes do cronômetro.
+ */
+function DoneTrackerView({
+  activity,
+  elapsedSecs,
+  onCancel,
+  onSaved,
+}: {
+  activity: ActivityType;
+  elapsedSecs: number;
+  onCancel: () => void;
+  onSaved: () => void;
+}) {
+  const [intensity, setIntensity] = useState<IntensityLevel>("moderate");
+  const [distance, setDistance] = useState("");
+  const [notes, setNotes] = useState("");
+  const [saving, startSaving] = useTransition();
+
+  // Arredonda pra ao menos 1 minuto (se finalizar em < 60s)
+  const durationMinutes = Math.max(1, Math.round(elapsedSecs / 60));
+  const showDistance = DISTANCE_ACTIVITIES.includes(activity);
+
+  // Calorias via MET × peso × tempo (assume 70kg)
+  const estimatedCalories = useMemo(() => {
+    const met = ACTIVITY_MET[activity][intensity];
+    const weightKg = 70;
+    return Math.round(met * weightKg * (durationMinutes / 60));
+  }, [activity, intensity, durationMinutes]);
+
+  const submit = () => {
+    if (durationMinutes <= 0) {
+      toast.error({
+        title: "Duração inválida",
+        description: "Cronômetro precisa ter ao menos 1 minuto.",
+      });
+      return;
+    }
+    const dist = parseFloat(distance.replace(",", "."));
+    startSaving(async () => {
+      const result = await logOtherWorkout({
+        activityType: activity,
+        durationMinutes,
+        intensity,
+        distanceKm:
+          showDistance && Number.isFinite(dist) && dist > 0 ? dist : null,
+        estimatedCalories,
+        notes,
+        sessionDate: new Date().toISOString().slice(0, 10),
+      });
+      if (result.ok) {
+        toast.success({
+          title: "Atividade salva",
+          description: `${ACTIVITY_LABEL[activity]} · ${durationMinutes}min · ${INTENSITY_LABEL[intensity]}`,
+        });
+        for (const ach of result.data?.newAchievements ?? []) {
+          toast.success({
+            title: `🏆 Nova conquista: ${ach.emoji} ${ach.title}`,
+            description: `${ach.description} (+${ach.xp} XP)`,
+          });
+        }
+        onSaved();
+      } else {
+        toast.error({ title: "Erro", description: result.error });
+      }
+    });
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Hero "done" */}
+      <section className="overflow-hidden rounded-3xl border border-brand-200 bg-gradient-to-br from-brand-50 via-white to-white px-5 py-6 text-center">
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-[10.5px] font-semibold uppercase tracking-wide text-emerald-800">
+          <Check className="h-3 w-3" />
+          Atividade finalizada
+        </div>
+        <div className="mt-3 text-[16px] font-medium text-zinc-700">
+          <span aria-hidden className="mr-1">
+            {ACTIVITY_EMOJI[activity]}
+          </span>
+          {ACTIVITY_LABEL[activity]}
+        </div>
+        <div className="mt-2 text-[44px] font-semibold leading-none tracking-tight text-zinc-900 tabular-nums">
+          {fmtDuration(elapsedSecs)}
+        </div>
+        <div className="mt-1 text-[11px] text-zinc-500">
+          ~{durationMinutes} {durationMinutes === 1 ? "minuto" : "minutos"}{" "}
+          gravado{durationMinutes === 1 ? "" : "s"}
+        </div>
+      </section>
+
+      {/* Intensidade */}
+      <section className="rounded-2xl border border-zinc-200 bg-white px-4 py-3.5">
+        <label className="block text-[10.5px] font-semibold uppercase tracking-wide text-zinc-500">
+          Como foi a intensidade?
+        </label>
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          {INTENSITIES.map((i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setIntensity(i)}
+              className={cn(
+                "rounded-xl border px-3 py-2.5 text-[12px] font-semibold transition",
+                intensity === i
+                  ? i === "high"
+                    ? "border-rose-300 bg-rose-50 text-rose-800"
+                    : i === "moderate"
+                      ? "border-amber-300 bg-amber-50 text-amber-800"
+                      : "border-emerald-300 bg-emerald-50 text-emerald-800"
+                  : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50",
+              )}
+            >
+              {INTENSITY_LABEL[i]}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* Distância opcional */}
+      {showDistance && (
+        <section className="rounded-2xl border border-zinc-200 bg-white px-4 py-3.5">
+          <label className="block text-[10.5px] font-semibold uppercase tracking-wide text-zinc-500">
+            Distância (km) — opcional
+          </label>
+          <input
+            type="number"
+            inputMode="decimal"
+            value={distance}
+            onChange={(e) => setDistance(e.target.value)}
+            placeholder="ex: 15"
+            min="0"
+            step="0.1"
+            className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-[16px] tabular-nums text-zinc-900 focus:border-brand-400 focus:outline-none"
+          />
+        </section>
+      )}
+
+      {/* Notas */}
+      <section className="rounded-2xl border border-zinc-200 bg-white px-4 py-3.5">
+        <label className="block text-[10.5px] font-semibold uppercase tracking-wide text-zinc-500">
+          Notas <span className="text-zinc-400">— opcional</span>
+        </label>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Como foi? Algum detalhe que vale anotar?"
+          rows={2}
+          maxLength={300}
+          className="mt-1 w-full resize-none rounded-xl border border-zinc-200 bg-white px-3 py-2 text-[12.5px] text-zinc-800 placeholder:text-zinc-400 focus:border-brand-400 focus:outline-none"
+        />
+      </section>
+
+      {/* Preview calorias */}
+      <div className="inline-flex items-center gap-2 rounded-xl bg-orange-50 px-3 py-2 text-[12px] text-orange-900">
+        <Flame className="h-3.5 w-3.5 text-orange-500" />
+        <span>
+          Estimativa:{" "}
+          <strong className="tabular-nums">~{estimatedCalories} kcal</strong>{" "}
+          <span className="text-orange-700/70">(MET × 70kg × tempo)</span>
+        </span>
+      </div>
+
+      {/* Save / Cancel */}
+      <section className="flex gap-3">
+        <button
+          type="button"
+          onClick={() => {
+            if (!confirm("Descartar essa atividade? Os dados não serão salvos."))
+              return;
+            onCancel();
+          }}
+          disabled={saving}
+          className="flex-1 rounded-xl border border-zinc-200 bg-white py-3 text-[13px] font-semibold text-zinc-600 transition hover:bg-zinc-50 disabled:opacity-50"
+        >
+          Descartar
+        </button>
+        <button
+          type="button"
+          onClick={submit}
+          disabled={saving}
+          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-brand-700 to-brand-800 py-3 text-[14px] font-semibold text-white shadow-sm transition disabled:opacity-50"
+        >
+          {saving ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Salvando…
+            </>
+          ) : (
+            <>
+              <Check className="h-4 w-4" />
+              Salvar
+            </>
+          )}
+        </button>
+      </section>
+    </div>
+  );
+}
+
+/**
+ * Modal para registro retroativo (sem cronômetro) — mantido pra quando o
+ * usuário esqueceu de iniciar o tracker e quer logar uma atividade que
+ * já aconteceu.
+ */
 function LogActivityModal({
   onClose,
   onSaved,
@@ -282,11 +750,10 @@ function LogActivityModal({
     if (!Number.isFinite(mins) || mins <= 0) return null;
     const met = ACTIVITY_MET[activityType][intensity];
     const weightKg = 70; // TODO: pegar do profile
-    // kcal = MET × kg × hours
     return Math.round(met * weightKg * (mins / 60));
   }, [activityType, intensity, durationMinutes]);
 
-  const showDistance = ["bike", "swim", "walking", "rowing"].includes(activityType);
+  const showDistance = DISTANCE_ACTIVITIES.includes(activityType);
 
   const submit = () => {
     const mins = parseInt(durationMinutes, 10);
@@ -303,7 +770,8 @@ function LogActivityModal({
         activityType,
         durationMinutes: mins,
         intensity,
-        distanceKm: showDistance && Number.isFinite(dist) && dist > 0 ? dist : null,
+        distanceKm:
+          showDistance && Number.isFinite(dist) && dist > 0 ? dist : null,
         estimatedCalories,
         notes,
         sessionDate,
@@ -328,15 +796,18 @@ function LogActivityModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
       <div className="relative z-10 flex max-h-[92dvh] w-full flex-col overflow-hidden bg-white shadow-2xl sm:max-w-[520px] sm:rounded-3xl rounded-t-3xl">
         <header className="flex items-start justify-between gap-3 border-b border-zinc-100 px-5 py-4">
           <div>
             <h2 className="text-[17px] font-semibold leading-tight text-zinc-900">
-              Registrar atividade
+              Registrar atividade passada
             </h2>
             <p className="mt-0.5 text-[11.5px] text-zinc-500">
-              Bike, natação, yoga, qualquer coisa que mexa o corpo
+              Treino que já aconteceu — sem cronômetro
             </p>
           </div>
           <button
