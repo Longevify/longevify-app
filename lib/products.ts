@@ -62,6 +62,13 @@ export interface Product {
   image?: string;
   /** Duração estimada do frasco em dias (helper de estoque/recompra) */
   durationDays?: number;
+  /**
+   * `true` quando é produto Longevify Original (marca própria, exames ou
+   * suplementos formulados pela equipe). Sempre aparece PRIMEIRO em
+   * listas filtradas pra dar destaque visual à marca própria — não
+   * concorre com o curado dropshipping da mesma categoria, complementa.
+   */
+  isLongevifyOriginal?: boolean;
 }
 
 export const CATEGORY_LABELS: Record<ProductCategory, string> = {
@@ -84,6 +91,20 @@ export function formatBRL(value: number): string {
  */
 export function isDropshippingProduct(product: Product): boolean {
   return product.supplier !== undefined;
+}
+
+/**
+ * Ordena lista de produtos colocando Longevify Original primeiro.
+ * Usado em qualquer renderização filtrada/buscada — produto próprio
+ * sempre tem destaque visual sobre o curado dropshipping.
+ */
+export function sortLongevifyFirst(products: Product[]): Product[] {
+  return [...products].sort((a, b) => {
+    const aLvg = a.isLongevifyOriginal ? 1 : 0;
+    const bLvg = b.isLongevifyOriginal ? 1 : 0;
+    if (aLvg !== bLvg) return bLvg - aLvg;
+    return 0;
+  });
 }
 
 // ──────────────────────────────────────────────────────────────────
@@ -129,6 +150,7 @@ const productSeed = [
     kicker: "Exame Diagnóstico",
     priceBRL: 349,
     image: "/marketplace/painel-basico.png",
+    isLongevifyOriginal: true,
     shortDescription:
       "50+ biomarcadores essenciais — o ponto de partida pra entender sua saúde com método.",
     longDescription:
@@ -155,6 +177,7 @@ const productSeed = [
     kicker: "Exame Diagnóstico",
     priceBRL: 1799,
     image: "/marketplace/painel-avancado.png",
+    isLongevifyOriginal: true,
     shortDescription:
       "100+ biomarcadores — visão completa pra quem quer protocolo de longevidade real.",
     longDescription:
@@ -183,6 +206,7 @@ const productSeed = [
     kicker: "Exame Diagnóstico",
     priceBRL: 1799,
     image: "/marketplace/microbioma-intestinal.png",
+    isLongevifyOriginal: true,
     shortDescription:
       "Análise metagenômica do seu intestino — diversidade bacteriana, espécies-chave e plano alimentar personalizado.",
     longDescription:
@@ -201,6 +225,247 @@ const productSeed = [
     targetsBiomarkers: ["crp"],
     rating: 4.8,
     reviewsCount: 432,
+  },
+  // ──────────────────────────────────────────────────────────────────
+  // SUPLEMENTOS LONGEVIFY ORIGINAL (8) — marca própria, sempre 1º na lista
+  // ──────────────────────────────────────────────────────────────────
+  {
+    id: "longevify-vitamina-d",
+    name: "Vitamina D 2.000 UI",
+    brand: "Longevify",
+    category: "suplemento" as const,
+    badge: "Top" as const,
+    kicker: "Suplemento Longevify",
+    priceBRL: 49,
+    image: "/marketplace/longevify-vitamina-d.png",
+    isLongevifyOriginal: true,
+    shortDescription:
+      "Vitamina D3 em cápsulas moles — saúde óssea, imunidade e suporte muscular numa dose diária.",
+    longDescription:
+      "Vitamina D é um pró-hormônio crítico produzido pela exposição solar — mas no Brasil, mesmo com sol abundante, mais de 70% da população tem níveis abaixo do ideal por uso de protetor, vida indoor e alimentação. A Vitamina D3 (colecalciferol) é a forma idêntica à produzida pela pele e mais eficaz pra elevar os níveis séricos. 2.000 UI/dia é a dose de manutenção recomendada por consenso clínico pra adultos com níveis séricos em faixa normal-baixa.",
+    benefits: [
+      "Saúde óssea (absorção de cálcio)",
+      "Função imune (modulação de citocinas)",
+      "Saúde muscular e força",
+      "Cápsula mole = absorção lipídica otimizada",
+      "Sem corantes ou conservantes desnecessários",
+    ],
+    usage: "1 cápsula mole/dia, com refeição que contenha gordura.",
+    packageSize: "60 cápsulas moles",
+    posology: "1 cápsula/dia",
+    durationDays: 60,
+    recurrence: { intervalDays: 60, label: "a cada 2 meses", subscriptionDiscountPct: 15 },
+    targetsBiomarkers: ["vitd"],
+    rating: 4.8,
+    reviewsCount: 1843,
+  },
+  {
+    id: "longevify-vitamina-c",
+    name: "Vitamina C Efervescente 1.000mg",
+    brand: "Longevify",
+    category: "suplemento" as const,
+    kicker: "Suplemento Longevify",
+    priceBRL: 39,
+    image: "/marketplace/longevify-vitamina-c.png",
+    isLongevifyOriginal: true,
+    shortDescription:
+      "Vitamina C 1g efervescente — antioxidante, suporte imune e síntese de colágeno em formato prático.",
+    longDescription:
+      "Vitamina C (ácido ascórbico) é o antioxidante hidrossolúvel mais estudado em humanos. Atua como cofator essencial pra síntese de colágeno (pele, vasos, articulações), absorção de ferro não-heme, função imune (atividade de neutrófilos e linfócitos) e regeneração de outros antioxidantes (vitamina E, glutationa). 1.000mg é a dose terapêutica em estudos de prevenção de infecções respiratórias e suporte ao desempenho físico.",
+    benefits: [
+      "Antioxidante de amplo espectro",
+      "Suporte imune (especialmente em períodos de estresse)",
+      "Síntese de colágeno",
+      "Aumenta absorção de ferro vegetal",
+      "Sabor laranja, sem açúcar",
+    ],
+    usage: "1 comprimido dissolvido em 200ml de água/dia. De preferência pela manhã.",
+    packageSize: "20 comprimidos efervescentes · 80g",
+    posology: "1 comprimido/dia",
+    durationDays: 20,
+    recurrence: { intervalDays: 20, label: "a cada 20 dias", subscriptionDiscountPct: 12 },
+    targetsBiomarkers: [],
+    rating: 4.7,
+    reviewsCount: 567,
+  },
+  {
+    id: "longevify-whey-protein",
+    name: "Whey Protein Natural",
+    brand: "Longevify",
+    category: "suplemento" as const,
+    badge: "Top" as const,
+    kicker: "Suplemento Longevify",
+    priceBRL: 249,
+    image: "/marketplace/longevify-whey-protein.png",
+    isLongevifyOriginal: true,
+    shortDescription:
+      "Proteína concentrada do soro do leite, 22g por porção — sabor neutro, sem aditivos.",
+    longDescription:
+      "Atingir 1,6-2,2g de proteína por kg de peso corporal é o que move a agulha em massa magra, saciedade e longevidade muscular — e isso é difícil só com comida. Whey concentrado é a forma com melhor relação custo-benefício de proteína completa, com perfil de aminoácidos essenciais ideal pra síntese muscular. Sabor natural, sem adoçantes, corantes ou aromatizantes — pra você dosar como quiser na hora do uso.",
+    benefits: [
+      "22g de proteína por porção",
+      "4,8g de BCAAs por porção",
+      "3,7g de glutamina por porção",
+      "Ingredientes naturais",
+      "Sem corantes, aromatizantes ou açúcares adicionados",
+    ],
+    usage: "1 dose (30g) em 200ml de água ou leite, pós-treino ou substituindo lanche.",
+    packageSize: "900g · 30 porções",
+    posology: "1 dose/dia",
+    durationDays: 30,
+    recurrence: { intervalDays: 30, label: "todo mês", subscriptionDiscountPct: 15 },
+    targetsBiomarkers: [],
+    rating: 4.8,
+    reviewsCount: 2143,
+  },
+  {
+    id: "longevify-magnesio-quelato",
+    name: "Magnésio Quelato 200mg",
+    brand: "Longevify",
+    category: "suplemento" as const,
+    kicker: "Suplemento Longevify",
+    priceBRL: 119,
+    image: "/marketplace/longevify-magnesio-quelato.png",
+    isLongevifyOriginal: true,
+    shortDescription:
+      "Magnésio quelato bisglicinato — sono, recuperação muscular e regulação do sistema nervoso.",
+    longDescription:
+      "O magnésio é cofator de mais de 300 reações enzimáticas e quase metade dos brasileiros consome menos do que precisa. A forma quelada (bisglicinato) tem absorção muito superior aos óxidos comuns e não causa o desconforto intestinal típico dos suplementos baratos. Atua na qualidade do sono profundo, recuperação muscular pós-treino, regulação da pressão arterial e modulação do sistema nervoso parassimpático.",
+    benefits: [
+      "Forma quelada (alta biodisponibilidade)",
+      "Qualidade do sono profundo",
+      "Recuperação muscular",
+      "Redução de cãibras",
+      "Sem desconforto intestinal",
+      "100% IDR por porção",
+    ],
+    usage: "2 cápsulas/dia, preferencialmente 30-60 min antes de dormir.",
+    packageSize: "120 cápsulas",
+    posology: "2 cápsulas/dia",
+    durationDays: 60,
+    recurrence: { intervalDays: 60, label: "a cada 2 meses", subscriptionDiscountPct: 14 },
+    targetsBiomarkers: ["hba1c"],
+    rating: 4.8,
+    reviewsCount: 1432,
+  },
+  {
+    id: "longevify-melatonina",
+    name: "Melatonina 1mg",
+    brand: "Longevify",
+    category: "suplemento" as const,
+    kicker: "Suplemento Longevify",
+    priceBRL: 129,
+    image: "/marketplace/longevify-melatonina.png",
+    isLongevifyOriginal: true,
+    shortDescription:
+      "Melatonina 1mg em cápsulas — regulação do ciclo circadiano em dose fisiológica, sem ressaca.",
+    longDescription:
+      "Doses de 0,3-1mg são as fisiológicas — equivalentes ao pico noturno endógeno — e funcionam tão bem quanto doses altas de 5-10mg pra regular o ciclo circadiano, com muito menos efeito de ressaca matinal. Indicada pra ajustar jet lag, regularizar horário de sono em quem dorme tarde demais, e pacientes com baixa produção endógena (>40 anos, exposição alta a luz noturna). Melatonina não é sonífero — é um sinalizador de escuridão pro seu cérebro.",
+    benefits: [
+      "Dose fisiológica de 1mg",
+      "Sem ressaca matinal",
+      "Regula ciclo circadiano",
+      "Útil pra jet lag e turno noturno",
+      "Antioxidante mitocondrial",
+    ],
+    usage: "1 cápsula 30-60 min antes do horário-alvo de dormir, em ambiente escuro.",
+    packageSize: "120 cápsulas",
+    posology: "1 cápsula/noite",
+    durationDays: 120,
+    recurrence: { intervalDays: 120, label: "a cada 4 meses", subscriptionDiscountPct: 12 },
+    targetsBiomarkers: [],
+    rating: 4.6,
+    reviewsCount: 988,
+  },
+  {
+    id: "longevify-omega-3",
+    name: "Ômega 3 Óleo de Peixe 1.000mg",
+    brand: "Longevify",
+    category: "suplemento" as const,
+    badge: "Mais Vendido" as const,
+    kicker: "Suplemento Longevify",
+    priceBRL: 159,
+    image: "/marketplace/longevify-omega-3.png",
+    isLongevifyOriginal: true,
+    shortDescription:
+      "EPA + DHA concentrados — saúde cardiovascular, ocular e cerebral em dose terapêutica.",
+    longDescription:
+      "Ômega 3 EPA + DHA é uma das intervenções com mais evidência pra reduzir triglicérides, modular inflamação sistêmica e suportar função cognitiva. Nossa formulação tem alta concentração de EPA+DHA (60%+) e é destilada molecularmente pra remover metais pesados e PCBs. 2 cápsulas (2g) é a dose terapêutica usada em estudos cardiometabólicos. Reduz PCR ultrassensível, melhora variabilidade da frequência cardíaca e suporta a integridade da membrana eritrocitária.",
+    benefits: [
+      "Saúde cardiovascular (reduz triglicérides e ApoB)",
+      "Saúde ocular (DHA na retina)",
+      "Função cognitiva e memória",
+      "Modulação de inflamação sistêmica",
+      "Alta concentração de EPA+DHA",
+    ],
+    usage: "2 cápsulas/dia, com refeição rica em gordura.",
+    packageSize: "120 cápsulas",
+    posology: "2 cápsulas/dia",
+    durationDays: 60,
+    recurrence: { intervalDays: 60, label: "a cada 2 meses", subscriptionDiscountPct: 17 },
+    targetsBiomarkers: ["ldl", "apob", "crp", "hdl"],
+    rating: 4.9,
+    reviewsCount: 2541,
+  },
+  {
+    id: "longevify-creatina",
+    name: "Creatina Monohidratada Creapure",
+    brand: "Longevify",
+    category: "suplemento" as const,
+    badge: "Top" as const,
+    kicker: "Suplemento Longevify",
+    priceBRL: 289,
+    image: "/marketplace/longevify-creatina.png",
+    isLongevifyOriginal: true,
+    shortDescription:
+      "Creatina monohidratada Creapure 5g — força, recuperação e proteção cognitiva.",
+    longDescription:
+      "Creatina é o suplemento mais bem estudado da história — 800+ ensaios clínicos. Aumenta força, massa magra e capacidade de trabalho de alta intensidade. Mas o ponto que importa pra longevidade é o cérebro: estudos recentes mostram melhora em memória de trabalho, redução de fadiga mental e proteção em quadros de privação de sono. Usamos Creapure (origem alemã, certificada como 99,9% pura), o padrão-ouro em estudos científicos. 5g/dia é dose de manutenção definitiva — sem necessidade de loading.",
+    benefits: [
+      "100% Creapure (alemã, padrão-ouro)",
+      "Ganho de força e massa magra",
+      "Recuperação muscular",
+      "Proteção cognitiva e memória",
+      "Sem sabor, dissolve em água",
+      "60 porções de 5g",
+    ],
+    usage: "1 dose (5g) hidratada em água, todo dia, no horário que preferir.",
+    packageSize: "300g · 60 porções",
+    posology: "1 dose/dia",
+    durationDays: 60,
+    recurrence: { intervalDays: 60, label: "a cada 2 meses", subscriptionDiscountPct: 15 },
+    targetsBiomarkers: [],
+    rating: 4.9,
+    reviewsCount: 3245,
+  },
+  {
+    id: "longevify-zinco",
+    name: "Zinco Quelato 25mg",
+    brand: "Longevify",
+    category: "suplemento" as const,
+    kicker: "Suplemento Longevify",
+    priceBRL: 69,
+    image: "/marketplace/longevify-zinco.png",
+    isLongevifyOriginal: true,
+    shortDescription:
+      "Zinco quelato 25mg — imunidade, síntese hormonal e cofator de centenas de enzimas.",
+    longDescription:
+      "Zinco é cofator de mais de 300 enzimas, incluindo as envolvidas em síntese proteica, divisão celular, função imune e produção de testosterona. A forma quelada (bisglicinato) tem absorção 43% maior que o gluconato comum. Indicado especialmente pra quem treina pesado (perde via suor), homens em idade reprodutiva (importante pra T e fertilidade) e durante períodos de imunidade comprometida.",
+    benefits: [
+      "Forma quelada (alta absorção)",
+      "Função imune robusta",
+      "Suporte à testosterona",
+      "Saúde da pele e cicatrização",
+      "100% IDR por cápsula",
+    ],
+    usage: "1 cápsula/dia com refeição. Evite tomar junto com café ou ferro.",
+    packageSize: "100 cápsulas",
+    posology: "1 cápsula/dia",
+    durationDays: 100,
+    recurrence: { intervalDays: 100, label: "a cada 100 dias", subscriptionDiscountPct: 10 },
+    targetsBiomarkers: ["testo"],
+    rating: 4.7,
+    reviewsCount: 743,
   },
   // ──────────────────────────────────────────────────────────────────
   // SUPLEMENTOS CURADOS (14) — dropshipping, sem markup
