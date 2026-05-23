@@ -107,6 +107,21 @@ export default async function HomePage() {
     (latestMetric?.zone2Minutes ?? 0) +
     Math.round((latestMetric?.steps ?? 0) / 130); // ~130 passos/min ritmo médio
 
+  // Lucas (2026-05-23): "quero que o card de exercício fique mais
+  // preenchido e apresentando mais informações e métricas legais para
+  // se acompanhar." → passa stats extras (steps, zona 2, calorias, FC
+  // de repouso, distância estimada) pro DailyProgressGrid.
+  const exerciseStats = latestMetric
+    ? {
+        steps: latestMetric.steps ?? 0,
+        zone2Minutes: latestMetric.zone2Minutes ?? 0,
+        activeMinutes: latestMetric.activeMinutes ?? 0,
+        caloriesBurned: latestMetric.caloriesBurned ?? 0,
+        restingHR: latestMetric.restingHR ?? 0,
+        hrv: latestMetric.hrv ?? 0,
+      }
+    : null;
+
   // Histórico pro popup de detalhe — inclui sleepStages quando
   // existirem (mock os tem; real Apple Health ingest ainda não).
   const metricsHistory = metricsSource.map((m) => ({
@@ -209,6 +224,7 @@ export default async function HomePage() {
           sleepTargetMinutes={450}
           exerciseMinutes={exerciseMinutes}
           exerciseTargetMinutes={30}
+          exerciseStats={exerciseStats}
           metricsHistory={metricsHistory}
           hasWearableData={hasWearableData}
         />
