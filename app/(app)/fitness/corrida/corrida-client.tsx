@@ -26,6 +26,10 @@ import type {
 import { saveRunningSession } from "../actions";
 import { toast } from "@/lib/toast";
 import { RouteMap } from "./route-map";
+import {
+  ShareWorkoutModal,
+  type ShareWorkoutData,
+} from "@/components/fitness/share-workout-modal";
 
 /**
  * Lucas (2026-05-21): "imitaremos features do strava, atuando como
@@ -102,6 +106,11 @@ export function CorridaClient({ history, stats }: CorridaClientProps) {
   const [coords, setCoords] = useState<Coord[]>([]);
   const [distanceM, setDistanceM] = useState(0);
   const [elapsedSecs, setElapsedSecs] = useState(0);
+  // Lucas (2026-05-23): pós-save, abre share modal estilo Strava antes
+  // de fechar a tela. Reload só rola depois que user pula ou posta.
+  const [postSaveShare, setPostSaveShare] = useState<ShareWorkoutData | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState<RunningSession | null>(null);
 
@@ -293,14 +302,28 @@ export function CorridaClient({ history, stats }: CorridaClientProps) {
             description: `${ach.description} (+${ach.xp} XP)`,
           });
         }
-        setRunState("idle");
-        setCoords([]);
-        setDistanceM(0);
-        setElapsedSecs(0);
-        lastCoordRef.current = null;
-        startedAtRef.current = null;
-        // Forçar reload pra pegar histórico
-        window.location.reload();
+        // Em vez de reload imediato, abre share modal pós-save.
+        const gps: GpsPoint[] = coords.map((c) => [c.lat, c.lon, c.ts]);
+        setPostSaveShare({
+          kind: "running",
+          title: "Mais uma corrida finalizada",
+          primaryStat: {
+            value: `${distanceKm.toFixed(2)} km`,
+            label: "distância",
+          },
+          secondaryStats: [
+            {
+              value: fmtDuration(elapsedSecs),
+              label: "tempo",
+            },
+            {
+              value: fmtPace(avgPace),
+              label: "pace médio",
+            },
+          ],
+          coordinates: gps,
+          paceSegments,
+        });
       } else {
         toast.error({ title: "Erro ao salvar", description: result.error });
       }
@@ -329,16 +352,35 @@ export function CorridaClient({ history, stats }: CorridaClientProps) {
 
   if (runState === "done") {
     return (
-      <DoneView
-        distanceM={distanceM}
-        elapsedSecs={elapsedSecs}
-        avgPace={avgPace}
-        coords={coords}
-        paceSegments={paceSegments}
-        saving={saving}
-        onSave={saveRun}
-        onDiscard={discard}
-      />
+      <>
+        <DoneView
+          distanceM={distanceM}
+          elapsedSecs={elapsedSecs}
+          avgPace={avgPace}
+          coords={coords}
+          paceSegments={paceSegments}
+          saving={saving}
+          onSave={saveRun}
+          onDiscard={discard}
+        />
+        {postSaveShare && (
+          <ShareWorkoutModal
+            open
+            data={postSaveShare}
+            modalTitle="Compartilhar corrida"
+            onClose={() => {
+              setPostSaveShare(null);
+              setRunState("idle");
+              setCoords([]);
+              setDistanceM(0);
+              setElapsedSecs(0);
+              lastCoordRef.current = null;
+              startedAtRef.current = null;
+              window.location.reload();
+            }}
+          />
+        )}
+      </>
     );
   }
 

@@ -12,6 +12,7 @@ import {
   Flame,
   History,
   Sparkles,
+  Share2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -30,6 +31,10 @@ import {
 import { WeeklyMuscleAnalysis } from "@/components/fitness/weekly-muscle-analysis";
 import { RestTimer } from "@/components/fitness/rest-timer";
 import { PlateCalculator } from "@/components/fitness/plate-calculator";
+import {
+  ShareWorkoutModal,
+  type ShareWorkoutData,
+} from "@/components/fitness/share-workout-modal";
 
 /**
  * Musculação (Phase 2):
@@ -119,6 +124,62 @@ export function MusculacaoClient({
     return { totalVolume, totalSets, activeDays };
   }, [volumeHistory]);
 
+  // Stats de hoje pra share button
+  const today = useMemo(() => {
+    const todayDate = new Date().toISOString().slice(0, 10);
+    const row = volumeHistory.find((d) => d.date === todayDate);
+    return row ?? { date: todayDate, volumeKg: 0, setsCount: 0 };
+  }, [volumeHistory]);
+
+  // Lucas (2026-05-23): "tem que ter algum botão fácil de acessar para
+  // compartilhar treinos" → share modal pra hoje
+  const [shareModalData, setShareModalData] =
+    useState<ShareWorkoutData | null>(null);
+
+  const openShareToday = () => {
+    if (today.setsCount === 0) {
+      // Fallback pro último dia treinado
+      const last = [...volumeHistory]
+        .reverse()
+        .find((d) => d.setsCount > 0);
+      if (!last) return;
+      setShareModalData({
+        kind: "workout",
+        title: "Mais um dia de treino",
+        primaryStat: {
+          value: `${Math.round(last.volumeKg).toLocaleString("pt-BR")}`,
+          label: "kg movidos",
+        },
+        secondaryStats: [
+          { value: `${last.setsCount}`, label: "sets" },
+          {
+            value: new Date(last.date + "T00:00").toLocaleDateString("pt-BR", {
+              day: "2-digit",
+              month: "short",
+            }),
+            label: "dia",
+          },
+        ],
+      });
+      return;
+    }
+    setShareModalData({
+      kind: "workout",
+      title: "Treino concluído hoje 💪",
+      primaryStat: {
+        value: `${Math.round(today.volumeKg).toLocaleString("pt-BR")}`,
+        label: "kg movidos",
+      },
+      secondaryStats: [
+        { value: `${today.setsCount}`, label: "sets" },
+        {
+          value: `${weekly.activeDays}/7`,
+          label: "ativos sem.",
+        },
+      ],
+    });
+  };
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return exercises.filter((e) => {
@@ -153,7 +214,7 @@ export function MusculacaoClient({
   return (
     <>
       {/* Resumo semanal */}
-      <section className="mb-5 grid grid-cols-3 gap-3">
+      <section className="mb-3 grid grid-cols-3 gap-3">
         <SummaryCard
           icon={<TrendingUp className="h-4 w-4 text-emerald-600" />}
           label="Volume (7d)"
@@ -173,6 +234,35 @@ export function MusculacaoClient({
           hint="de 7"
         />
       </section>
+
+      {/* Compartilhar treino — Lucas (2026-05-23) "tem que ter algum
+          botão fácil de acessar para compartilhar treinos" */}
+      {(today.setsCount > 0 || weekly.totalSets > 0) && (
+        <button
+          type="button"
+          onClick={openShareToday}
+          className="group mb-5 flex w-full items-center gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-left transition hover:border-brand-300 hover:shadow-sm"
+        >
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand-700 to-brand-800 text-white shadow-sm">
+            <Share2 className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-[13px] font-semibold text-zinc-900">
+              {today.setsCount > 0
+                ? "Compartilhar treino de hoje"
+                : "Compartilhar último treino"}
+            </div>
+            <p className="mt-0.5 text-[11px] text-zinc-500">
+              {today.setsCount > 0
+                ? `${Math.round(today.volumeKg).toLocaleString("pt-BR")} kg · ${today.setsCount} sets · imagem pronta pra IG/X/feed`
+                : "Imagem com volume + sets pronta pra IG/X/feed Longevify"}
+            </p>
+          </div>
+          <span className="shrink-0 text-brand-700 group-hover:translate-x-0.5 transition">
+            →
+          </span>
+        </button>
+      )}
 
       {/* Treino do dia (Phase 3B) */}
       {todayWorkout && (
@@ -333,6 +423,16 @@ export function MusculacaoClient({
           exercise={historyExercise}
           history={historyData}
           loading={historyLoading}
+        />
+      )}
+
+      {/* Share modal */}
+      {shareModalData && (
+        <ShareWorkoutModal
+          open
+          data={shareModalData}
+          modalTitle="Compartilhar treino"
+          onClose={() => setShareModalData(null)}
         />
       )}
     </>
