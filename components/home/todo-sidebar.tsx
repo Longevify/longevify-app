@@ -83,7 +83,12 @@ export function TodoSidebar({ tasks, className }: TodoSidebarProps) {
     ? tasks.filter((t) => doneIds.has(t.id)).length
     : 0;
 
-  const visibleTasks = tasks.slice(0, 14);
+  // Lucas (2026-05-23): "quero que o card de tarefas esteja alinhado
+  // na parte de baixo com o card da idade biológica" — 8 tasks
+  // visíveis (era 14). Stack Score+BioAge tem altura ~280px,
+  // 8 tasks × 36px = 288px + header ~60px = ~348px que casa melhor.
+  // Resto vira link "+ X outras…".
+  const visibleTasks = tasks.slice(0, 8);
   const remaining = tasks.length - visibleTasks.length;
 
   return (
