@@ -331,6 +331,27 @@ export async function getSocialFeed(limit = 20): Promise<SocialPost[]> {
   return (data ?? []).map((r) => mapPost(r as Record<string, unknown>));
 }
 
+/**
+ * Posts CRIADOS PELO user atual — histórico próprio. Alimenta a aba
+ * Perfil (Lucas 2026-05-23: "na aba social na aba perfil não tem nada.
+ * Não tem os achievements, não tem os posts feitos, etc.").
+ */
+export async function getMyOwnPosts(limit = 30): Promise<SocialPost[]> {
+  if (!isSupabaseConfigured()) return [];
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken) return [];
+  const supabase = await createSupabaseWithJwt(accessToken);
+  const { data } = await supabase
+    .from("social_posts")
+    .select(
+      `*, profiles!social_posts_patient_id_fkey(first_name, avatar_url)`,
+    )
+    .eq("patient_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  return (data ?? []).map((r) => mapPost(r as Record<string, unknown>));
+}
+
 function mapPost(r: Record<string, unknown>): SocialPost {
   const prof = (r.profiles as { first_name?: string; avatar_url?: string }) ??
     {};
