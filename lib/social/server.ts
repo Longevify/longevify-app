@@ -190,6 +190,127 @@ export async function getMyFriends(): Promise<FriendSummary[]> {
   });
 }
 
+// ─── Friend invites ───────────────────────────────────────────────────
+
+export interface FriendInvite {
+  id: string;
+  inviterId: string;
+  inviteeId: string;
+  status: "pending" | "accepted" | "rejected" | "cancelled";
+  message: string | null;
+  createdAt: string;
+  respondedAt: string | null;
+  // Outro lado da relação (resolvido pra UI)
+  otherFirstName: string;
+  otherLevel: number;
+  otherTotalPoints: number;
+}
+
+/** Convites pendentes que EU recebi (sou invitee). */
+export async function getMyIncomingInvites(): Promise<FriendInvite[]> {
+  if (!isSupabaseConfigured()) return [];
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken) return [];
+  const supabase = await createSupabaseWithJwt(accessToken);
+  const { data } = await supabase
+    .from("social_friend_invites")
+    .select(
+      `id, inviter_id, invitee_id, status, message, created_at, responded_at,
+       inviter:profiles!social_friend_invites_inviter_id_fkey(first_name),
+       inviter_points:user_health_points!user_health_points_patient_id_fkey(total_points, level)`,
+    )
+    .eq("invitee_id", userId)
+    .eq("status", "pending")
+    .order("created_at", { ascending: false });
+
+  return (data ?? []).map((r) => {
+    const row = r as Record<string, unknown>;
+    const inviter = (row.inviter as { first_name?: string }) ?? {};
+    const points = (row.inviter_points as {
+      total_points?: number;
+      level?: number;
+    }) ?? {};
+    return {
+      id: row.id as string,
+      inviterId: row.inviter_id as string,
+      inviteeId: row.invitee_id as string,
+      status: row.status as FriendInvite["status"],
+      message: (row.message as string | null) ?? null,
+      createdAt: row.created_at as string,
+      respondedAt: (row.responded_at as string | null) ?? null,
+      otherFirstName: inviter.first_name ?? "Alguém",
+      otherLevel: points.level ?? 1,
+      otherTotalPoints: points.total_points ?? 0,
+    };
+  });
+}
+
+/** Convites pendentes que EU enviei (sou inviter). */
+export async function getMyOutgoingInvites(): Promise<FriendInvite[]> {
+  if (!isSupabaseConfigured()) return [];
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken) return [];
+  const supabase = await createSupabaseWithJwt(accessToken);
+  const { data } = await supabase
+    .from("social_friend_invites")
+    .select(
+      `id, inviter_id, invitee_id, status, message, created_at, responded_at,
+       invitee:profiles!social_friend_invites_invitee_id_fkey(first_name),
+       invitee_points:user_health_points!user_health_points_patient_id_fkey(total_points, level)`,
+    )
+    .eq("inviter_id", userId)
+    .eq("status", "pending")
+    .order("created_at", { ascending: false });
+
+  return (data ?? []).map((r) => {
+    const row = r as Record<string, unknown>;
+    const invitee = (row.invitee as { first_name?: string }) ?? {};
+    const points = (row.invitee_points as {
+      total_points?: number;
+      level?: number;
+    }) ?? {};
+    return {
+      id: row.id as string,
+      inviterId: row.inviter_id as string,
+      inviteeId: row.invitee_id as string,
+      status: row.status as FriendInvite["status"],
+      message: (row.message as string | null) ?? null,
+      createdAt: row.created_at as string,
+      respondedAt: (row.responded_at as string | null) ?? null,
+      otherFirstName: invitee.first_name ?? "Alguém",
+      otherLevel: points.level ?? 1,
+      otherTotalPoints: points.total_points ?? 0,
+    };
+  });
+}
+
+/** Resolve um único profile por ID (pra página de aceite por link). */
+export async function getProfileById(
+  profileId: string,
+): Promise<{ firstName: string; level: number; totalPoints: number } | null> {
+  if (!isSupabaseConfigured()) return null;
+  const { accessToken } = await getUserIdFromCookie();
+  if (!accessToken) return null;
+  const supabase = await createSupabaseWithJwt(accessToken);
+  const { data } = await supabase
+    .from("profiles")
+    .select(
+      `id, first_name,
+       user_health_points!user_health_points_patient_id_fkey(total_points, level)`,
+    )
+    .eq("id", profileId)
+    .maybeSingle();
+  if (!data) return null;
+  const points = (data as {
+    user_health_points?: { total_points?: number; level?: number };
+  }).user_health_points;
+  return {
+    firstName: (data.first_name as string | null) ?? "Anônimo",
+    level: points?.level ?? 1,
+    totalPoints: points?.total_points ?? 0,
+  };
+}
+
 // ─── Posts ────────────────────────────────────────────────────────────
 
 export async function getSocialFeed(limit = 20): Promise<SocialPost[]> {

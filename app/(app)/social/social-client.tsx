@@ -33,8 +33,13 @@ import {
   levelTitle,
   pointsForLevel,
 } from "@/lib/social/types";
-import type { FriendSummary } from "@/lib/social/server";
+import type { FriendSummary, FriendInvite } from "@/lib/social/server";
 import { PrivacyConsentModal } from "./privacy-consent-modal";
+import { AddFriendSheet } from "./add-friend-sheet";
+import {
+  respondToInviteAction,
+  cancelInviteAction,
+} from "./actions";
 
 /**
  * Cliente da aba Social — 4 tabs:
@@ -54,6 +59,9 @@ interface SocialClientProps {
   feed: SocialPost[];
   privacy: SocialPrivacy | null;
   location: UserLocation | null;
+  incomingInvites: FriendInvite[];
+  outgoingInvites: FriendInvite[];
+  myUserId: string | null;
 }
 
 type Tab = "feed" | "ranking" | "friends" | "me";
@@ -65,6 +73,9 @@ export function SocialClient({
   feed,
   privacy,
   location,
+  incomingInvites,
+  outgoingInvites,
+  myUserId,
 }: SocialClientProps) {
   const [tab, setTab] = useState<Tab>("feed");
   const [rankingScope, setRankingScope] = useState<RankingScope>("friends");
@@ -139,7 +150,14 @@ export function SocialClient({
           location={location}
         />
       )}
-      {tab === "friends" && <FriendsView friends={friends} />}
+      {tab === "friends" && (
+        <FriendsView
+          friends={friends}
+          incomingInvites={incomingInvites}
+          outgoingInvites={outgoingInvites}
+          myUserId={myUserId}
+        />
+      )}
       {tab === "me" && points && <ProfileView points={points} />}
 
       {/* Privacy modal */}
@@ -508,50 +526,196 @@ function RankingRow({ entry }: { entry: RankingEntry }) {
   );
 }
 
-function FriendsView({ friends }: { friends: FriendSummary[] }) {
+function FriendsView({
+  friends,
+  incomingInvites,
+  outgoingInvites,
+  myUserId,
+}: {
+  friends: FriendSummary[];
+  incomingInvites: FriendInvite[];
+  outgoingInvites: FriendInvite[];
+  myUserId: string | null;
+}) {
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [pendingInviteId, setPendingInviteId] = useState<string | null>(null);
+
+  const respond = async (inviteId: string, accept: boolean) => {
+    setPendingInviteId(inviteId);
+    try {
+      const res = await respondToInviteAction(inviteId, accept);
+      if (!res.ok) {
+        alert(res.error);
+        return;
+      }
+      window.location.reload();
+    } finally {
+      setPendingInviteId(null);
+    }
+  };
+
+  const cancel = async (inviteId: string) => {
+    if (!confirm("Cancelar esse convite?")) return;
+    setPendingInviteId(inviteId);
+    try {
+      const res = await cancelInviteAction(inviteId);
+      if (!res.ok) {
+        alert(res.error);
+        return;
+      }
+      window.location.reload();
+    } finally {
+      setPendingInviteId(null);
+    }
+  };
+
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
       <button
         type="button"
+        onClick={() => setSheetOpen(true)}
         className="flex items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-br from-brand-700 to-brand-800 px-5 py-3 text-[13px] font-semibold text-white shadow-md transition active:scale-[0.98]"
-        onClick={() => alert("Em breve — convite por link / username")}
       >
         <Plus className="h-4 w-4" /> Adicionar amigo
       </button>
 
-      {friends.length === 0 ? (
-        <EmptyState
-          icon={<Users className="h-8 w-8 text-zinc-300" />}
-          title="Você ainda não tem amigos por aqui"
-          body="Adicione amigos pra ver runs, achievements e disputar rankings."
-        />
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {friends.map((f) => (
-            <li
-              key={f.patientId}
-              className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-2.5"
-            >
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-50 text-[14px] font-semibold text-brand-700">
-                {f.firstName[0]?.toUpperCase() ?? "?"}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="text-[13.5px] font-semibold text-zinc-900">
-                  {f.firstName}
-                </div>
-                <div className="mt-0.5 text-[11px] text-zinc-500">
-                  Level {f.level} · {f.totalPoints.toLocaleString("pt-BR")} pts
-                </div>
-              </div>
-              {f.city && (
-                <span className="text-[10px] text-zinc-500">
-                  <MapPin className="-mt-0.5 mr-0.5 inline h-2.5 w-2.5" />
-                  {f.city}
+      {/* Convites recebidos pendentes */}
+      {incomingInvites.length > 0 && (
+        <section>
+          <h3 className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+            Convites recebidos · {incomingInvites.length}
+          </h3>
+          <ul className="flex flex-col gap-2">
+            {incomingInvites.map((inv) => (
+              <li
+                key={inv.id}
+                className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-2.5"
+              >
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-amber-100 text-[14px] font-semibold text-amber-800">
+                  {inv.otherFirstName[0]?.toUpperCase() ?? "?"}
                 </span>
-              )}
-            </li>
-          ))}
-        </ul>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] font-semibold text-zinc-900">
+                    {inv.otherFirstName}
+                  </div>
+                  <div className="mt-0.5 text-[10.5px] text-zinc-600">
+                    Level {inv.otherLevel} · quer ser seu amigo
+                  </div>
+                  {inv.message && (
+                    <div className="mt-1 line-clamp-2 text-[11px] italic text-zinc-600">
+                      &ldquo;{inv.message}&rdquo;
+                    </div>
+                  )}
+                </div>
+                <div className="flex shrink-0 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => respond(inv.id, false)}
+                    disabled={pendingInviteId === inv.id}
+                    className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+                  >
+                    Rejeitar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => respond(inv.id, true)}
+                    disabled={pendingInviteId === inv.id}
+                    className="rounded-lg bg-brand-700 px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-brand-800 disabled:opacity-50"
+                  >
+                    {pendingInviteId === inv.id ? "..." : "Aceitar"}
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* Convites enviados pendentes */}
+      {outgoingInvites.length > 0 && (
+        <section>
+          <h3 className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+            Aguardando resposta · {outgoingInvites.length}
+          </h3>
+          <ul className="flex flex-col gap-2">
+            {outgoingInvites.map((inv) => (
+              <li
+                key={inv.id}
+                className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-zinc-50/60 px-3 py-2.5"
+              >
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-zinc-100 text-[13px] font-semibold text-zinc-600">
+                  {inv.otherFirstName[0]?.toUpperCase() ?? "?"}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[12.5px] font-semibold text-zinc-800">
+                    {inv.otherFirstName}
+                  </div>
+                  <div className="mt-0.5 text-[10.5px] text-zinc-500">
+                    Convite enviado · aguardando aceite
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => cancel(inv.id)}
+                  disabled={pendingInviteId === inv.id}
+                  className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-zinc-500 hover:text-rose-600 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* Amigos ativos */}
+      <section>
+        {(incomingInvites.length > 0 || outgoingInvites.length > 0) && (
+          <h3 className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+            Meus amigos · {friends.length}
+          </h3>
+        )}
+        {friends.length === 0 ? (
+          <EmptyState
+            icon={<Users className="h-8 w-8 text-zinc-300" />}
+            title="Você ainda não tem amigos por aqui"
+            body="Adicione amigos pra ver runs, achievements e disputar rankings."
+          />
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {friends.map((f) => (
+              <li
+                key={f.patientId}
+                className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-2.5"
+              >
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-50 text-[14px] font-semibold text-brand-700">
+                  {f.firstName[0]?.toUpperCase() ?? "?"}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13.5px] font-semibold text-zinc-900">
+                    {f.firstName}
+                  </div>
+                  <div className="mt-0.5 text-[11px] text-zinc-500">
+                    Level {f.level} · {f.totalPoints.toLocaleString("pt-BR")} pts
+                  </div>
+                </div>
+                {f.city && (
+                  <span className="text-[10px] text-zinc-500">
+                    <MapPin className="-mt-0.5 mr-0.5 inline h-2.5 w-2.5" />
+                    {f.city}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {sheetOpen && (
+        <AddFriendSheet
+          myUserId={myUserId}
+          onClose={() => setSheetOpen(false)}
+        />
       )}
     </div>
   );
