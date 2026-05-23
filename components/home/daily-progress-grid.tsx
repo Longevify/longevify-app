@@ -509,31 +509,37 @@ function RichExerciseCard({
         </div>
       </div>
 
-      {/* Stats grid — 4 métricas em 2 colunas */}
-      <div className="flex-1 grid grid-cols-2 gap-x-3 gap-y-2 content-start">
+      {/* Stats — Lucas (2026-05-23): "ta muito alto, quero que preencha
+          mais para o lado não para cima empilhando as coisas." → layout
+          horizontal: 4 stats em uma única row (grid-cols-4), cada stat
+          é uma "tile" compacta. Em mobile mantém 2×2 (grid-cols-2). */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <ExStat
           emoji="👟"
-          value={steps.toLocaleString("pt-BR")}
+          value={
+            steps >= 1000
+              ? `${(steps / 1000).toFixed(steps >= 10000 ? 0 : 1)}k`
+              : `${steps}`
+          }
           label="passos"
-          hint={distanceKm > 0 ? `≈ ${distanceKm} km` : undefined}
+          hint={distanceKm > 0 ? `${distanceKm} km` : undefined}
         />
         <ExStat
           emoji="🔥"
           value={`${calories}`}
           label="kcal"
-          hint="queimadas"
         />
         <ExStat
           emoji="🏃"
           value={`${zone2}`}
-          label="min zona 2"
-          hint={zone2 >= 22 ? "alvo diário ✓" : `meta: 22 min`}
+          label="zona 2"
+          hint={zone2 >= 22 ? "✓" : `/22`}
         />
         <ExStat
           emoji="❤️"
           value={restingHR ? `${restingHR}` : "—"}
-          label="FC repouso"
-          hint={hrv ? `HRV ${hrv}ms` : undefined}
+          label="FC"
+          hint={hrv ? `HRV ${hrv}` : undefined}
         />
       </div>
 
@@ -560,21 +566,19 @@ function ExStat({
   hint?: string;
 }) {
   return (
-    <div className="min-w-0">
-      <div className="flex items-baseline gap-1">
-        <span className="text-[12px] leading-none" aria-hidden>
+    <div className="min-w-0 rounded-xl bg-zinc-50/60 px-2 py-1.5">
+      <div className="flex items-center gap-1.5">
+        <span className="text-[14px] leading-none" aria-hidden>
           {emoji}
         </span>
-        <span className="text-[14px] font-semibold leading-none tabular-nums text-zinc-900 truncate">
+        <span className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-none tabular-nums text-zinc-900">
           {value}
         </span>
       </div>
-      <div className="mt-0.5 text-[9.5px] uppercase tracking-wide text-zinc-500 truncate">
-        {label}
+      <div className="mt-1 flex items-baseline gap-1 truncate text-[9.5px] uppercase tracking-wide text-zinc-500">
+        <span>{label}</span>
+        {hint && <span className="text-zinc-400 normal-case tracking-normal">{hint}</span>}
       </div>
-      {hint && (
-        <div className="text-[9px] text-zinc-400 truncate">{hint}</div>
-      )}
     </div>
   );
 }
