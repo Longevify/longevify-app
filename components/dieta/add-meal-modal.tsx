@@ -5,6 +5,7 @@ import {
   Camera,
   FileText,
   Barcode,
+  ScanLine,
   X,
   Loader2,
   Check,
@@ -16,6 +17,7 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import type { FoodItem, MealType, Nutrients } from "@/lib/dieta/types";
 import { MEAL_TYPE_ICON, MEAL_TYPE_LABEL } from "@/lib/dieta/types";
+import { BarcodeScanner } from "./barcode-scanner";
 
 /**
  * Lucas (2026-05-20): "Ao tirar uma foto de uma refeição, caso o modelo
@@ -718,34 +720,72 @@ function BarcodeInput({
 }: InputProps) {
   const [code, setCode] = useState("");
   const [grams, setGrams] = useState("100");
+  const [scannerOpen, setScannerOpen] = useState(false);
 
-  const submit = async () => {
-    if (!/^\d{8,14}$/.test(code)) {
-      setError("Código deve ter 8 a 14 dígitos.");
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(
-        `/api/dieta/barcode?code=${code}&grams=${grams}`,
-      );
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j.error ?? `HTTP ${res.status}`);
+  const lookup = useCallback(
+    async (theCode: string, theGrams: string) => {
+      if (!/^\d{8,14}$/.test(theCode)) {
+        setError("Código deve ter 8 a 14 dígitos.");
+        return;
       }
-      const data = await res.json();
-      setItems([data.item]);
-      setTotalNutrients(data.item.nutrients);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao buscar produto");
-    } finally {
-      setLoading(false);
-    }
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(
+          `/api/dieta/barcode?code=${theCode}&grams=${theGrams}`,
+        );
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j.error ?? `HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        setItems([data.item]);
+        setTotalNutrients(data.item.nutrients);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Erro ao buscar produto",
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [setLoading, setError, setItems, setTotalNutrients],
+  );
+
+  const submit = () => lookup(code, grams);
+
+  const handleScanned = (scannedCode: string) => {
+    setCode(scannedCode);
+    setScannerOpen(false);
+    // Auto-lookup imediatamente — esse é o ponto do scan: o user não quer
+    // digitar nem clicar "buscar" depois.
+    lookup(scannedCode, grams);
   };
 
   return (
     <div className="flex flex-col gap-3">
+      {/* CTA Escanear — destaque visual, esse é o caminho preferido */}
+      <button
+        type="button"
+        onClick={() => setScannerOpen(true)}
+        disabled={loading}
+        className="group relative flex items-center justify-center gap-2.5 overflow-hidden rounded-2xl bg-gradient-to-br from-brand-700 to-brand-900 px-5 py-3.5 text-[14px] font-semibold text-white shadow-md transition active:scale-[0.98] disabled:opacity-50"
+      >
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -inset-1 bg-[radial-gradient(circle_at_30%_50%,rgba(255,255,255,.18),transparent_50%)]"
+        />
+        <ScanLine className="relative h-5 w-5" />
+        <span className="relative">Escanear código de barras</span>
+      </button>
+
+      {/* Divider "ou digitar" */}
+      <div className="flex items-center gap-3 py-1 text-[10.5px] uppercase tracking-wider text-zinc-400">
+        <div className="h-px flex-1 bg-zinc-200" />
+        ou digitar
+        <div className="h-px flex-1 bg-zinc-200" />
+      </div>
+
       <div>
         <label className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
           Código de barras
@@ -776,7 +816,7 @@ function BarcodeInput({
         type="button"
         onClick={submit}
         disabled={loading || !code}
-        className="flex items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-brand-800 disabled:opacity-50"
+        className="flex items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-50"
       >
         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
         {loading ? "Buscando..." : "Buscar produto"}
@@ -793,6 +833,14 @@ function BarcodeInput({
         </a>{" "}
         — cobertura BR ~80% dos produtos industrializados.
       </p>
+
+      {/* Scanner fullscreen */}
+      {scannerOpen && (
+        <BarcodeScanner
+          onDetected={handleScanned}
+          onClose={() => setScannerOpen(false)}
+        />
+      )}
     </div>
   );
 }
