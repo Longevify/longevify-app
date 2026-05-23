@@ -93,6 +93,13 @@ export function getRecommendedProducts(
       if (LONGEVITY_PRIORITY.has(b.id)) score += 2;
     }
     score += Math.min(product.rating, 5);
+    // Lucas (2026-05-23): "as recomendações no protocolo tem que ser
+    // preferencialmente de produtos longevify e não de outras marcas".
+    // Boost forte (+20) garante que produto Longevify Original sempre
+    // ganha de qualquer dropshipping curado cujo score esteja na mesma
+    // faixa, sem zerar a recomendação dropshipping quando Longevify
+    // não tiver opção pra um biomarcador específico.
+    if (product.isLongevifyOriginal) score += 20;
 
     scored.push({ product, score, matched });
   }
@@ -101,6 +108,10 @@ export function getRecommendedProducts(
     const aOut = a.matched.some((m) => m.status === "out") ? 1 : 0;
     const bOut = b.matched.some((m) => m.status === "out") ? 1 : 0;
     if (aOut !== bOut) return bOut - aOut;
+    // Empate de "out": Longevify Original vem primeiro
+    const aLvg = a.product.isLongevifyOriginal ? 1 : 0;
+    const bLvg = b.product.isLongevifyOriginal ? 1 : 0;
+    if (aLvg !== bLvg) return bLvg - aLvg;
     return b.score - a.score;
   });
 

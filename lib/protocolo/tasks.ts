@@ -91,7 +91,7 @@ interface BiomarkerProtocolEntry {
 
 const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
   vitd: {
-    productId: "vitamina-d",
+    productId: "longevify-vitamina-d",
     title: "Suplementar Vitamina D3",
     kind: "supplement",
     detail:
@@ -101,7 +101,7 @@ const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
       `Você está em ${b.value} ${b.unit}. Suplementação diária + exposição solar moderada costuma elevar 5–10 ng/mL em 8 a 12 semanas. Reavalie o nível antes de ajustar a dose.`,
   },
   ldl: {
-    productId: "omega-3",
+    productId: "longevify-omega-3",
     title: "Reduzir gordura saturada e aumentar fibra",
     kind: "habit",
     detail:
@@ -111,7 +111,7 @@ const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
       `Seu LDL está em ${b.value} ${b.unit}. A meta varia por risco individual (SBC/AHA: <100 baixo risco, <70 alto risco). Redução de gordura saturada + fibra solúvel + exercício é a base; estatina pode ser indicada por seu médico se o risco for elevado.`,
   },
   apob: {
-    productId: "omega-3",
+    productId: "longevify-omega-3",
     title: "Suplementar Ômega-3 (EPA/DHA)",
     kind: "supplement",
     detail:
@@ -121,7 +121,7 @@ const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
       `Sua ApoB está em ${b.value} ${b.unit}. ApoB é o melhor preditor cardiovascular moderno. Alvo varia por risco — discuta com seu médico se o seu perfil exige meta mais agressiva (estatina/ezetimiba podem ser indicadas).`,
   },
   crp: {
-    productId: "omega-3",
+    productId: "longevify-omega-3",
     title: "Suplementar Ômega-3 (anti-inflamatório)",
     kind: "supplement",
     detail:
@@ -131,7 +131,7 @@ const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
       `Seu PCR está em ${b.value} ${b.unit}. Ômega-3 e dieta anti-inflamatória reduzem PCR de forma modesta — magnitude maior vem de redução de gordura visceral, qualidade de sono e tratamento de fontes inflamatórias subjacentes (doença periodontal, etc.).`,
   },
   hba1c: {
-    productId: "magnesio-quelato",
+    productId: "longevify-magnesio-quelato",
     title: "Suplementar Magnésio Quelato",
     kind: "supplement",
     detail:
@@ -141,7 +141,7 @@ const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
       `Sua HbA1c está em ${b.value}${b.unit}. Magnésio é adjuvante modesto. As intervenções com maior impacto são: zero bebida açucarada, caminhada de 10-15 min após cada refeição, treino de força 2-3x/semana, e perda de gordura visceral.`,
   },
   testo: {
-    productId: "zinco",
+    productId: "longevify-zinco",
     title: "Suplementar Zinco Quelato",
     kind: "supplement",
     detail:
@@ -193,7 +193,7 @@ const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
       `Sua insulina em jejum em ${b.value} ${b.unit} sugere resistência à insulina. Foco: déficit calórico se sobrepeso, exercício resistido, redução de carbs refinados, sono. Magnésio e berberina são adjuvantes secundários.`,
   },
   homa_ir: {
-    productId: "magnesio-quelato",
+    productId: "longevify-magnesio-quelato",
     title: "Suplementar Magnésio antes de dormir",
     kind: "supplement",
     detail:
@@ -203,7 +203,7 @@ const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
       `Seu HOMA-IR em ${b.value} indica resistência à insulina. Magnésio é adjuvante; alavancas principais: exercício resistido, perda de gordura visceral, redução de açúcar refinado, sono adequado.`,
   },
   triglycerides: {
-    productId: "omega-3",
+    productId: "longevify-omega-3",
     title: "Suplementar Ômega-3 + reduzir açúcar",
     kind: "supplement",
     detail:
@@ -245,7 +245,7 @@ const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
       `Seu ferro sérico em ${b.value} ${b.unit}. Avaliar SEMPRE com ferritina + saturação de transferrina antes de qualquer ação. Causa precede tratamento — converse com médico.`,
   },
   magnesium: {
-    productId: "magnesio-quelato",
+    productId: "longevify-magnesio-quelato",
     title: "Suplementar Magnésio Quelato",
     kind: "supplement",
     detail:
@@ -255,7 +255,7 @@ const BIOMARKER_PROTOCOL: Record<string, BiomarkerProtocolEntry> = {
       `Seu magnésio em ${b.value} ${b.unit}. Cofator de 300+ enzimas (ATP, sono, função muscular, sensibilidade à insulina). Deficiência é prevalente e silenciosa. Castanhas, cacau 70%+, folhas verdes ajudam, mas suplementação costuma ser necessária.`,
   },
   zinc: {
-    productId: "zinco",
+    productId: "longevify-zinco",
     title: "Suplementar Zinco Quelato",
     kind: "supplement",
     detail:
