@@ -192,19 +192,21 @@ export default async function HomePage() {
           de altura (largura menor)" + "aumente a largura e altura desse
           caderno" → cards stacked numa coluna mais ESTREITA (320px) e
           TodoSidebar herda o resto da largura disponível (1fr). */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,320px)_1fr]">
-        <CompactHealthSummary
-          score={patient.longevifyScore}
-          scoreStatus={patient.scoreStatus}
-          scoreHistory={patient.scoreHistory}
-          organScores={patient.organScores}
-          biologicalAge={patient.biologicalAge}
-          chronologicalAge={patient.chronologicalAge}
-          biologicalAgeHistory={patient.biologicalAgeHistory}
-          organBioAges={patient.organBioAges}
-        />
-        <div data-tour="todo-sidebar">
-          <TodoSidebar tasks={tasks} />
+      <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-[minmax(0,320px)_1fr]">
+        <div className="lg:h-full">
+          <CompactHealthSummary
+            score={patient.longevifyScore}
+            scoreStatus={patient.scoreStatus}
+            scoreHistory={patient.scoreHistory}
+            organScores={patient.organScores}
+            biologicalAge={patient.biologicalAge}
+            chronologicalAge={patient.chronologicalAge}
+            biologicalAgeHistory={patient.biologicalAgeHistory}
+            organBioAges={patient.organBioAges}
+          />
+        </div>
+        <div data-tour="todo-sidebar" className="lg:h-full">
+          <TodoSidebar tasks={tasks} className="lg:h-full" />
         </div>
       </div>
 

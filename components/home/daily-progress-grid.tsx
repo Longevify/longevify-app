@@ -317,7 +317,7 @@ function SleepCard({
     <button
       type="button"
       onClick={onClick}
-      className="group flex h-full flex-col gap-2 rounded-2xl border border-zinc-200/80 bg-white p-4 text-left shadow-[0_4px_16px_-10px_rgba(13,40,24,.1)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_22px_-10px_rgba(13,40,24,.15)]"
+      className="group flex h-full flex-col gap-2 rounded-2xl border border-zinc-200/80 bg-white px-4 py-3 text-left shadow-[0_4px_16px_-10px_rgba(13,40,24,.1)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_22px_-10px_rgba(13,40,24,.15)]"
     >
       <div className="flex items-center justify-between">
         <span className="grid h-8 w-8 place-items-center rounded-xl bg-indigo-50 text-indigo-700">
@@ -350,13 +350,13 @@ function SleepCard({
       {hasStages && sleepStages?.segments && sleepStages.segments.length > 0 ? (
         <div className="mt-1 flex-1 flex flex-col">
           {/*
-            Lucas (2026-05-23): "quero que a barra de sono fique até o
-            final do card de sono" → timeline mais alta (110px) preenche
-            verticalmente. flex-1 do wrapper estica o card até o final.
+            Lucas (2026-05-23, iter 2): "card de sono e de exercício
+            no /home está muito alto" → timeline reduzida de 110px → 70px.
+            Mantém legibilidade das fases sem inflar o card.
           */}
           <SleepTimeline
             segments={sleepStages.segments}
-            height={110}
+            height={70}
             compact
           />
           {/* Legend compacta com 4 fases — mais valor que stacked bar simples */}
@@ -479,7 +479,7 @@ function RichExerciseCard({
     <button
       type="button"
       onClick={onClick}
-      className="group flex h-full flex-col gap-3 rounded-2xl border border-zinc-200/80 bg-white p-4 text-left shadow-[0_4px_16px_-10px_rgba(13,40,24,.1)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_22px_-10px_rgba(13,40,24,.15)]"
+      className="group flex h-full flex-col gap-2.5 rounded-2xl border border-zinc-200/80 bg-white px-4 py-3 text-left shadow-[0_4px_16px_-10px_rgba(13,40,24,.1)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_22px_-10px_rgba(13,40,24,.15)]"
     >
       <div className="flex items-center justify-between">
         <span className="grid h-8 w-8 place-items-center rounded-xl bg-emerald-50 text-emerald-700">
