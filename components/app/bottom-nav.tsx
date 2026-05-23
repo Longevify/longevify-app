@@ -12,6 +12,7 @@ import {
   MoreHorizontal,
   ShoppingBag,
   Sparkles,
+  Users,
   UtensilsCrossed,
   Watch,
   X,
@@ -43,6 +44,7 @@ const PRIMARY_TABS: NavItem[] = [
 
 const MORE_TABS: NavItem[] = [
   { href: "/fitness", label: "Fitness", Icon: Dumbbell },
+  { href: "/social", label: "Social", Icon: Users },
   { href: "/ciclo", label: "Ciclo", Icon: Flower2 },
   { href: "/dieta", label: "Dieta", Icon: UtensilsCrossed },
   { href: "/concierge", label: "Concierge", Icon: Sparkles },
