@@ -19,6 +19,7 @@ import {
   Zap,
   Crown,
   Medal,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -34,6 +35,7 @@ import {
   pointsForLevel,
 } from "@/lib/social/types";
 import type { FriendSummary, FriendInvite } from "@/lib/social/server";
+import type { UserAchievement } from "@/lib/fitness/types";
 import { PrivacyConsentModal } from "./privacy-consent-modal";
 import { AddFriendSheet } from "./add-friend-sheet";
 import {
@@ -62,6 +64,8 @@ interface SocialClientProps {
   incomingInvites: FriendInvite[];
   outgoingInvites: FriendInvite[];
   myUserId: string | null;
+  myPosts: SocialPost[];
+  myAchievements: UserAchievement[];
 }
 
 type Tab = "feed" | "ranking" | "friends" | "me";
@@ -76,6 +80,8 @@ export function SocialClient({
   incomingInvites,
   outgoingInvites,
   myUserId,
+  myPosts,
+  myAchievements,
 }: SocialClientProps) {
   const [tab, setTab] = useState<Tab>("feed");
   const [rankingScope, setRankingScope] = useState<RankingScope>("friends");
@@ -158,7 +164,13 @@ export function SocialClient({
           myUserId={myUserId}
         />
       )}
-      {tab === "me" && points && <ProfileView points={points} />}
+      {tab === "me" && points && (
+        <ProfileView
+          points={points}
+          myPosts={myPosts}
+          myAchievements={myAchievements}
+        />
+      )}
 
       {/* Privacy modal */}
       {consentModalOpen && requestedScope && (
@@ -721,7 +733,15 @@ function FriendsView({
   );
 }
 
-function ProfileView({ points }: { points: HealthPoints }) {
+function ProfileView({
+  points,
+  myPosts,
+  myAchievements,
+}: {
+  points: HealthPoints;
+  myPosts: SocialPost[];
+  myAchievements: UserAchievement[];
+}) {
   const breakdown: Array<{ label: string; value: number; color: string }> = [
     { label: "Fitness", value: points.fitnessPoints, color: "bg-emerald-500" },
     { label: "Nutrição", value: points.nutritionPoints, color: "bg-orange-500" },
@@ -735,8 +755,91 @@ function ProfileView({ points }: { points: HealthPoints }) {
   ];
   const total = breakdown.reduce((s, b) => s + b.value, 0) || 1;
 
+  // Lucas (2026-05-23): "na aba social na aba perfil não tem nada. Não
+  // tem os achievements, não tem os posts feitos, etc." → 3 seções
+  // novas + breakdown existente + link de privacidade.
   return (
     <div className="flex flex-col gap-4">
+      {/* Achievements — só destrancadas */}
+      <section className="rounded-2xl border border-zinc-200 bg-white px-4 py-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-[11.5px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+            Suas conquistas · {myAchievements.length}
+          </h3>
+          <Link
+            href="/fitness/conquistas"
+            className="inline-flex items-center gap-1 text-[11.5px] font-medium text-brand-700 hover:text-brand-800"
+          >
+            Ver todas <ChevronRight className="h-3 w-3" />
+          </Link>
+        </div>
+        {myAchievements.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/40 px-3 py-5 text-center">
+            <Medal className="mx-auto h-6 w-6 text-zinc-300" />
+            <p className="mt-2 text-[12px] text-zinc-500">
+              Treine, corra, durma bem e suas conquistas vão aparecer aqui.
+            </p>
+          </div>
+        ) : (
+          <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+            {myAchievements.slice(0, 8).map((ua) => {
+              const a = ua.achievement;
+              if (!a) return null;
+              return (
+                <li
+                  key={ua.id}
+                  className="flex flex-col items-center gap-1 rounded-xl border border-amber-200/60 bg-gradient-to-br from-amber-50/80 to-white px-2 py-2.5 text-center"
+                  title={`${a.title} — ${a.description}`}
+                >
+                  <span className="text-[26px] leading-none" aria-hidden>
+                    {a.emoji}
+                  </span>
+                  <span className="line-clamp-2 text-[10.5px] font-semibold leading-tight text-zinc-800">
+                    {a.title}
+                  </span>
+                  <span className="text-[9.5px] font-semibold tabular-nums text-amber-700">
+                    +{a.xp} XP
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      {/* Posts próprios */}
+      <section className="rounded-2xl border border-zinc-200 bg-white px-4 py-4">
+        <h3 className="mb-3 text-[11.5px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+          Suas postagens · {myPosts.length}
+        </h3>
+        {myPosts.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/40 px-3 py-6 text-center">
+            <Heart className="mx-auto h-6 w-6 text-zinc-300" />
+            <p className="mt-2 text-[12px] text-zinc-500">
+              Nenhuma postagem ainda. Termine uma corrida, treino ou desbloqueie
+              uma conquista pra postar aqui.
+            </p>
+          </div>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {myPosts.slice(0, 6).map((post) => (
+              <li key={post.id}>
+                <MyPostMini post={post} />
+              </li>
+            ))}
+            {myPosts.length > 6 && (
+              <li className="pt-1 text-center">
+                <span className="text-[11px] text-zinc-500">
+                  + {myPosts.length - 6}{" "}
+                  {myPosts.length - 6 === 1 ? "postagem" : "postagens"} mais
+                  antiga{myPosts.length - 6 === 1 ? "" : "s"}
+                </span>
+              </li>
+            )}
+          </ul>
+        )}
+      </section>
+
       <section className="rounded-2xl border border-zinc-200 bg-white px-4 py-3.5">
         <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
           De onde vêm seus pontos
@@ -778,6 +881,90 @@ function ProfileView({ points }: { points: HealthPoints }) {
         </div>
         <Globe className="h-4 w-4 text-zinc-400" />
       </Link>
+    </div>
+  );
+}
+
+/**
+ * Card mini de post próprio na aba Perfil — versão compacta do FeedPostCard.
+ * Mostra kind, título, métricas-chave, data relativa.
+ */
+function MyPostMini({ post }: { post: SocialPost }) {
+  const KIND_META: Record<
+    SocialPostKind,
+    { Icon: typeof Heart; accent: string; label: string }
+  > = {
+    running: { Icon: Footprints, accent: "bg-orange-50 text-orange-700", label: "Corrida" },
+    workout: { Icon: Dumbbell, accent: "bg-brand-50 text-brand-700", label: "Treino" },
+    achievement: { Icon: Medal, accent: "bg-amber-50 text-amber-700", label: "Conquista" },
+    level_up: { Icon: Crown, accent: "bg-purple-50 text-purple-700", label: "Level up" },
+    biomarker: { Icon: Zap, accent: "bg-emerald-50 text-emerald-700", label: "Biomarker" },
+    milestone: { Icon: Sparkles, accent: "bg-sky-50 text-sky-700", label: "Marco" },
+  };
+  const meta = KIND_META[post.kind] ?? KIND_META.workout;
+  const { Icon } = meta;
+
+  return (
+    <div className="flex items-start gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2.5">
+      <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-xl", meta.accent)}>
+        <Icon className="h-4 w-4" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline gap-1.5">
+          <span className="text-[13px] font-semibold text-zinc-900">
+            {post.payload.title}
+          </span>
+          <span className="text-[10px] text-zinc-400">
+            · {relativeTime(post.createdAt)}
+          </span>
+        </div>
+        <div className="mt-1 flex flex-wrap gap-1.5 text-[10.5px] tabular-nums">
+          <span
+            className={cn(
+              "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-semibold",
+              meta.accent,
+            )}
+          >
+            {meta.label}
+          </span>
+          {post.kind === "running" && post.payload.distanceKm && (
+            <span className="rounded-full bg-orange-50 px-2 py-0.5 font-semibold text-orange-800">
+              {post.payload.distanceKm.toFixed(2)} km
+            </span>
+          )}
+          {post.kind === "running" && post.payload.paceSecondsPerKm && (
+            <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-zinc-700">
+              {fmtPace(post.payload.paceSecondsPerKm)}
+            </span>
+          )}
+          {post.kind === "running" && post.payload.durationSeconds && (
+            <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-zinc-700">
+              {fmtDuration(post.payload.durationSeconds)}
+            </span>
+          )}
+          {post.kind === "achievement" && post.payload.achievementEmoji && (
+            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-900">
+              {post.payload.achievementEmoji}
+            </span>
+          )}
+          {post.kind === "level_up" && post.payload.level && (
+            <span className="rounded-full bg-purple-50 px-2 py-0.5 font-semibold text-purple-900">
+              Level {post.payload.level}
+            </span>
+          )}
+          {post.visibility === "public" ? (
+            <span className="ml-auto inline-flex items-center gap-0.5 text-zinc-400">
+              <Globe className="h-2.5 w-2.5" />
+              público
+            </span>
+          ) : (
+            <span className="ml-auto inline-flex items-center gap-0.5 text-zinc-400">
+              <Lock className="h-2.5 w-2.5" />
+              amigos
+            </span>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
