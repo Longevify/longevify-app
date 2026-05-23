@@ -386,7 +386,10 @@ export async function awardPoints(
     .eq("patient_id", userId)
     .maybeSingle();
 
-  const curCat = (row?.[categoryKey] as number | undefined) ?? 0;
+  // Cast pra Record genérico pra contornar union type estreito do Supabase
+  // (que tipa `select(stringLiteral)` como union de objetos com 1 key cada).
+  const rowAny = row as Record<string, unknown> | null;
+  const curCat = (rowAny?.[categoryKey] as number | undefined) ?? 0;
 
   const updatePayload: Record<string, number> = {
     total_points: newTotal,
