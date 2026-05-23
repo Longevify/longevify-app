@@ -28,6 +28,10 @@ import {
 } from "@/lib/fitness/types";
 import { logOtherWorkout, deleteOtherWorkout } from "../actions";
 import { toast } from "@/lib/toast";
+import {
+  ShareWorkoutModal,
+  type ShareWorkoutData,
+} from "@/components/fitness/share-workout-modal";
 
 /**
  * Lucas (2026-05-21): "outra [aba] para demais exercícios."
@@ -105,6 +109,11 @@ export function OutrosClient({ history, stats }: OutrosClientProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [deleting, startDeleting] = useTransition();
 
+  // Lucas (2026-05-23): pós-save abre share modal estilo Strava
+  const [postSaveShare, setPostSaveShare] = useState<ShareWorkoutData | null>(
+    null,
+  );
+
   // Cronômetro: tica a cada segundo durante tracking
   useEffect(() => {
     if (trackState === "tracking") {
@@ -167,15 +176,29 @@ export function OutrosClient({ history, stats }: OutrosClientProps) {
   // ─── Render: done view (saving form) ──────────────────────────────────
   if (trackState === "done") {
     return (
-      <DoneTrackerView
-        activity={selectedActivity}
-        elapsedSecs={elapsedSecs}
-        onCancel={resetTracker}
-        onSaved={() => {
-          resetTracker();
-          window.location.reload();
-        }}
-      />
+      <>
+        <DoneTrackerView
+          activity={selectedActivity}
+          elapsedSecs={elapsedSecs}
+          onCancel={resetTracker}
+          onSaved={(shareData) => {
+            // Em vez de reload imediato, mostra share modal
+            setPostSaveShare(shareData);
+          }}
+        />
+        {postSaveShare && (
+          <ShareWorkoutModal
+            open
+            data={postSaveShare}
+            modalTitle="Compartilhar atividade"
+            onClose={() => {
+              setPostSaveShare(null);
+              resetTracker();
+              window.location.reload();
+            }}
+          />
+        )}
+      </>
     );
   }
 
@@ -533,7 +556,7 @@ function DoneTrackerView({
   activity: ActivityType;
   elapsedSecs: number;
   onCancel: () => void;
-  onSaved: () => void;
+  onSaved: (shareData: ShareWorkoutData) => void;
 }) {
   const [intensity, setIntensity] = useState<IntensityLevel>("moderate");
   const [distance, setDistance] = useState("");
@@ -582,7 +605,24 @@ function DoneTrackerView({
             description: `${ach.description} (+${ach.xp} XP)`,
           });
         }
-        onSaved();
+        // Monta dados pro share modal estilo Strava
+        const secondary: ShareWorkoutData["secondaryStats"] = [
+          { value: `${durationMinutes} min`, label: "tempo" },
+          { value: `${estimatedCalories} kcal`, label: "calorias" },
+          { value: INTENSITY_LABEL[intensity], label: "intensidade" },
+        ];
+        const distNum =
+          showDistance && Number.isFinite(dist) && dist > 0 ? dist : null;
+        const primaryStat = distNum
+          ? { value: `${distNum.toFixed(1)} km`, label: "distância" }
+          : { value: `${durationMinutes}`, label: "minutos" };
+        onSaved({
+          kind: "other",
+          title: `${ACTIVITY_LABEL[activity]} concluída`,
+          emoji: ACTIVITY_EMOJI[activity],
+          primaryStat,
+          secondaryStats: distNum ? secondary : secondary.slice(0, 2),
+        });
       } else {
         toast.error({ title: "Erro", description: result.error });
       }
