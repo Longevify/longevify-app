@@ -13,6 +13,7 @@ import {
   ArrowLeft,
   Menu,
   X,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/brand/logo";
@@ -22,6 +23,7 @@ const NAV = [
   { href: "/admin/pacientes", label: "Pacientes", icon: Users },
   { href: "/admin/exames", label: "Exames", icon: FlaskConical },
   { href: "/admin/produtos", label: "Produtos", icon: Package },
+  { href: "/admin/higgsfield", label: "Higgsfield AI", icon: Sparkles },
   {
     href: "/admin/protocolos",
     label: "Protocolos",
