@@ -45,6 +45,7 @@ import {
 import { StreakHero } from "@/components/social/streak-hero";
 import { XpDailyGoal } from "@/components/social/xp-daily-goal";
 import { ActivityHeatmap } from "@/components/social/activity-heatmap";
+import { FriendStreakBadge } from "@/components/social/friend-streak-badge";
 
 /**
  * Cliente da aba Social — 4 tabs:
@@ -75,6 +76,8 @@ interface SocialClientProps {
   xpHistory: Array<{ date: string; xp: number }>;
   streakDays: number;
   completedToday: boolean;
+  /** Lucas (2026-05-24): foguinho compartilhado por amigo */
+  friendStreaks: Record<string, { currentDays: number; atRisk: boolean }>;
 }
 
 type Tab = "feed" | "ranking" | "friends" | "me";
@@ -96,6 +99,7 @@ export function SocialClient({
   xpHistory,
   streakDays,
   completedToday,
+  friendStreaks,
 }: SocialClientProps) {
   const [tab, setTab] = useState<Tab>("feed");
   const [rankingScope, setRankingScope] = useState<RankingScope>("friends");
@@ -176,6 +180,7 @@ export function SocialClient({
           incomingInvites={incomingInvites}
           outgoingInvites={outgoingInvites}
           myUserId={myUserId}
+          friendStreaks={friendStreaks}
         />
       )}
       {tab === "me" && points && (
@@ -562,11 +567,13 @@ function FriendsView({
   incomingInvites,
   outgoingInvites,
   myUserId,
+  friendStreaks,
 }: {
   friends: FriendSummary[];
   incomingInvites: FriendInvite[];
   outgoingInvites: FriendInvite[];
   myUserId: string | null;
+  friendStreaks: Record<string, { currentDays: number; atRisk: boolean }>;
 }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [pendingInviteId, setPendingInviteId] = useState<string | null>(null);
@@ -714,30 +721,42 @@ function FriendsView({
           />
         ) : (
           <ul className="flex flex-col gap-2">
-            {friends.map((f) => (
-              <li
-                key={f.patientId}
-                className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-2.5"
-              >
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-50 text-[14px] font-semibold text-brand-700">
-                  {f.firstName[0]?.toUpperCase() ?? "?"}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="text-[13.5px] font-semibold text-zinc-900">
-                    {f.firstName}
-                  </div>
-                  <div className="mt-0.5 text-[11px] text-zinc-500">
-                    Level {f.level} · {f.totalPoints.toLocaleString("pt-BR")} pts
-                  </div>
-                </div>
-                {f.city && (
-                  <span className="text-[10px] text-zinc-500">
-                    <MapPin className="-mt-0.5 mr-0.5 inline h-2.5 w-2.5" />
-                    {f.city}
+            {friends.map((f) => {
+              const streak = friendStreaks[f.patientId];
+              return (
+                <li
+                  key={f.patientId}
+                  className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-2.5"
+                >
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-50 text-[14px] font-semibold text-brand-700">
+                    {f.firstName[0]?.toUpperCase() ?? "?"}
                   </span>
-                )}
-              </li>
-            ))}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[13.5px] font-semibold text-zinc-900">
+                        {f.firstName}
+                      </span>
+                      {streak && streak.currentDays > 0 && (
+                        <FriendStreakBadge
+                          days={streak.currentDays}
+                          atRisk={streak.atRisk}
+                          size="sm"
+                        />
+                      )}
+                    </div>
+                    <div className="mt-0.5 text-[11px] text-zinc-500">
+                      Level {f.level} · {f.totalPoints.toLocaleString("pt-BR")} pts
+                    </div>
+                  </div>
+                  {f.city && (
+                    <span className="text-[10px] text-zinc-500">
+                      <MapPin className="-mt-0.5 mr-0.5 inline h-2.5 w-2.5" />
+                      {f.city}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

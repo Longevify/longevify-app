@@ -160,6 +160,129 @@ export async function getDailyXpHistory(
  */
 export const DEFAULT_DAILY_XP_GOAL = 50;
 
+// ─── Friend streaks (Snapchat/Duolingo-style) ────────────────────────
+
+/**
+ * Lucas (2026-05-24): "crie um sistema de foguinho, no qual se você e
+ * seu amigo todo dia fazem exercícios, e se vocês tiverem se
+ * comprometido a fazer esse game, o foguinho cresce, igual ao snapshat
+ * e igual ao duolingo."
+ *
+ * Compute on read: pra cada amigo, calcula dias consecutivos onde AMBOS
+ * marcaram pelo menos 1 task de protocolo. Algoritmo:
+ *   1. Lê task_completions de mim + cada amigo (últimos 60 dias)
+ *   2. Pra cada amigo, faz interseção de datas (dias onde nós dois
+ *      temos pelo menos 1 task)
+ *   3. Conta dias consecutivos a partir de hoje (ou ontem se grace)
+ *
+ * Dep: requer policy "tc read friends" na task_completions (migration
+ * 0020_friend_streaks.sql) — sem ela, retorna 0 dias pra todos os
+ * amigos (degrada gracefully).
+ */
+export interface FriendStreak {
+  friendId: string;
+  currentDays: number;
+  /** Última data onde ambos tiveram task. Null se nunca. */
+  lastSharedDate: string | null;
+  /** Se streak está em risco hoje (um dos dois ainda não fez). */
+  atRisk: boolean;
+}
+
+export async function getFriendStreaks(
+  friendIds: string[],
+): Promise<Map<string, FriendStreak>> {
+  const out = new Map<string, FriendStreak>();
+  if (!isSupabaseConfigured() || friendIds.length === 0) return out;
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken) return out;
+  const supabase = await createSupabaseWithJwt(accessToken);
+
+  // Pega últimos 60 dias de task_completions pra mim + amigos. Uma query
+  // só (mais eficiente). RLS faz o filtro de quem pode ler.
+  const cutoff = new Date();
+  cutoff.setUTCDate(cutoff.getUTCDate() - 60);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  const allIds = [userId, ...friendIds];
+
+  const { data, error } = await supabase
+    .from("task_completions")
+    .select("patient_id, completed_date")
+    .in("patient_id", allIds)
+    .gte("completed_date", cutoffStr);
+
+  if (error || !data) return out;
+
+  // Indexa: patient_id → Set<date>
+  const byPatient = new Map<string, Set<string>>();
+  for (const row of data) {
+    const pid = row.patient_id as string;
+    const d = row.completed_date as string;
+    let set = byPatient.get(pid);
+    if (!set) {
+      set = new Set();
+      byPatient.set(pid, set);
+    }
+    set.add(d);
+  }
+
+  const myDates = byPatient.get(userId) ?? new Set();
+  const today = new Date().toISOString().slice(0, 10);
+  const yesterday = new Date();
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  const yesterdayStr = yesterday.toISOString().slice(0, 10);
+
+  // Pra cada amigo, computa shared streak
+  for (const friendId of friendIds) {
+    const friendDates = byPatient.get(friendId) ?? new Set();
+    // Datas onde ambos têm task
+    const shared = new Set<string>();
+    for (const d of myDates) {
+      if (friendDates.has(d)) shared.add(d);
+    }
+    if (shared.size === 0) {
+      out.set(friendId, {
+        friendId,
+        currentDays: 0,
+        lastSharedDate: null,
+        atRisk: false,
+      });
+      continue;
+    }
+
+    // Encontra streak começando hoje (ou ontem se grace)
+    const startFromToday = shared.has(today);
+    const startFromYesterday = !startFromToday && shared.has(yesterdayStr);
+
+    let currentDays = 0;
+    if (startFromToday || startFromYesterday) {
+      const start = new Date();
+      if (startFromYesterday) {
+        start.setUTCDate(start.getUTCDate() - 1);
+      }
+      for (let i = 0; i < 60; i++) {
+        const d = new Date(start);
+        d.setUTCDate(d.getUTCDate() - i);
+        const dStr = d.toISOString().slice(0, 10);
+        if (shared.has(dStr)) currentDays++;
+        else break;
+      }
+    }
+
+    // Lista shared ordenada decrescente pra pegar última
+    const sortedShared = [...shared].sort().reverse();
+    out.set(friendId, {
+      friendId,
+      currentDays,
+      lastSharedDate: sortedShared[0] ?? null,
+      atRisk:
+        startFromYesterday ||
+        (currentDays > 0 && !startFromToday),
+    });
+  }
+
+  return out;
+}
+
 // ─── Location ─────────────────────────────────────────────────────────
 
 export async function getMyLocation(): Promise<UserLocation | null> {
