@@ -42,6 +42,9 @@ import {
   respondToInviteAction,
   cancelInviteAction,
 } from "./actions";
+import { StreakHero } from "@/components/social/streak-hero";
+import { XpDailyGoal } from "@/components/social/xp-daily-goal";
+import { ActivityHeatmap } from "@/components/social/activity-heatmap";
 
 /**
  * Cliente da aba Social — 4 tabs:
@@ -66,6 +69,12 @@ interface SocialClientProps {
   myUserId: string | null;
   myPosts: SocialPost[];
   myAchievements: UserAchievement[];
+  /** Lucas (2026-05-24): foundation Duolingo */
+  xpToday: number;
+  xpGoal: number;
+  xpHistory: Array<{ date: string; xp: number }>;
+  streakDays: number;
+  completedToday: boolean;
 }
 
 type Tab = "feed" | "ranking" | "friends" | "me";
@@ -82,6 +91,11 @@ export function SocialClient({
   myUserId,
   myPosts,
   myAchievements,
+  xpToday,
+  xpGoal,
+  xpHistory,
+  streakDays,
+  completedToday,
 }: SocialClientProps) {
   const [tab, setTab] = useState<Tab>("feed");
   const [rankingScope, setRankingScope] = useState<RankingScope>("friends");
@@ -169,6 +183,11 @@ export function SocialClient({
           points={points}
           myPosts={myPosts}
           myAchievements={myAchievements}
+          xpToday={xpToday}
+          xpGoal={xpGoal}
+          xpHistory={xpHistory}
+          streakDays={streakDays}
+          completedToday={completedToday}
         />
       )}
 
@@ -737,10 +756,20 @@ function ProfileView({
   points,
   myPosts,
   myAchievements,
+  xpToday,
+  xpGoal,
+  xpHistory,
+  streakDays,
+  completedToday,
 }: {
   points: HealthPoints;
   myPosts: SocialPost[];
   myAchievements: UserAchievement[];
+  xpToday: number;
+  xpGoal: number;
+  xpHistory: Array<{ date: string; xp: number }>;
+  streakDays: number;
+  completedToday: boolean;
 }) {
   const breakdown: Array<{ label: string; value: number; color: string }> = [
     { label: "Fitness", value: points.fitnessPoints, color: "bg-emerald-500" },
@@ -755,11 +784,19 @@ function ProfileView({
   ];
   const total = breakdown.reduce((s, b) => s + b.value, 0) || 1;
 
-  // Lucas (2026-05-23): "na aba social na aba perfil não tem nada. Não
-  // tem os achievements, não tem os posts feitos, etc." → 3 seções
-  // novas + breakdown existente + link de privacidade.
+  // Lucas (2026-05-23/24): perfil Duolingo-style — foguinho + XP diário
+  // + heatmap + achievements + posts próprios + breakdown.
   return (
     <div className="flex flex-col gap-4">
+      {/* StreakHero — foguinho gigante */}
+      <StreakHero days={streakDays} completedToday={completedToday} />
+
+      {/* XP daily goal */}
+      <XpDailyGoal xpToday={xpToday} goal={xpGoal} />
+
+      {/* Heatmap 12 semanas */}
+      <ActivityHeatmap data={xpHistory} weeks={12} />
+
       {/* Achievements — só destrancadas */}
       <section className="rounded-2xl border border-zinc-200 bg-white px-4 py-4">
         <div className="mb-3 flex items-center justify-between">
