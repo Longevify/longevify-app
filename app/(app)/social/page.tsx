@@ -10,6 +10,7 @@ import {
   getMyOwnPosts,
   getDailyXpEarned,
   getDailyXpHistory,
+  getFriendStreaks,
   DEFAULT_DAILY_XP_GOAL,
 } from "@/lib/social/server";
 import { getRecentUserAchievements } from "@/lib/fitness/achievements";
@@ -74,6 +75,21 @@ export default async function SocialPage() {
     (r) => r.date === today && r.count > 0,
   );
 
+  // Friend streaks (Snapchat/Duolingo-style) — calcula depois de carregar
+  // friends pra saber os IDs. Compute on read sobre task_completions.
+  const friendIds = friends.map((f) => f.patientId);
+  const friendStreaksMap = await getFriendStreaks(friendIds);
+  const friendStreaks: Record<
+    string,
+    { currentDays: number; atRisk: boolean }
+  > = {};
+  for (const [fid, s] of friendStreaksMap.entries()) {
+    friendStreaks[fid] = {
+      currentDays: s.currentDays,
+      atRisk: s.atRisk,
+    };
+  }
+
   return (
     <SocialClient
       points={points}
@@ -92,6 +108,7 @@ export default async function SocialPage() {
       xpHistory={xpHistory}
       streakDays={streakDays}
       completedToday={completedToday}
+      friendStreaks={friendStreaks}
     />
   );
 }
