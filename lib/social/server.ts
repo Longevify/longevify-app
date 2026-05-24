@@ -87,6 +87,79 @@ export async function getMyRecentPointEvents(
   }));
 }
 
+// ─── Daily XP / Streak (Duolingo-style) ──────────────────────────────
+
+/** XP que o user ganhou em uma data específica (YYYY-MM-DD). */
+export async function getDailyXpEarned(date?: string): Promise<number> {
+  if (!isSupabaseConfigured()) return 0;
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken) return 0;
+  const supabase = await createSupabaseWithJwt(accessToken);
+
+  const targetDate = date ?? new Date().toISOString().slice(0, 10);
+  // health_point_events.created_at é timestamptz — filtra pelo range do dia
+  // (UTC; pra simplificar — patient_id é único, eventos não sobrepõem dias)
+  const start = `${targetDate}T00:00:00Z`;
+  const end = `${targetDate}T23:59:59Z`;
+  const { data } = await supabase
+    .from("health_point_events")
+    .select("points")
+    .eq("patient_id", userId)
+    .gte("created_at", start)
+    .lte("created_at", end);
+  if (!data) return 0;
+  return data.reduce((s, r) => s + ((r.points as number) ?? 0), 0);
+}
+
+/**
+ * Histórico de XP diário pros últimos N dias. Retorna array em ordem
+ * cronológica (antigo → hoje) com 0 nos dias sem eventos pra alimentar
+ * heatmap contínuo.
+ */
+export async function getDailyXpHistory(
+  days = 30,
+): Promise<Array<{ date: string; xp: number }>> {
+  if (!isSupabaseConfigured()) return [];
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken) return [];
+  const supabase = await createSupabaseWithJwt(accessToken);
+
+  const cutoff = new Date();
+  cutoff.setUTCDate(cutoff.getUTCDate() - days);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+
+  const { data } = await supabase
+    .from("health_point_events")
+    .select("points, created_at")
+    .eq("patient_id", userId)
+    .gte("created_at", `${cutoffStr}T00:00:00Z`)
+    .order("created_at", { ascending: true });
+
+  const byDate = new Map<string, number>();
+  for (const r of data ?? []) {
+    const d = (r.created_at as string).slice(0, 10);
+    byDate.set(d, (byDate.get(d) ?? 0) + ((r.points as number) ?? 0));
+  }
+
+  // Constrói array contínuo (todos os dias, mesmo zerados)
+  const out: Array<{ date: string; xp: number }> = [];
+  for (let i = 0; i <= days; i++) {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - (days - i));
+    const dStr = d.toISOString().slice(0, 10);
+    out.push({ date: dStr, xp: byDate.get(dStr) ?? 0 });
+  }
+  return out;
+}
+
+/**
+ * Meta diária de XP (Duolingo-style). Default 50 XP/dia — equivalente a
+ * 1 treino logado + 1 refeição + 1 task de protocolo + 1 sleep on-target.
+ *
+ * TODO: persistir em user_xp_goals quando user customizar.
+ */
+export const DEFAULT_DAILY_XP_GOAL = 50;
+
 // ─── Location ─────────────────────────────────────────────────────────
 
 export async function getMyLocation(): Promise<UserLocation | null> {

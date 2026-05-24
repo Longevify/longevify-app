@@ -9,6 +9,8 @@ import {
   Users as UsersIcon,
   Loader2,
   Check,
+  ImagePlus,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { GpsPoint, PaceSegment } from "@/lib/fitness/types";
@@ -90,26 +92,42 @@ export function ShareWorkoutModal({
 }: ShareWorkoutModalProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const previewRef = useRef<HTMLCanvasElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [visibility, setVisibility] = useState<"friends" | "public">("friends");
   const [postStatus, setPostStatus] = useState<
     "idle" | "posting" | "posted" | "error"
   >("idle");
   const [error, setError] = useState<string | null>(null);
+  // Lucas (2026-05-24): "tenha a opção de anexar uma fotinho sua com os
+  // stats da corrida, do treino ou do esporte escolhido e publicar."
+  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
-  // Render preview canvas sempre que abrir
+  // Render preview canvas sempre que abrir ou foto mudar
   useEffect(() => {
     if (!open) return;
-    drawCanvasImage(previewRef.current, data, 540); // half-size pra preview
-  }, [open, data]);
+    drawCanvasImage(previewRef.current, data, 540, photoDataUrl);
+  }, [open, data, photoDataUrl]);
 
   if (!open) return null;
 
-  const handleDownload = () => {
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+      setError("Foto muito grande — máximo 8MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setPhotoDataUrl(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleDownload = async () => {
     const cvs = document.createElement("canvas");
     cvs.width = 1080;
     cvs.height = 1080;
-    drawCanvasImage(cvs, data, 1080);
+    await drawCanvasImage(cvs, data, 1080, photoDataUrl);
     cvs.toBlob((blob) => {
       if (!blob) return;
       const url = URL.createObjectURL(blob);
@@ -123,14 +141,14 @@ export function ShareWorkoutModal({
 
   const handleShareNative = async () => {
     if (!navigator.share) {
-      handleDownload();
+      await handleDownload();
       return;
     }
     // Try Web Share API com arquivo
     const cvs = document.createElement("canvas");
     cvs.width = 1080;
     cvs.height = 1080;
-    drawCanvasImage(cvs, data, 1080);
+    await drawCanvasImage(cvs, data, 1080, photoDataUrl);
     cvs.toBlob(async (blob) => {
       if (!blob) return;
       const file = new File([blob], `longevify-${data.kind}.png`, {
@@ -248,6 +266,47 @@ export function ShareWorkoutModal({
               width={540}
               height={540}
               className="block h-full w-full"
+            />
+          </div>
+
+          {/* Photo upload — Lucas (2026-05-24): "anexar uma fotinho sua" */}
+          <div className="mt-4 flex justify-center gap-2">
+            {photoDataUrl ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-[12px] font-medium text-zinc-700 hover:bg-zinc-50"
+                >
+                  <ImagePlus className="h-3.5 w-3.5" />
+                  Trocar foto
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPhotoDataUrl(null)}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-[12px] font-medium text-rose-600 hover:bg-rose-50"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Remover foto
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-zinc-300 bg-zinc-50/60 px-4 py-2 text-[12px] font-semibold text-zinc-700 hover:border-brand-400 hover:bg-brand-50/40 hover:text-brand-700"
+              >
+                <ImagePlus className="h-3.5 w-3.5" />
+                Anexar foto sua
+              </button>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handlePhotoChange}
+              className="hidden"
             />
           </div>
 
@@ -387,12 +446,16 @@ function parsePaceToSeconds(s: string): number {
 /**
  * Desenha o card 1080×1080 (ou escalado) — gradient brand + título + emoji
  * + stats centrais + tagline. Para corrida, sobrepõe traçado GPS.
+ *
+ * Se `photoDataUrl` for passado, ela vira o background do card com
+ * gradient overlay escuro pra stats ficarem legíveis.
  */
-function drawCanvasImage(
+async function drawCanvasImage(
   cvs: HTMLCanvasElement | null,
   data: ShareWorkoutData,
   size: number,
-) {
+  photoDataUrl?: string | null,
+): Promise<void> {
   if (!cvs) return;
   const ctx = cvs.getContext("2d");
   if (!ctx) return;
@@ -400,26 +463,38 @@ function drawCanvasImage(
   cvs.height = size;
   const s = size / 1080; // escala uniforme
 
-  // Background gradient (brand-700 → brand-900)
-  const grad = ctx.createLinearGradient(0, 0, 0, size);
-  grad.addColorStop(0, "#1f5d3f");
-  grad.addColorStop(1, "#0d2818");
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, size, size);
+  // Background — foto do user ou gradient brand
+  if (photoDataUrl) {
+    await drawPhotoCover(ctx, photoDataUrl, size);
+    // Overlay gradient escuro pra texto ficar legível
+    const overlay = ctx.createLinearGradient(0, 0, 0, size);
+    overlay.addColorStop(0, "rgba(13,40,24,0.45)");
+    overlay.addColorStop(0.55, "rgba(13,40,24,0.15)");
+    overlay.addColorStop(1, "rgba(13,40,24,0.85)");
+    ctx.fillStyle = overlay;
+    ctx.fillRect(0, 0, size, size);
+  } else {
+    // Background gradient (brand-700 → brand-900)
+    const grad = ctx.createLinearGradient(0, 0, 0, size);
+    grad.addColorStop(0, "#1f5d3f");
+    grad.addColorStop(1, "#0d2818");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
 
-  // Sutil glow no canto
-  const glow = ctx.createRadialGradient(
-    size * 0.85,
-    size * 0.15,
-    0,
-    size * 0.85,
-    size * 0.15,
-    size * 0.5,
-  );
-  glow.addColorStop(0, "rgba(110,186,142,.25)");
-  glow.addColorStop(1, "rgba(110,186,142,0)");
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, size, size);
+    // Sutil glow no canto
+    const glow = ctx.createRadialGradient(
+      size * 0.85,
+      size * 0.15,
+      0,
+      size * 0.85,
+      size * 0.15,
+      size * 0.5,
+    );
+    glow.addColorStop(0, "rgba(110,186,142,.25)");
+    glow.addColorStop(1, "rgba(110,186,142,0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, size, size);
+  }
 
   // Logo
   ctx.font = `600 ${32 * s}px ui-sans-serif, system-ui, -apple-system`;
@@ -521,6 +596,32 @@ function drawCanvasImage(
   ctx.font = `400 ${22 * s}px ui-sans-serif, system-ui`;
   ctx.fillStyle = "rgba(255,255,255,.45)";
   ctx.fillText("longevify.com.br · longevidade personalizada", 60 * s, 1020 * s);
+}
+
+/**
+ * Carrega data URL como Image e desenha como cover (preenche todo o
+ * canvas mantendo aspect ratio com crop central).
+ */
+function drawPhotoCover(
+  ctx: CanvasRenderingContext2D,
+  dataUrl: string,
+  size: number,
+): Promise<void> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      // Cover crop: escala pra preencher e centraliza
+      const scale = Math.max(size / img.width, size / img.height);
+      const w = img.width * scale;
+      const h = img.height * scale;
+      const x = (size - w) / 2;
+      const y = (size - h) / 2;
+      ctx.drawImage(img, x, y, w, h);
+      resolve();
+    };
+    img.onerror = () => resolve(); // falha silenciosa → fallback gradient
+    img.src = dataUrl;
+  });
 }
 
 function kindToLabel(k: ShareKind): string {
