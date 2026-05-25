@@ -29,25 +29,41 @@ import type {
  */
 
 export async function getExerciseCatalog(): Promise<Exercise[]> {
-  if (!isSupabaseConfigured()) return [];
+  // Lucas (2026-05-25): "Falha ao gerar treino — no-exercise-catalog".
+  // Fallback hardcoded em EXERCISE_CATALOG_SEED quando DB retorna vazio
+  // (migration 0012 não aplicada em prod). Também faz merge das
+  // videoUrls do seed quando o DB não tem (migration 0013 ausente).
+  const { EXERCISE_CATALOG_SEED } = await import("./exercise-catalog-seed");
+
+  if (!isSupabaseConfigured()) return EXERCISE_CATALOG_SEED;
   const { accessToken } = await getUserIdFromCookie();
-  if (!accessToken) return [];
+  if (!accessToken) return EXERCISE_CATALOG_SEED;
   const supabase = await createSupabaseWithJwt(accessToken);
   const { data, error } = await supabase
     .from("exercise_catalog")
     .select("id, name, muscle_group, equipment, category, description, video_url")
     .order("muscle_group", { ascending: true })
     .order("name", { ascending: true });
-  if (error || !data) return [];
-  return data.map((r) => ({
-    id: r.id as string,
-    name: r.name as string,
-    muscleGroup: r.muscle_group as MuscleGroup,
-    equipment: r.equipment as EquipmentKind | null,
-    category: r.category as ExerciseCategory,
-    description: (r.description as string | null) ?? null,
-    videoUrl: (r.video_url as string | null) ?? null,
-  }));
+
+  // DB vazio ou erro → usa seed completo
+  if (error || !data || data.length === 0) return EXERCISE_CATALOG_SEED;
+
+  // Index do seed por id pra fazer merge de videoUrl quando DB não tem
+  const seedById = new Map(EXERCISE_CATALOG_SEED.map((e) => [e.id, e]));
+
+  return data.map((r) => {
+    const seed = seedById.get(r.id as string);
+    return {
+      id: r.id as string,
+      name: r.name as string,
+      muscleGroup: r.muscle_group as MuscleGroup,
+      equipment: r.equipment as EquipmentKind | null,
+      category: r.category as ExerciseCategory,
+      description: (r.description as string | null) ?? seed?.description ?? null,
+      // Merge: videoUrl do DB sempre que existir, senão fallback do seed
+      videoUrl: (r.video_url as string | null) ?? seed?.videoUrl ?? null,
+    };
+  });
 }
 
 /**

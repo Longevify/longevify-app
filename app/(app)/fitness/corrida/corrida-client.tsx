@@ -387,6 +387,36 @@ export function CorridaClient({ history, stats }: CorridaClientProps) {
   // ─── Idle: stats + start + histórico ────────────────────────────────
   return (
     <div className="flex flex-col gap-4">
+      {/* Lucas (2026-05-25): "na aba musculação e corrida, tem que ter
+          uma seção: Meu treino" → header "MEU TREINO" + botão grande
+          de iniciar corrida (que é o "treino" da corrida).
+          Movido pra cima do stats pra dar destaque. */}
+      <section>
+        <h2 className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+          Meu treino
+        </h2>
+        <button
+          type="button"
+          onClick={start}
+          className="group relative flex w-full flex-col items-center justify-center gap-2 overflow-hidden rounded-3xl bg-gradient-to-br from-brand-700 to-brand-900 px-6 py-10 text-white shadow-[0_8px_30px_-12px_rgba(31,93,63,.6)] transition active:scale-[0.98]"
+        >
+          <span
+            aria-hidden
+            className="pointer-events-none absolute h-24 w-24 animate-ping rounded-full bg-white/10"
+            style={{ animationDuration: "2.4s" }}
+          />
+          <span className="relative grid h-16 w-16 place-items-center rounded-full bg-white/15 ring-1 ring-white/30 transition group-hover:bg-white/25 group-hover:scale-105">
+            <Play className="h-7 w-7 fill-white" />
+          </span>
+          <span className="relative text-[16px] font-semibold tracking-tight">
+            Iniciar corrida
+          </span>
+          <span className="relative text-[11px] text-white/70">
+            GPS + cronômetro + pace em tempo real
+          </span>
+        </button>
+      </section>
+
       {/* Stats header */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard
@@ -414,29 +444,6 @@ export function CorridaClient({ history, stats }: CorridaClientProps) {
           hint="corridas"
         />
       </section>
-
-      {/* Start big button — Phase 3H: pulse animation pra atrair atenção */}
-      <button
-        type="button"
-        onClick={start}
-        className="group relative flex flex-col items-center justify-center gap-2 overflow-hidden rounded-3xl bg-gradient-to-br from-brand-700 to-brand-900 px-6 py-10 text-white shadow-[0_8px_30px_-12px_rgba(31,93,63,.6)] transition active:scale-[0.98]"
-      >
-        {/* Pulse rings (puramente visual) */}
-        <span
-          aria-hidden
-          className="pointer-events-none absolute h-24 w-24 animate-ping rounded-full bg-white/10"
-          style={{ animationDuration: "2.4s" }}
-        />
-        <span className="relative grid h-16 w-16 place-items-center rounded-full bg-white/15 ring-1 ring-white/30 transition group-hover:bg-white/25 group-hover:scale-105">
-          <Play className="h-7 w-7 fill-white" />
-        </span>
-        <span className="relative text-[16px] font-semibold tracking-tight">
-          Iniciar corrida
-        </span>
-        <span className="relative text-[11px] text-white/70">
-          GPS + cronômetro + pace em tempo real
-        </span>
-      </button>
 
       {/* Histórico */}
       <section>

@@ -264,57 +264,69 @@ export function MusculacaoClient({
         </button>
       )}
 
-      {/* Treino do dia (Phase 3B) */}
-      {todayWorkout && (
-        <Link
-          href="/fitness/musculacao/hoje"
-          className="mb-5 block overflow-hidden rounded-3xl border border-brand-200 bg-gradient-to-br from-brand-700 via-brand-800 to-brand-900 text-white shadow-md transition hover:shadow-lg"
-        >
-          <div className="flex items-center gap-4 px-5 py-4">
-            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/15 ring-1 ring-white/20">
-              <Sparkles className="h-5 w-5 text-amber-200" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/70">
-                Treino de hoje · Dia {todayWorkout.dayIndex}/{todayWorkout.totalDays}
+      {/* Lucas (2026-05-25): "na aba musculação e corrida, tem que ter
+          uma seção: Meu treino" → header "MEU TREINO" + card do dia
+          (se houver plano) OU CTA destacado pra gerar plano. */}
+      <section className="mb-5">
+        <h2 className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+          Meu treino
+        </h2>
+        {todayWorkout ? (
+          <Link
+            href="/fitness/musculacao/hoje"
+            className="block overflow-hidden rounded-3xl border border-brand-200 bg-gradient-to-br from-brand-700 via-brand-800 to-brand-900 text-white shadow-md transition hover:shadow-lg"
+          >
+            <div className="flex items-center gap-4 px-5 py-4">
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/15 ring-1 ring-white/20">
+                <Sparkles className="h-5 w-5 text-amber-200" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/70">
+                  Treino de hoje · Dia {todayWorkout.dayIndex}/
+                  {todayWorkout.totalDays}
+                </div>
+                <div className="mt-0.5 truncate text-[16px] font-semibold leading-tight">
+                  {todayWorkout.dayName}
+                </div>
+                <div className="mt-0.5 text-[11px] text-white/70">
+                  {todayWorkout.exerciseCount} exercício
+                  {todayWorkout.exerciseCount === 1 ? "" : "s"} ·{" "}
+                  {todayWorkout.programName}
+                </div>
               </div>
-              <div className="mt-0.5 truncate text-[16px] font-semibold leading-tight">
-                {todayWorkout.dayName}
-              </div>
-              <div className="mt-0.5 text-[11px] text-white/70">
-                {todayWorkout.exerciseCount} exercício
-                {todayWorkout.exerciseCount === 1 ? "" : "s"} ·{" "}
-                {todayWorkout.programName}
-              </div>
+              <span className="shrink-0 text-white">→</span>
             </div>
-            <span className="shrink-0 text-white">→</span>
-          </div>
-        </Link>
-      )}
+          </Link>
+        ) : (
+          <Link
+            href="/fitness/musculacao/programa"
+            className="block overflow-hidden rounded-3xl border border-dashed border-brand-300 bg-gradient-to-br from-brand-50 via-white to-white px-5 py-5 transition hover:shadow-md"
+          >
+            <div className="flex items-center gap-4">
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-brand-700 text-white shadow-sm">
+                <Sparkles className="h-5 w-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[13.5px] font-semibold text-brand-900">
+                  Você ainda não tem um plano
+                </div>
+                <p className="mt-0.5 text-[11.5px] text-brand-700/80">
+                  Gere um programa com Dr. Lon — 5 perguntas e treino pronto.
+                </p>
+              </div>
+              <span className="shrink-0 text-brand-700">→</span>
+            </div>
+          </Link>
+        )}
+      </section>
 
       {/* Weekly muscle analysis (Lucas pediu — "musculo que mais evoluiu") */}
       <WeeklyMuscleAnalysis data={muscleAnalysis} />
 
-      {/* CTA AI workout generator (Phase 2B: ativo) */}
-      <Link
-        href="/fitness/musculacao/programa"
-        className="mb-5 block rounded-2xl border border-brand-300 bg-gradient-to-br from-brand-50 via-brand-50/60 to-white px-4 py-3.5 transition hover:shadow-md"
-      >
-        <div className="flex items-start gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand-700 to-brand-800 text-white shadow-sm">
-            <Sparkles className="h-4 w-4" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-semibold text-brand-900">
-              Gerar treino com Dr. Lon
-            </div>
-            <p className="mt-0.5 text-[11.5px] text-brand-700/80">
-              5 perguntas → programa personalizado pra seus objetivos.
-            </p>
-          </div>
-          <span className="shrink-0 self-center text-brand-700">→</span>
-        </div>
-      </Link>
+      {/* Lucas (2026-05-25): CTA "Gerar treino com Dr. Lon" removido
+          daqui — já existe na seção "Meu treino" acima (quando user
+          ainda não tem plano). Quando tem plano, link pra
+          /fitness/musculacao/programa fica acessível via /fitness. */}
 
       {/* Search + filtro */}
       <div className="mb-4 flex flex-col gap-3">
