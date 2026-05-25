@@ -131,6 +131,8 @@ export interface RankingEntry {
   monthlyKm?: number;
   monthlyWorkouts?: number;
   isCurrentUser: boolean;
+  /** Pontos do nicho específico (quando ranking não é overall). */
+  nichePoints?: number;
 }
 
 export type RankingScope = "friends" | "city" | "state" | "country";
@@ -140,6 +142,37 @@ export const RANKING_SCOPE_LABEL: Record<RankingScope, string> = {
   city: "Cidade",
   state: "Estado",
   country: "Brasil",
+};
+
+/**
+ * Lucas (2026-05-24): "muita comparação e rankings de diversos nichos."
+ * Rankings podem ser overall (default) ou por categoria de pontos.
+ */
+export type RankingKind =
+  | "overall"
+  | "fitness"
+  | "nutrition"
+  | "consistency"
+  | "biomarker"
+  | "social";
+
+export const RANKING_KIND_LABEL: Record<RankingKind, string> = {
+  overall: "Geral",
+  fitness: "Fitness 💪",
+  nutrition: "Nutrição 🥗",
+  consistency: "Consistência 🔥",
+  biomarker: "Biomarcadores 🧬",
+  social: "Social 👥",
+};
+
+/** Coluna do user_health_points correspondente. */
+export const RANKING_KIND_COLUMN: Record<RankingKind, string> = {
+  overall: "total_points",
+  fitness: "fitness_points",
+  nutrition: "nutrition_points",
+  consistency: "consistency_points",
+  biomarker: "biomarker_points",
+  social: "social_points",
 };
 
 /**

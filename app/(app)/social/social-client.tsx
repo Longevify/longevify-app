@@ -29,8 +29,10 @@ import {
   type UserLocation,
   type RankingEntry,
   type RankingScope,
+  type RankingKind,
   type SocialPostKind,
   RANKING_SCOPE_LABEL,
+  RANKING_KIND_LABEL,
   levelTitle,
   pointsForLevel,
 } from "@/lib/social/types";
@@ -103,15 +105,31 @@ export function SocialClient({
 }: SocialClientProps) {
   const [tab, setTab] = useState<Tab>("feed");
   const [rankingScope, setRankingScope] = useState<RankingScope>("friends");
+  const [rankingKind, setRankingKind] = useState<RankingKind>("overall");
   const [consentModalOpen, setConsentModalOpen] = useState(false);
   const [requestedScope, setRequestedScope] = useState<RankingScope | null>(
     null,
   );
 
-  // Fetch ranking on-demand quando troca scope (lazy via API client)
+  // Fetch ranking on-demand quando troca scope OU kind (lazy via API client)
   const [scopedRanking, setScopedRanking] =
     useState<RankingEntry[]>(friendsRanking);
   const [loadingRanking, setLoadingRanking] = useState(false);
+
+  const fetchRanking = async (scope: RankingScope, kind: RankingKind) => {
+    setLoadingRanking(true);
+    try {
+      const res = await fetch(
+        `/api/social/ranking?scope=${scope}&kind=${kind}`,
+      );
+      const data = (await res.json()) as { ranking?: RankingEntry[] };
+      setScopedRanking(data.ranking ?? []);
+    } catch {
+      setScopedRanking([]);
+    } finally {
+      setLoadingRanking(false);
+    }
+  };
 
   const switchScope = async (scope: RankingScope) => {
     setRankingScope(scope);
@@ -129,16 +147,12 @@ export function SocialClient({
         return;
       }
     }
-    setLoadingRanking(true);
-    try {
-      const res = await fetch(`/api/social/ranking?scope=${scope}`);
-      const data = (await res.json()) as { ranking?: RankingEntry[] };
-      setScopedRanking(data.ranking ?? []);
-    } catch {
-      setScopedRanking([]);
-    } finally {
-      setLoadingRanking(false);
-    }
+    await fetchRanking(scope, rankingKind);
+  };
+
+  const switchKind = async (kind: RankingKind) => {
+    setRankingKind(kind);
+    await fetchRanking(rankingScope, kind);
   };
 
   return (
@@ -168,9 +182,11 @@ export function SocialClient({
       {tab === "ranking" && (
         <RankingView
           scope={rankingScope}
+          kind={rankingKind}
           ranking={scopedRanking}
           loading={loadingRanking}
           onSwitch={switchScope}
+          onSwitchKind={switchKind}
           location={location}
         />
       )}
@@ -206,7 +222,7 @@ export function SocialClient({
           }}
           onConsented={async () => {
             setConsentModalOpen(false);
-            await switchScope(requestedScope);
+            await fetchRanking(requestedScope, rankingKind);
             setRequestedScope(null);
           }}
         />
@@ -416,24 +432,55 @@ function FeedPostCard({ post }: { post: SocialPost }) {
 
 function RankingView({
   scope,
+  kind,
   ranking,
   loading,
   onSwitch,
+  onSwitchKind,
   location,
 }: {
   scope: RankingScope;
+  kind: RankingKind;
   ranking: RankingEntry[];
   loading: boolean;
   onSwitch: (s: RankingScope) => void;
+  onSwitchKind: (k: RankingKind) => void;
   location: UserLocation | null;
 }) {
   const scopes: RankingScope[] = ["friends", "city", "state", "country"];
+  const kinds: RankingKind[] = [
+    "overall",
+    "fitness",
+    "nutrition",
+    "consistency",
+    "biomarker",
+    "social",
+  ];
 
   // Encontra posição do user atual
   const myRank = ranking.find((r) => r.isCurrentUser);
 
   return (
     <div>
+      {/* Kind picker — Lucas (2026-05-24): "rankings de diversos nichos" */}
+      <div className="mb-2 flex flex-wrap gap-1.5">
+        {kinds.map((k) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => onSwitchKind(k)}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10.5px] font-semibold transition",
+              kind === k
+                ? "bg-brand-700 text-white"
+                : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200",
+            )}
+          >
+            {RANKING_KIND_LABEL[k]}
+          </button>
+        ))}
+      </div>
+
       {/* Scope picker */}
       <div className="mb-3 flex flex-wrap gap-1.5">
         {scopes.map((s) => {
@@ -554,9 +601,11 @@ function RankingRow({ entry }: { entry: RankingEntry }) {
       </div>
       <div className="text-right">
         <div className="text-[14px] font-semibold tabular-nums text-zinc-900">
-          {entry.totalPoints.toLocaleString("pt-BR")}
+          {(entry.nichePoints ?? entry.totalPoints).toLocaleString("pt-BR")}
         </div>
-        <div className="text-[9.5px] text-zinc-400">pontos</div>
+        <div className="text-[9.5px] text-zinc-400">
+          {entry.nichePoints !== undefined ? "pts nicho" : "pontos"}
+        </div>
       </div>
     </div>
   );
