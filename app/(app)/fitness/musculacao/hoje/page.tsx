@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { ArrowLeft, Sparkles, Dumbbell, Calendar, Target } from "lucide-react";
-import { getTodaysWorkout } from "@/lib/fitness/server";
+import {
+  getTodaysWorkout,
+  getLastSetsForExercises,
+} from "@/lib/fitness/server";
 import {
   MUSCLE_GROUP_LABEL,
   MUSCLE_GROUP_EMOJI,
@@ -20,6 +23,16 @@ export const revalidate = 0;
  */
 export default async function HojePage() {
   const today = await getTodaysWorkout();
+
+  // Lucas (2026-05-25): "preencher quantas reps, quantos kgs foram feitos.
+  // Dessa forma vou conseguir acompanhar a evolução no detalhe". Pré-fetch
+  // do último set de cada exercício do treino do dia pra mostrar "Última
+  // vez" como referência (peso/reps anteriores).
+  const lastSets = today
+    ? await getLastSetsForExercises(
+        today.day.exercises.map((e) => e.exerciseId),
+      )
+    : new Map();
 
   if (!today) {
     return (
@@ -112,7 +125,10 @@ export default async function HojePage() {
       )}
 
       {/* Lista de exercícios — interativa */}
-      <TodayWorkoutLogger day={day} />
+      <TodayWorkoutLogger
+        day={day}
+        lastSets={Object.fromEntries(lastSets)}
+      />
 
       {/* Progressão */}
       {program.structure.progressionStrategy && (

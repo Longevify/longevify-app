@@ -24,8 +24,19 @@ import { RestTimer } from "@/components/fitness/rest-timer";
  * O state local trackeia sets logados na sessão atual — não bate no
  * server pra refresh; só faz POST pra incluir.
  */
+interface LastSetInfo {
+  weightKg: number | null;
+  reps: number;
+  rpe: number | null;
+  date: string;
+}
+
 interface TodayWorkoutLoggerProps {
   day: ProgramDay;
+  /** Lucas (2026-05-25): "acompanhar a evolução no detalhe" — peso/reps
+   * do último set logado em cada exercício, pra mostrar "Última vez X kg
+   * × Y reps" como referência ao registrar o set de hoje. */
+  lastSets?: Record<string, LastSetInfo>;
 }
 
 interface LoggedSet {
@@ -36,7 +47,10 @@ interface LoggedSet {
   ts: number;
 }
 
-export function TodayWorkoutLogger({ day }: TodayWorkoutLoggerProps) {
+export function TodayWorkoutLogger({
+  day,
+  lastSets = {},
+}: TodayWorkoutLoggerProps) {
   const [expanded, setExpanded] = useState<string | null>(
     day.exercises[0]?.exerciseId ?? null,
   );
@@ -117,6 +131,7 @@ export function TodayWorkoutLogger({ day }: TodayWorkoutLoggerProps) {
                   restSeconds={ex.restSeconds}
                   notes={ex.notes ?? null}
                   loggedSets={exerciseLogged}
+                  lastSet={lastSets[ex.exerciseId] ?? null}
                   onLogged={(set) => setLogged((cur) => [...cur, set])}
                 />
               )}
@@ -136,6 +151,7 @@ function ExerciseLogger({
   restSeconds,
   notes,
   loggedSets,
+  lastSet,
   onLogged,
 }: {
   exerciseId: string;
@@ -145,16 +161,28 @@ function ExerciseLogger({
   restSeconds: number;
   notes: string | null;
   loggedSets: LoggedSet[];
+  /** Último set já logado pelo user nesse exercício, em sessões passadas. */
+  lastSet: LastSetInfo | null;
   onLogged: (set: LoggedSet) => void;
 }) {
   // Parse "8-10" → "8" (sugestão de reps inicial)
   const repsHint = targetReps.match(/^(\d+)/)?.[1] ?? "";
 
+  // Lucas: pré-popula peso com o último kg usado (na mesma sessão > sessão
+  // anterior > vazio). Reduz fricção pra logar set.
   const [weight, setWeight] = useState(
-    loggedSets.length > 0 ? String(loggedSets[loggedSets.length - 1].weightKg ?? "") : "",
+    loggedSets.length > 0
+      ? String(loggedSets[loggedSets.length - 1].weightKg ?? "")
+      : lastSet?.weightKg != null
+        ? String(lastSet.weightKg)
+        : "",
   );
   const [reps, setReps] = useState(
-    loggedSets.length > 0 ? String(loggedSets[loggedSets.length - 1].reps) : repsHint,
+    loggedSets.length > 0
+      ? String(loggedSets[loggedSets.length - 1].reps)
+      : lastSet?.reps != null
+        ? String(lastSet.reps)
+        : repsHint,
   );
   const [rpe, setRpe] = useState<number | null>(targetRpe);
   const [pending, startTransition] = useTransition();
@@ -205,6 +233,34 @@ function ExerciseLogger({
         <p className="mb-3 rounded-lg bg-white px-3 py-2 text-[11.5px] italic text-zinc-600 ring-1 ring-zinc-100">
           💡 {notes}
         </p>
+      )}
+
+      {/* Lucas: "acompanhar a evolução no detalhe" — última performance
+          do user nesse exercício, exibida acima do input pra comparar */}
+      {lastSet && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+          <span className="text-[14px]">📊</span>
+          <div className="flex-1 min-w-0">
+            <div className="text-[9.5px] font-semibold uppercase tracking-wide text-amber-700">
+              Última vez
+            </div>
+            <div className="text-[12px] font-semibold text-amber-900 tabular-nums">
+              {lastSet.weightKg ? `${lastSet.weightKg}kg` : "BW"} × {lastSet.reps}{" "}
+              reps
+              {lastSet.rpe && (
+                <span className="ml-1 text-[10px] font-normal text-amber-700">
+                  @ RPE {lastSet.rpe}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="text-right text-[9.5px] text-amber-700/80 tabular-nums">
+            {new Date(lastSet.date + "T12:00:00").toLocaleDateString("pt-BR", {
+              day: "2-digit",
+              month: "short",
+            })}
+          </div>
+        </div>
       )}
 
       {/* Sets já logados nesta sessão */}
