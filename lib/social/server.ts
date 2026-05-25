@@ -8,11 +8,12 @@ import type {
   PointEventKind,
   RankingEntry,
   RankingScope,
+  RankingKind,
   SocialPost,
   SocialPrivacy,
   UserLocation,
 } from "./types";
-import { POINTS_PER_EVENT } from "./types";
+import { POINTS_PER_EVENT, RANKING_KIND_COLUMN } from "./types";
 
 /**
  * Server helpers da feature social.
@@ -578,11 +579,13 @@ function mapPost(r: Record<string, unknown>): SocialPost {
 export async function getRanking(
   scope: RankingScope,
   limit = 50,
+  kind: RankingKind = "overall",
 ): Promise<RankingEntry[]> {
   if (!isSupabaseConfigured()) return [];
   const { userId, accessToken } = await getUserIdFromCookie();
   if (!userId || !accessToken) return [];
   const supabase = await createSupabaseWithJwt(accessToken);
+  const sortColumn = RANKING_KIND_COLUMN[kind] ?? "total_points";
 
   // Pega scope geográfico do user atual pra filtrar city/state
   let myCity: string | null = null;
@@ -618,7 +621,7 @@ export async function getRanking(
        user_location!user_location_patient_id_fkey(city, state),
        user_social_privacy!user_social_privacy_patient_id_fkey(show_in_friend_ranking, show_in_city_ranking, show_in_state_ranking, show_in_country_ranking)`,
     )
-    .order("total_points", { ascending: false })
+    .order(sortColumn, { ascending: false })
     .limit(limit);
 
   if (scope === "friends") {
@@ -665,6 +668,10 @@ export async function getRanking(
       city: loc.city ?? null,
       state: loc.state ?? null,
       isCurrentUser: (r.patient_id as string) === userId,
+      nichePoints:
+        kind === "overall"
+          ? undefined
+          : ((r as Record<string, unknown>)[sortColumn] as number) ?? 0,
     };
   });
 }
