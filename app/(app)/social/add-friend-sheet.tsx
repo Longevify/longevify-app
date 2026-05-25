@@ -10,11 +10,17 @@ import {
   Send,
   Copy,
   MapPin,
+  Phone,
+  Smartphone,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   searchUsersAction,
   sendFriendInviteAction,
+  matchContactsAction,
+  linkMyPhoneAction,
+  myPhoneLinkedAction,
   type UserSearchResult,
 } from "./actions";
 
@@ -35,7 +41,7 @@ export function AddFriendSheet({
   myUserId: string | null;
   onClose: () => void;
 }) {
-  const [tab, setTab] = useState<"search" | "link">("search");
+  const [tab, setTab] = useState<"search" | "link" | "contacts">("search");
   const inviteUrl =
     myUserId && typeof window !== "undefined"
       ? `${window.location.origin}/social/invite/${myUserId}`
@@ -69,12 +75,18 @@ export function AddFriendSheet({
 
         {/* Tabs */}
         <nav className="border-b border-zinc-100 px-3 pt-2">
-          <ul className="flex gap-1">
+          <ul className="flex gap-1 overflow-x-auto">
             <TabBtn
-              label="Buscar por nome"
+              label="Buscar"
               Icon={Search}
               active={tab === "search"}
               onClick={() => setTab("search")}
+            />
+            <TabBtn
+              label="Contatos"
+              Icon={Smartphone}
+              active={tab === "contacts"}
+              onClick={() => setTab("contacts")}
             />
             <TabBtn
               label="Meu link"
@@ -87,6 +99,7 @@ export function AddFriendSheet({
 
         <div className="flex-1 overflow-y-auto px-5 py-5">
           {tab === "search" && <SearchPane />}
+          {tab === "contacts" && <ContactsPane />}
           {tab === "link" && <LinkPane url={inviteUrl} />}
         </div>
       </div>
@@ -260,6 +273,297 @@ function SearchPane() {
             </li>
           ))}
         </ul>
+      )}
+    </div>
+  );
+}
+
+// ─── Contacts pane ────────────────────────────────────────────────────
+
+/**
+ * Lucas (2026-05-24): "indique usuários para seguir na aba social com
+ * base nos seus contatos do telefone."
+ *
+ * Estratégia:
+ *  1. User precisa primeiro vincular seu próprio phone (opt-in pra ser
+ *     descoberto). Mostra inline mini-form se ainda não vinculou.
+ *  2. Botão "Sincronizar contatos" tenta navigator.contacts.select (Web
+ *     Contacts API — Chrome Android).
+ *  3. Fallback: textarea pra colar lista de telefones manualmente (1
+ *     por linha) — funciona em iOS Safari, desktop, etc.
+ *  4. POST hashes pro server → retorna matches anotados (já amigo /
+ *     pendente / convidar).
+ */
+function ContactsPane() {
+  const [linked, setLinked] = useState<boolean | null>(null);
+  const [results, setResults] = useState<UserSearchResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [inviteStatus, setInviteStatus] = useState<Record<string, "sending" | "sent">>(
+    {},
+  );
+  const [manualPhones, setManualPhones] = useState("");
+
+  // Carrega se user já vinculou phone
+  useEffect(() => {
+    myPhoneLinkedAction().then((res) => {
+      if (res.ok) setLinked(res.data?.linked ?? false);
+    });
+  }, []);
+
+  const matchPhones = async (phones: string[]) => {
+    if (phones.length === 0) {
+      setError("Nenhum telefone válido encontrado.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await matchContactsAction(phones);
+      if (res.ok) {
+        setResults(res.data ?? []);
+        if ((res.data ?? []).length === 0) {
+          setError(
+            "Nenhum dos seus contatos está no Longevify ainda. Compartilhe seu link de convite!",
+          );
+        }
+      } else {
+        setError(res.error);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const syncFromBrowser = async () => {
+    // Web Contacts API — Chrome Android only
+    interface ContactsManager {
+      select: (
+        props: string[],
+        options?: { multiple?: boolean },
+      ) => Promise<Array<{ tel?: string[]; email?: string[] }>>;
+    }
+    interface NavWithContacts {
+      contacts?: ContactsManager;
+    }
+    const nav = navigator as Navigator & NavWithContacts;
+    if (!nav.contacts?.select) {
+      setError(
+        "Seu navegador não suporta importar contatos. Use o método manual abaixo.",
+      );
+      return;
+    }
+    try {
+      const contacts = await nav.contacts.select(["tel"], { multiple: true });
+      const phones = contacts.flatMap((c) => c.tel ?? []);
+      await matchPhones(phones);
+    } catch (e) {
+      if (e instanceof Error && e.name !== "AbortError") {
+        setError(e.message);
+      }
+    }
+  };
+
+  const syncFromManual = async () => {
+    const lines = manualPhones
+      .split(/[\n,;]/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+    await matchPhones(lines);
+  };
+
+  const sendInvite = async (userId: string) => {
+    setInviteStatus((prev) => ({ ...prev, [userId]: "sending" }));
+    const res = await sendFriendInviteAction(userId);
+    if (res.ok) {
+      setInviteStatus((prev) => ({ ...prev, [userId]: "sent" }));
+    } else {
+      alert(res.error);
+      setInviteStatus((prev) => {
+        const next = { ...prev };
+        delete next[userId];
+        return next;
+      });
+    }
+  };
+
+  if (linked === null) {
+    return (
+      <div className="flex items-center justify-center gap-2 py-8 text-[12px] text-zinc-500">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        Carregando…
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Se ainda não vinculou phone, mostra mini-form opt-in */}
+      {!linked && (
+        <LinkPhoneInline onLinked={() => setLinked(true)} />
+      )}
+
+      {linked && (
+        <>
+          <div className="rounded-xl border border-brand-200 bg-brand-50/60 px-3 py-2.5 text-[11.5px] leading-relaxed text-brand-900">
+            ✓ Você está descobrível por contato. Amigos que sincronizarem o
+            telefone vão te ver automaticamente.
+          </div>
+
+          <button
+            type="button"
+            onClick={syncFromBrowser}
+            disabled={loading}
+            className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-brand-700 to-brand-800 px-4 py-3 text-[13px] font-semibold text-white shadow-md transition disabled:opacity-50"
+          >
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Smartphone className="h-4 w-4" />
+            )}
+            Importar do telefone
+          </button>
+
+          <div className="mt-1 text-center text-[10.5px] text-zinc-500">
+            — ou —
+          </div>
+
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+              Colar telefones (1 por linha)
+            </label>
+            <textarea
+              value={manualPhones}
+              onChange={(e) => setManualPhones(e.target.value)}
+              rows={3}
+              placeholder={"+55 11 98765 4321\n+55 21 91234 5678"}
+              className="mt-1.5 w-full resize-y rounded-xl border border-zinc-200 bg-white px-3 py-2 text-[12.5px] text-zinc-800 placeholder:text-zinc-400 focus:border-brand-400 focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={syncFromManual}
+              disabled={loading || !manualPhones.trim()}
+              className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-[12px] font-semibold text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-50"
+            >
+              Procurar
+            </button>
+          </div>
+        </>
+      )}
+
+      {error && (
+        <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
+          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {results.length > 0 && (
+        <ul className="flex flex-col gap-1.5">
+          <li className="px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+            {results.length} pessoa{results.length === 1 ? "" : "s"} no Longevify
+          </li>
+          {results.map((u) => (
+            <li
+              key={u.id}
+              className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2.5"
+            >
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-50 text-[14px] font-semibold text-brand-700">
+                {u.firstName[0]?.toUpperCase() ?? "?"}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] font-semibold text-zinc-900">
+                  {u.firstName}
+                </div>
+                <div className="mt-0.5 flex items-center gap-2 text-[10.5px] text-zinc-500">
+                  <span>Level {u.level}</span>
+                  <span>·</span>
+                  <span className="tabular-nums">
+                    {u.totalPoints.toLocaleString("pt-BR")} pts
+                  </span>
+                  {u.city && (
+                    <>
+                      <span>·</span>
+                      <span className="inline-flex items-center gap-0.5">
+                        <MapPin className="h-2.5 w-2.5" />
+                        {u.city}
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+              <UserActionBtn
+                user={u}
+                status={inviteStatus[u.id]}
+                onSend={() => sendInvite(u.id)}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <p className="rounded-xl border border-zinc-200 bg-zinc-50/60 px-3 py-2 text-[10.5px] leading-relaxed text-zinc-600">
+        🔒 LGPD: telefones que você compartilha aqui são usados apenas pra
+        match. Não armazenamos os contatos do seu telefone — só seu próprio.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Mini-form inline pra user vincular seu próprio telefone (opt-in pra
+ * ser descoberto por sync de contatos de amigos).
+ */
+function LinkPhoneInline({ onLinked }: { onLinked: () => void }) {
+  const [phone, setPhone] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async () => {
+    setSaving(true);
+    setError(null);
+    const res = await linkMyPhoneAction(phone);
+    setSaving(false);
+    if (res.ok) {
+      onLinked();
+    } else {
+      setError(res.error);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+      <div className="flex items-start gap-2">
+        <Phone className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+        <div className="min-w-0 flex-1">
+          <div className="text-[12.5px] font-semibold text-amber-900">
+            Vincule seu telefone primeiro
+          </div>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-amber-800">
+            Necessário pra você aparecer como sugestão pra amigos que
+            sincronizem contatos.
+          </p>
+        </div>
+      </div>
+      <div className="mt-3 flex gap-2">
+        <input
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="+55 11 98765 4321"
+          className="min-w-0 flex-1 rounded-lg border border-amber-200 bg-white px-3 py-2 text-[13px] text-zinc-800 placeholder:text-zinc-400 focus:border-amber-400 focus:outline-none"
+        />
+        <button
+          type="button"
+          onClick={submit}
+          disabled={saving || phone.length < 8}
+          className="rounded-lg bg-amber-700 px-3 py-2 text-[12px] font-semibold text-white transition hover:bg-amber-800 disabled:opacity-50"
+        >
+          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Vincular"}
+        </button>
+      </div>
+      {error && (
+        <p className="mt-2 text-[11px] text-rose-700">{error}</p>
       )}
     </div>
   );

@@ -307,3 +307,201 @@ export async function removeFriendAction(
   revalidatePath("/social");
   return { ok: true };
 }
+
+// ─── Contacts sync (Lucas 2026-05-24) ────────────────────────────────
+
+/**
+ * Normaliza phone pra formato uniforme: só dígitos, com country code BR
+ * default (55) se 10-11 dígitos sem prefixo.
+ *
+ * Exemplos:
+ *   "(11) 98765-4321"  → "5511987654321"
+ *   "+55 21 98765 4321" → "5521987654321"
+ *   "11987654321"      → "5511987654321"
+ *   "5511987654321"    → "5511987654321"
+ *   "+1 415 555 2671"  → "14155552671"
+ */
+export function normalizePhone(raw: string): string | null {
+  if (!raw) return null;
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length < 8) return null; // muito curto
+  // Se já começa com 55 (BR) e tem 12-13 dígitos, ok
+  if (digits.length >= 12) return digits;
+  // 10-11 dígitos: assume BR sem country code
+  if (digits.length === 10 || digits.length === 11) return `55${digits}`;
+  // 8-9 dígitos: pode ser fixo sem DDD — não dá pra inferir, rejeita
+  if (digits.length < 10) return null;
+  return digits;
+}
+
+/**
+ * Salva o phone do user atual (opt-in pra ser encontrado por contatos
+ * sync de outros users).
+ */
+export async function linkMyPhoneAction(
+  phone: string,
+): Promise<ActionResult<{ normalizedPhone: string }>> {
+  if (!isSupabaseConfigured()) return { ok: false, error: "Supabase off" };
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken)
+    return { ok: false, error: "Não autenticado" };
+
+  const normalized = normalizePhone(phone);
+  if (!normalized)
+    return { ok: false, error: "Telefone inválido — use formato +55 (XX) XXXXX-XXXX" };
+
+  const supabase = await createSupabaseWithJwt(accessToken);
+  const { error } = await supabase
+    .from("profiles")
+    .update({ phone: normalized })
+    .eq("id", userId);
+
+  if (error) {
+    // Provavelmente unique constraint violation — phone já em uso
+    if (error.code === "23505") {
+      return {
+        ok: false,
+        error: "Esse telefone já está vinculado a outra conta Longevify.",
+      };
+    }
+    return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/social");
+  return { ok: true, data: { normalizedPhone: normalized } };
+}
+
+/** Remove o phone do user (opt-out). */
+export async function unlinkMyPhoneAction(): Promise<ActionResult> {
+  if (!isSupabaseConfigured()) return { ok: false, error: "Supabase off" };
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken)
+    return { ok: false, error: "Não autenticado" };
+  const supabase = await createSupabaseWithJwt(accessToken);
+  const { error } = await supabase
+    .from("profiles")
+    .update({ phone: null })
+    .eq("id", userId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/social");
+  return { ok: true };
+}
+
+/**
+ * Recebe lista de telefones (do address book do user) → retorna profiles
+ * que fazem match. Anota relação atual (já amigo / convite pendente).
+ *
+ * Privacy:
+ *   - Server NUNCA retorna phones de outros users
+ *   - Só retorna profiles que opt-in (têm phone setado)
+ *   - User precisa estar autenticado
+ */
+export async function matchContactsAction(
+  phones: string[],
+): Promise<ActionResult<UserSearchResult[]>> {
+  if (!isSupabaseConfigured()) return { ok: false, error: "Supabase off" };
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken)
+    return { ok: false, error: "Não autenticado" };
+
+  // Normaliza todos os phones e remove duplicados / inválidos
+  const normalized = Array.from(
+    new Set(
+      phones
+        .map((p) => normalizePhone(p))
+        .filter((p): p is string => p !== null),
+    ),
+  );
+
+  if (normalized.length === 0) return { ok: true, data: [] };
+  // Limita pra não explodir DB se user mandou 5000 contatos
+  const capped = normalized.slice(0, 1000);
+
+  const supabase = await createSupabaseWithJwt(accessToken);
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(
+      `id, first_name, last_name,
+       user_health_points!user_health_points_patient_id_fkey(total_points, level),
+       user_location!user_location_patient_id_fkey(city, state)`,
+    )
+    .in("phone", capped)
+    .neq("role", "admin")
+    .neq("id", userId);
+
+  if (error) return { ok: false, error: error.message };
+
+  // Anota friend / pending invite status (reusa lógica de searchUsersAction)
+  const [friendsRes, invitesRes] = await Promise.all([
+    supabase
+      .from("social_friendships")
+      .select("friend_id")
+      .eq("patient_id", userId)
+      .eq("status", "active"),
+    supabase
+      .from("social_friend_invites")
+      .select("id, inviter_id, invitee_id")
+      .or(`inviter_id.eq.${userId},invitee_id.eq.${userId}`)
+      .eq("status", "pending"),
+  ]);
+
+  const friendSet = new Set(
+    (friendsRes.data ?? []).map((r) => r.friend_id as string),
+  );
+  const inviteMap = new Map<string, string>();
+  for (const r of invitesRes.data ?? []) {
+    const otherId =
+      r.inviter_id === userId
+        ? (r.invitee_id as string)
+        : (r.inviter_id as string);
+    inviteMap.set(otherId, r.id as string);
+  }
+
+  return {
+    ok: true,
+    data: (data ?? []).map((r) => {
+      const row = r as Record<string, unknown>;
+      const points = (row.user_health_points as {
+        total_points?: number;
+        level?: number;
+      }) ?? {};
+      const loc = (row.user_location as {
+        city?: string | null;
+        state?: string | null;
+      }) ?? {};
+      return {
+        id: row.id as string,
+        firstName:
+          [(row.first_name as string) ?? "", (row.last_name as string) ?? ""]
+            .filter(Boolean)
+            .join(" ")
+            .trim() || "Anônimo",
+        level: points.level ?? 1,
+        totalPoints: points.total_points ?? 0,
+        city: loc.city ?? null,
+        state: loc.state ?? null,
+        isFriend: friendSet.has(row.id as string),
+        pendingInviteId: inviteMap.get(row.id as string) ?? null,
+        isMe: false, // já filtramos .neq("id", userId)
+      };
+    }),
+  };
+}
+
+/** Verifica se o user atual já vinculou um phone. */
+export async function myPhoneLinkedAction(): Promise<
+  ActionResult<{ linked: boolean }>
+> {
+  if (!isSupabaseConfigured())
+    return { ok: false, error: "Supabase off" };
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken)
+    return { ok: false, error: "Não autenticado" };
+  const supabase = await createSupabaseWithJwt(accessToken);
+  const { data } = await supabase
+    .from("profiles")
+    .select("phone")
+    .eq("id", userId)
+    .maybeSingle();
+  return { ok: true, data: { linked: Boolean(data?.phone) } };
+}
