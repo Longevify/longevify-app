@@ -111,10 +111,13 @@ export function DailyProgressGrid({
 
   return (
     <>
-      {/* Lucas (2026-05-25): "diminua a altura desses cards" → tirei
-          items-stretch pra cards não esticarem pra altura do mais alto.
-          Cada um agora tem altura natural do próprio conteúdo. */}
-      <div className={cn("grid grid-cols-2 gap-3 items-start", className)}>
+      {/* Lucas (2026-05-25 v3): "ainda está com alturas diferentes" →
+          voltei items-stretch pra forçar ambos cards à mesma altura
+          (do mais alto). Os `flex-1` internos continuam removidos,
+          então o conteúdo NÃO estica forçadamente — só o frame do
+          card iguala. Card com menos conteúdo fica com pequeno
+          empty space embaixo (aceitável e simétrico). */}
+      <div className={cn("grid grid-cols-2 gap-3 items-stretch", className)}>
         {hasWearableData ? (
           <SleepCard
             sleepMinutes={sleepMinutes}
