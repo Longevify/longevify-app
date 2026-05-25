@@ -226,9 +226,25 @@ export function SocialClient({
           friendStreaks={friendStreaks}
         />
       )}
-      {tab === "me" && points && (
+      {tab === "me" && (
         <ProfileView
-          points={points}
+          // Lucas (2026-05-25): "ainda não estou vendo" → quando points
+          // é null (auth flacky, demo user, ou row ainda não criada),
+          // renderiza com defaults zerados em vez de não renderizar
+          // nada. UX > correctness aqui.
+          points={
+            points ?? {
+              patientId: myUserId ?? "anon",
+              totalPoints: 0,
+              level: 1,
+              fitnessPoints: 0,
+              nutritionPoints: 0,
+              consistencyPoints: 0,
+              biomarkerPoints: 0,
+              socialPoints: 0,
+              updatedAt: new Date().toISOString(),
+            }
+          }
           myPosts={myPosts}
           myAchievements={myAchievements}
           xpToday={xpToday}
