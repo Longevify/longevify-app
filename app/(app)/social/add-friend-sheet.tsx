@@ -305,7 +305,11 @@ function SearchPane() {
         </div>
       )}
 
-      {error && (
+      {/* Sessão expirada — substitui o error vermelho por banner com
+          botão de reload (Lucas 2026-05-25) */}
+      {error === "Não autenticado" && <SessionExpiredBanner />}
+
+      {error && error !== "Não autenticado" && (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[12px] text-rose-700">
           {error}
         </div>
@@ -384,7 +388,14 @@ function SearchPane() {
  *     pendente / convidar).
  */
 function ContactsPane() {
+  // Lucas (2026-05-25): "isso fica carregando infinitamente". Bug era
+  // que se myPhoneLinkedAction retornasse erro (ex: cookie auth
+  // expirado → "Não autenticado"), o `if (res.ok)` falhava e setLinked
+  // nunca era chamado, deixando `linked` em null pra sempre = loop
+  // infinito de "Carregando...".
+  // Fix: trata o erro setando authError + UI mostra botão de reload.
   const [linked, setLinked] = useState<boolean | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [results, setResults] = useState<UserSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -393,10 +404,16 @@ function ContactsPane() {
   );
   const [manualPhones, setManualPhones] = useState("");
 
-  // Carrega se user já vinculou phone
+  // Carrega se user já vinculou phone — trata erro pra não ficar loop
   useEffect(() => {
     myPhoneLinkedAction().then((res) => {
-      if (res.ok) setLinked(res.data?.linked ?? false);
+      if (res.ok) {
+        setLinked(res.data?.linked ?? false);
+      } else {
+        // Falha de auth ou outro erro — para o loading
+        setAuthError(res.error);
+        setLinked(false);
+      }
     });
   }, []);
 
@@ -487,12 +504,23 @@ function ContactsPane() {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Erro de auth (sessão expirada) — mostra explicação + reload */}
+      {authError === "Não autenticado" && (
+        <SessionExpiredBanner />
+      )}
+      {authError && authError !== "Não autenticado" && (
+        <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
+          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>{authError}</span>
+        </div>
+      )}
+
       {/* Se ainda não vinculou phone, mostra mini-form opt-in */}
-      {!linked && (
+      {!linked && !authError && (
         <LinkPhoneInline onLinked={() => setLinked(true)} />
       )}
 
-      {linked && (
+      {linked && !authError && (
         <>
           <div className="rounded-xl border border-brand-200 bg-brand-50/60 px-3 py-2.5 text-[11.5px] leading-relaxed text-brand-900">
             ✓ Você está descobrível por contato. Amigos que sincronizarem o
@@ -604,6 +632,41 @@ function ContactsPane() {
  * Mini-form inline pra user vincular seu próprio telefone (opt-in pra
  * ser descoberto por sync de contatos de amigos).
  */
+/**
+ * Lucas (2026-05-25): server actions retornam "Não autenticado" quando
+ * o cookie JWT expirou enquanto a aba ficou aberta (Supabase access
+ * token dura 1h por default). Frontend não tinha como recuperar — UX
+ * ficava broken silenciosamente.
+ *
+ * Banner explica + oferece reload (que dispara o middleware do Next
+ * que refresha o cookie automaticamente).
+ */
+function SessionExpiredBanner() {
+  return (
+    <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
+      <div className="flex items-start gap-2">
+        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] font-semibold text-amber-900">
+            Sessão expirou
+          </div>
+          <p className="mt-0.5 text-[11.5px] leading-relaxed text-amber-800">
+            Sua sessão expirou enquanto a aba ficou aberta. Recarregue a
+            página pra continuar.
+          </p>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={() => window.location.reload()}
+        className="mt-3 w-full rounded-lg bg-amber-700 px-3 py-2 text-[12.5px] font-semibold text-white transition hover:bg-amber-800"
+      >
+        Recarregar página
+      </button>
+    </div>
+  );
+}
+
 function LinkPhoneInline({ onLinked }: { onLinked: () => void }) {
   const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
