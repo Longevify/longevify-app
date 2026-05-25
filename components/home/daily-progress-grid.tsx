@@ -354,27 +354,26 @@ function SleepCard({
         </div>
       </div>
 
-      {/* Timeline Apple-style — bar alongada + legenda maior */}
+      {/* Timeline Apple-style — bar alongada + legenda compacta */}
       {hasStages && sleepStages?.segments && sleepStages.segments.length > 0 ? (
         <div className="flex flex-col">
-          {/* Lucas (2026-05-25): "estenda esses blocos coloridos do
-              card de sono mais para a direita, preenchendo mais o
-              card" → SleepTimeline já é w-full mas tirei flex-1 do
-              wrapper pra ela não ficar achatada quando o card era alto.
-              Reduzo a altura também (130 → 90) pra ficar bem proporcional. */}
+          {/* Lucas (2026-05-25 v2): "deixe o card de sono com a mesma
+              altura do que o card de exercício" → encurto a timeline
+              (90 → 60) E coloco a legenda em 4 colunas (era 2x2) pra
+              total bater com a altura do RichExerciseCard. */}
           <SleepTimeline
             segments={sleepStages.segments}
-            height={90}
+            height={60}
             compact
             className="w-full"
           />
-          <ul className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11.5px]">
+          <ul className="mt-2 grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10.5px] sm:grid-cols-4">
             {order.map((key) => {
               const min = sleepStages![key];
               return (
                 <li
                   key={key}
-                  className="flex items-center gap-1.5 truncate text-zinc-700 tabular-nums"
+                  className="flex items-center gap-1 truncate text-zinc-700 tabular-nums"
                 >
                   <span
                     className={cn(
