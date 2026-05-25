@@ -145,9 +145,18 @@ export function SocialClient({
     <div className="mx-auto w-full max-w-[920px] px-4 py-6 sm:px-6 sm:py-10">
       <header className="pb-2">
         <span className="text-[13px] text-muted">Comunidade Longevify</span>
-        <h1 className="text-[28px] leading-[1.1] font-semibold tracking-tight sm:text-[34px]">
-          Social
-        </h1>
+        <div className="flex items-baseline justify-between gap-3">
+          <h1 className="text-[28px] leading-[1.1] font-semibold tracking-tight sm:text-[34px]">
+            Social
+          </h1>
+          <Link
+            href="/social/chats"
+            className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1.5 text-[12px] font-semibold text-zinc-700 transition hover:bg-zinc-200"
+          >
+            <MessageCircle className="h-3.5 w-3.5" />
+            Conversas
+          </Link>
+        </div>
       </header>
 
       {/* User hero — points + level */}
