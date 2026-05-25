@@ -37,7 +37,11 @@ import {
   levelTitle,
   pointsForLevel,
 } from "@/lib/social/types";
-import type { FriendSummary, FriendInvite } from "@/lib/social/server";
+import type {
+  FriendSummary,
+  FriendInvite,
+  StoryItem,
+} from "@/lib/social/server";
 import type { UserAchievement } from "@/lib/fitness/types";
 import { PrivacyConsentModal } from "./privacy-consent-modal";
 import { AddFriendSheet } from "./add-friend-sheet";
@@ -50,6 +54,7 @@ import { XpDailyGoal } from "@/components/social/xp-daily-goal";
 import { ActivityHeatmap } from "@/components/social/activity-heatmap";
 import { FriendStreakBadge } from "@/components/social/friend-streak-badge";
 import { PostComposerModal } from "@/components/social/post-composer-modal";
+import { StoriesBar } from "@/components/social/stories-bar";
 
 /**
  * Cliente da aba Social — 4 tabs:
@@ -82,6 +87,9 @@ interface SocialClientProps {
   completedToday: boolean;
   /** Lucas (2026-05-24): foguinho compartilhado por amigo */
   friendStreaks: Record<string, { currentDays: number; atRisk: boolean }>;
+  /** Lucas (2026-05-24): stories Insta-style no topo do feed */
+  activeStories: StoryItem[];
+  myFirstName: string;
 }
 
 type Tab = "feed" | "ranking" | "friends" | "me";
@@ -104,6 +112,8 @@ export function SocialClient({
   streakDays,
   completedToday,
   friendStreaks,
+  activeStories,
+  myFirstName,
 }: SocialClientProps) {
   const [tab, setTab] = useState<Tab>("feed");
   const [rankingScope, setRankingScope] = useState<RankingScope>("friends");
@@ -189,7 +199,13 @@ export function SocialClient({
       </nav>
 
       {/* Content por tab */}
-      {tab === "feed" && <FeedView feed={feed} />}
+      {tab === "feed" && (
+        <FeedView
+          feed={feed}
+          activeStories={activeStories}
+          myFirstName={myFirstName}
+        />
+      )}
       {tab === "ranking" && (
         <RankingView
           scope={rankingScope}
@@ -317,33 +333,35 @@ function PointsHero({ points }: { points: HealthPoints }) {
   );
 }
 
-function FeedView({ feed }: { feed: SocialPost[] }) {
-  // Lucas (2026-05-24): "não achei um botão fácil de publicação de
-  // stories e de fotos na parte social. Quero que tenha isso" →
-  // composer CTA proeminente no topo do feed.
-  const [composerOpen, setComposerOpen] = useState(false);
+function FeedView({
+  feed,
+  activeStories,
+  myFirstName,
+}: {
+  feed: SocialPost[];
+  activeStories: StoryItem[];
+  myFirstName: string;
+}) {
+  // Lucas (2026-05-24): layout exatamente como Insta — stories bar no
+  // topo (com + sobreposto pra criar), feed central, botão + flutuante
+  // pra postar foto no feed.
+  const [composerMode, setComposerMode] = useState<"post" | "story" | null>(
+    null,
+  );
+
+  const hasMyStory = activeStories.some((s) => s.isMine);
 
   return (
     <>
-      {/* CTA composer — sempre visível no topo do feed */}
-      <button
-        type="button"
-        onClick={() => setComposerOpen(true)}
-        className="mb-4 flex w-full items-center gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3.5 text-left transition hover:border-brand-300 hover:bg-brand-50/30 hover:shadow-sm active:scale-[0.99]"
-      >
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-700 to-brand-800 text-white shadow-sm">
-          <PencilLine className="h-5 w-5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="text-[14px] font-semibold text-zinc-900">
-            Publicar uma foto ou story
-          </div>
-          <p className="mt-0.5 text-[11.5px] text-zinc-500">
-            Mostre seu treino, sua corrida ou só uma reflexão pros amigos
-          </p>
-        </div>
-      </button>
+      {/* Stories bar — topo do feed */}
+      <StoriesBar
+        stories={activeStories}
+        myFirstName={myFirstName}
+        hasMyStory={hasMyStory}
+        onCreateStory={() => setComposerMode("story")}
+      />
 
+      {/* Feed cards */}
       {feed.length === 0 ? (
         <EmptyState
           icon={<Heart className="h-8 w-8 text-zinc-300" />}
@@ -351,7 +369,7 @@ function FeedView({ feed }: { feed: SocialPost[] }) {
           body="Adicione amigos e veja as conquistas deles aparecerem aqui."
         />
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="flex flex-col gap-3 pb-24">
           {feed.map((post) => (
             <li key={post.id}>
               <FeedPostCard post={post} />
@@ -360,14 +378,28 @@ function FeedView({ feed }: { feed: SocialPost[] }) {
         </ul>
       )}
 
-      <PostComposerModal
-        open={composerOpen}
-        onClose={() => setComposerOpen(false)}
-        onPosted={() => {
-          // Recarrega a página pra ver o post novo no feed
-          window.location.reload();
-        }}
-      />
+      {/* FAB pra postar foto no feed — Lucas: "+ abaixo é para postar
+          foto no feed". Fica fixo bottom-right, ícone + grande sem
+          texto. */}
+      <button
+        type="button"
+        onClick={() => setComposerMode("post")}
+        aria-label="Publicar foto no feed"
+        className="fixed bottom-6 right-6 z-30 grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-brand-700 to-brand-800 text-white shadow-[0_8px_24px_-4px_rgba(31,93,63,0.5)] transition active:scale-95 hover:shadow-[0_12px_28px_-4px_rgba(31,93,63,0.6)]"
+      >
+        <PencilLine className="h-6 w-6" strokeWidth={2.5} />
+      </button>
+
+      {composerMode && (
+        <PostComposerModal
+          open
+          mode={composerMode}
+          onClose={() => setComposerMode(null)}
+          onPosted={() => {
+            window.location.reload();
+          }}
+        />
+      )}
     </>
   );
 }
@@ -383,6 +415,7 @@ function FeedPostCard({ post }: { post: SocialPost }) {
     level_up: { Icon: Crown, accent: "bg-purple-50 text-purple-700", label: "Level up" },
     biomarker: { Icon: Zap, accent: "bg-emerald-50 text-emerald-700", label: "Biomarker" },
     milestone: { Icon: Sparkles, accent: "bg-sky-50 text-sky-700", label: "Marco" },
+    story: { Icon: Sparkles, accent: "bg-fuchsia-50 text-fuchsia-700", label: "Story" },
   };
   const meta = KIND_META[post.kind] ?? KIND_META.workout;
   const { Icon } = meta;
@@ -1065,6 +1098,7 @@ function MyPostMini({ post }: { post: SocialPost }) {
     level_up: { Icon: Crown, accent: "bg-purple-50 text-purple-700", label: "Level up" },
     biomarker: { Icon: Zap, accent: "bg-emerald-50 text-emerald-700", label: "Biomarker" },
     milestone: { Icon: Sparkles, accent: "bg-sky-50 text-sky-700", label: "Marco" },
+    story: { Icon: Sparkles, accent: "bg-fuchsia-50 text-fuchsia-700", label: "Story" },
   };
   const meta = KIND_META[post.kind] ?? KIND_META.workout;
   const { Icon } = meta;

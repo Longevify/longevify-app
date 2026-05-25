@@ -89,7 +89,8 @@ export type SocialPostKind =
   | "achievement"
   | "level_up"
   | "biomarker"
-  | "milestone";
+  | "milestone"
+  | "story";
 
 export interface SocialPost {
   id: string;
@@ -108,6 +109,8 @@ export interface SocialPost {
     imageUrl?: string;
     routePreview?: Array<[number, number]>; // simplified GPS
     level?: number;
+    /** Pra kind="story": ISO timestamp quando expira (default +24h). */
+    expiresAt?: string;
     [key: string]: unknown;
   };
   visibility: "friends" | "public";

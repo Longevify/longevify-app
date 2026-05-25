@@ -516,16 +516,84 @@ export async function getSocialFeed(limit = 20): Promise<SocialPost[]> {
   if (!userId || !accessToken) return [];
   const supabase = await createSupabaseWithJwt(accessToken);
 
-  // RLS já filtra "amigos OR público OR próprio"
+  // RLS já filtra "amigos OR público OR próprio". Filtra stories no
+  // client porque stories vão na bandeja do topo, não no feed central.
   const { data } = await supabase
     .from("social_posts")
     .select(
       `*, profiles!social_posts_patient_id_fkey(first_name, avatar_url)`,
     )
+    .neq("kind", "story")
     .order("created_at", { ascending: false })
     .limit(limit);
 
   return (data ?? []).map((r) => mapPost(r as Record<string, unknown>));
+}
+
+/**
+ * Lucas (2026-05-24): "As posições e o jeito que o social vai funcionar
+ * vai ser exatamente igual ao insta, no topo aparecem os stories."
+ *
+ * Stories ativos = kind='story' E payload.expiresAt > now(). RLS já
+ * filtra visibilidade (amigos + público + próprio).
+ */
+export interface StoryItem {
+  id: string;
+  patientId: string;
+  firstName: string;
+  imageUrl: string;
+  caption: string | null;
+  createdAt: string;
+  expiresAt: string;
+  isMine: boolean;
+}
+
+export async function getActiveStories(): Promise<StoryItem[]> {
+  if (!isSupabaseConfigured()) return [];
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken) return [];
+  const supabase = await createSupabaseWithJwt(accessToken);
+
+  const nowIso = new Date().toISOString();
+  // Filtro do payload.expiresAt > now via expressão jsonb. Postgres parse
+  // ISO timestamp dentro do jsonb via cast text → timestamptz.
+  const { data } = await supabase
+    .from("social_posts")
+    .select(
+      `id, patient_id, payload, created_at,
+       profiles!social_posts_patient_id_fkey(first_name)`,
+    )
+    .eq("kind", "story")
+    .gt("payload->>expiresAt", nowIso)
+    .order("created_at", { ascending: false });
+
+  if (!data) return [];
+
+  return data
+    .map((r): StoryItem | null => {
+      const row = r as Record<string, unknown>;
+      const payload = (row.payload ?? {}) as Record<string, unknown>;
+      const imageUrl = payload.imageUrl as string | undefined;
+      if (!imageUrl) return null; // story sem foto não conta
+      const prof = (row.profiles as { first_name?: string }) ?? {};
+      return {
+        id: row.id as string,
+        patientId: row.patient_id as string,
+        firstName: prof.first_name ?? "Anônimo",
+        imageUrl,
+        caption: (payload.body as string | null) ?? null,
+        createdAt: row.created_at as string,
+        expiresAt: payload.expiresAt as string,
+        isMine: (row.patient_id as string) === userId,
+      };
+    })
+    .filter((s): s is StoryItem => s !== null);
+}
+
+/** Verifica se eu tenho um story ativo (pra render avatar do user na bar). */
+export async function getMyActiveStory(): Promise<StoryItem | null> {
+  const stories = await getActiveStories();
+  return stories.find((s) => s.isMine) ?? null;
 }
 
 /**
