@@ -111,7 +111,10 @@ export function DailyProgressGrid({
 
   return (
     <>
-      <div className={cn("grid grid-cols-2 gap-3 items-stretch", className)}>
+      {/* Lucas (2026-05-25): "diminua a altura desses cards" → tirei
+          items-stretch pra cards não esticarem pra altura do mais alto.
+          Cada um agora tem altura natural do próprio conteúdo. */}
+      <div className={cn("grid grid-cols-2 gap-3 items-start", className)}>
         {hasWearableData ? (
           <SleepCard
             sleepMinutes={sleepMinutes}
@@ -317,7 +320,7 @@ function SleepCard({
     <button
       type="button"
       onClick={onClick}
-      className="group flex h-full flex-col gap-1.5 rounded-2xl border border-zinc-200/80 bg-white p-3 text-left shadow-[0_4px_16px_-10px_rgba(13,40,24,.1)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_22px_-10px_rgba(13,40,24,.15)]"
+      className="group flex flex-col gap-1.5 rounded-2xl border border-zinc-200/80 bg-white p-3 text-left shadow-[0_4px_16px_-10px_rgba(13,40,24,.1)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_22px_-10px_rgba(13,40,24,.15)]"
     >
       {/* Lucas (2026-05-23 v2): "cards de sono e exercício muito altos —
           a barra colorida do sono quero que fique mais alongada e as
@@ -353,11 +356,17 @@ function SleepCard({
 
       {/* Timeline Apple-style — bar alongada + legenda maior */}
       {hasStages && sleepStages?.segments && sleepStages.segments.length > 0 ? (
-        <div className="flex-1 flex flex-col">
+        <div className="flex flex-col">
+          {/* Lucas (2026-05-25): "estenda esses blocos coloridos do
+              card de sono mais para a direita, preenchendo mais o
+              card" → SleepTimeline já é w-full mas tirei flex-1 do
+              wrapper pra ela não ficar achatada quando o card era alto.
+              Reduzo a altura também (130 → 90) pra ficar bem proporcional. */}
           <SleepTimeline
             segments={sleepStages.segments}
-            height={130}
+            height={90}
             compact
+            className="w-full"
           />
           <ul className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11.5px]">
             {order.map((key) => {
@@ -385,7 +394,7 @@ function SleepCard({
         </div>
       ) : hasStages ? (
         // Tem stages mas não segments — fallback pra stacked bar
-        <div className="flex-1 flex flex-col justify-center">
+        <div className="flex flex-col">
           <div className="flex h-3 overflow-hidden rounded-full bg-zinc-100">
             {order.map((key) => {
               const min = sleepStages![key];
@@ -485,7 +494,7 @@ function RichExerciseCard({
     <button
       type="button"
       onClick={onClick}
-      className="group flex h-full flex-col gap-2 rounded-2xl border border-zinc-200/80 bg-white p-3 text-left shadow-[0_4px_16px_-10px_rgba(13,40,24,.1)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_22px_-10px_rgba(13,40,24,.15)]"
+      className="group flex flex-col gap-2 rounded-2xl border border-zinc-200/80 bg-white p-3 text-left shadow-[0_4px_16px_-10px_rgba(13,40,24,.1)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_22px_-10px_rgba(13,40,24,.15)]"
     >
       {/* Lucas (2026-05-23 v2): "cards de sono e de exercício muito
           altos" → padding p-4 → p-3, gap menor, header h-7. */}
@@ -517,8 +526,9 @@ function RichExerciseCard({
         </div>
       </div>
 
-      {/* Stats em row horizontal — flex-1 estica até o final do card */}
-      <div className="flex-1 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      {/* Stats em row horizontal — sem flex-1 stretching pra card ficar
+          compacto (Lucas 2026-05-25: cards muito altos). */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <ExStat
           emoji="👟"
           value={
