@@ -36,7 +36,16 @@ export function StoriesBar({
 
   return (
     <>
-      <div className="mb-4 -mx-1 overflow-x-auto px-1 pb-1">
+      {/*
+        Lucas (2026-05-25): "o circulo do story ta levemente cortado".
+        Bug: `overflow-x-auto` no spec do CSS clipa overflow-y também
+        (mesmo quando overflow-y é "visible"). O ring zinc-200 do avatar
+        + o botão `+` que sai 4px abaixo (-bottom-1) precisam de espaço
+        ao redor — sem isso, ficam cortados nas bordas.
+        Fix: padding mais generoso (px-2 py-2) + margin negativa do mesmo
+        valor pra não criar offset visual.
+      */}
+      <div className="mb-4 -mx-2 overflow-x-auto px-2 py-2">
         <ul className="flex gap-3 sm:gap-4">
           {/* Slot do user: SEMPRE mostra avatar grande com + sobreposto */}
           <li>
