@@ -27,9 +27,7 @@ export function Footer() {
             Suporte
           </Link>
         </nav>
-        <span className="text-muted/80">
-          © 2026 Longevify · CNPJ XX.XXX.XXX/0001-XX
-        </span>
+        <span className="text-muted/80">© 2026 Longevify</span>
       </div>
     </footer>
   );
