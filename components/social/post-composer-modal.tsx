@@ -167,8 +167,14 @@ export function PostComposerModal({
         onClick={onClose}
       />
       <div className="relative z-10 flex h-full max-h-full w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-auto sm:max-h-[90dvh] sm:max-w-[520px] sm:rounded-3xl">
-        {/* Header compacto — só X + título + Publicar */}
-        <header className="flex items-center gap-2 border-b border-zinc-100 px-3 py-2.5">
+        {/* Header — só X + título. safe-area-inset-top respeita notch
+            do iPhone. Lucas (2026-05-25): "os botões/textos estão muito
+            altos, não dá para clicar" → tirei o Publicar daqui pro
+            footer fixo no bottom (sempre alcançável com o polegar). */}
+        <header
+          className="flex items-center gap-2 border-b border-zinc-100 px-3 py-2.5"
+          style={{ paddingTop: "max(0.625rem, env(safe-area-inset-top))" }}
+        >
           <button
             type="button"
             onClick={onClose}
@@ -183,21 +189,9 @@ export function PostComposerModal({
               {mode === "story" ? "Novo story" : "Nova publicação"}
             </h2>
           </div>
-          <button
-            type="button"
-            onClick={publish}
-            disabled={posting || !canPublish}
-            className="inline-flex h-9 items-center rounded-full bg-gradient-to-br from-brand-700 to-brand-800 px-4 text-[13px] font-semibold text-white shadow-sm transition disabled:opacity-50"
-          >
-            {posting ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              "Publicar"
-            )}
-          </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-4 py-4">
+        <div className="flex-1 overflow-y-auto px-4 py-4 pb-24">
           {/* Foto: pra story toma a tela; pra post é placeholder ou preview */}
           {photoDataUrl ? (
             <div className="relative overflow-hidden rounded-2xl border border-zinc-200">
@@ -304,6 +298,35 @@ export function PostComposerModal({
               <span>{error}</span>
             </div>
           )}
+        </div>
+
+        {/* Footer fixo no bottom com botão Publicar grande — Lucas
+            (2026-05-25): "ainda tem algumas seções que os botões estão
+            la no topo do celular e com isso eu não consigo clicar
+            (quando eu clico em adicionar story)". Bottom é sempre
+            alcançável com o polegar. safe-area-inset-bottom evita
+            ficar atrás do home indicator do iPhone. */}
+        <div
+          className="border-t border-zinc-100 bg-white px-4 pt-3"
+          style={{
+            paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))",
+          }}
+        >
+          <button
+            type="button"
+            onClick={publish}
+            disabled={posting || !canPublish}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-br from-brand-700 to-brand-800 px-5 py-3.5 text-[15px] font-semibold text-white shadow-md transition active:scale-[0.99] disabled:opacity-50"
+          >
+            {posting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Publicando…
+              </>
+            ) : (
+              "Publicar"
+            )}
+          </button>
         </div>
       </div>
     </div>
