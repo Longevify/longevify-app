@@ -16,6 +16,7 @@ import type {
   ProgramGoal,
   ProgramStructure,
   RunningSession,
+  WorkoutKind,
   WorkoutProgram,
   WorkoutSet,
   WorkoutSession,
@@ -811,4 +812,279 @@ export async function getTodaysWorkout(): Promise<{
     day,
     completedSinceStart,
   };
+}
+
+// ─── Calendário de treinos (Lucas 2026-05-25) ─────────────────────────
+//
+// Lucas: "quero que você crie uma aba visual com calendário para mostrar
+// os treinos, quando você clica no dia aparece a rotina de exercícios
+// desse dia." → 2 funções:
+//   getMonthlyWorkoutSessions: lista treinos do mês com volume agregado
+//   getSessionDetails: detalhes (exercícios + sets) de uma session
+//   getLastSetsForExercises: último set de cada exercício (referência)
+
+export interface MonthlyWorkoutSession {
+  sessionId: string;
+  date: string; // YYYY-MM-DD
+  kind: WorkoutKind;
+  totalVolume: number; // kg × reps somado
+  totalSets: number;
+  totalReps: number;
+  exerciseNames: string[]; // primeiros 4 exercícios pra preview
+  startedAt: string;
+  endedAt: string | null;
+  notes: string | null;
+}
+
+/**
+ * Lista todas as workout_sessions de um mês específico, com sets
+ * agregados pra mostrar volume/quantidade. Usado pelo calendário.
+ *
+ * @param year ano (ex: 2026)
+ * @param monthZero mês 0-indexed (0=jan, 11=dec) — match JS Date
+ */
+export async function getMonthlyWorkoutSessions(
+  year: number,
+  monthZero: number,
+): Promise<MonthlyWorkoutSession[]> {
+  if (!isSupabaseConfigured()) return [];
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken) return [];
+  const supabase = await createSupabaseWithJwt(accessToken);
+
+  // Primeiro e último dia do mês (YYYY-MM-DD)
+  const firstDay = new Date(Date.UTC(year, monthZero, 1));
+  const lastDay = new Date(Date.UTC(year, monthZero + 1, 0));
+  const firstStr = firstDay.toISOString().slice(0, 10);
+  const lastStr = lastDay.toISOString().slice(0, 10);
+
+  // Fetch sessions do mês
+  const { data: sessions, error: sessErr } = await supabase
+    .from("workout_sessions")
+    .select("id, kind, session_date, started_at, ended_at, notes")
+    .eq("patient_id", userId)
+    .gte("session_date", firstStr)
+    .lte("session_date", lastStr)
+    .order("started_at", { ascending: false });
+
+  if (sessErr || !sessions || sessions.length === 0) return [];
+
+  // Fetch sets dessas sessions (join lookup)
+  const sessionIds = sessions.map((s) => s.id as string);
+  const { data: sets } = await supabase
+    .from("workout_sets")
+    .select("session_id, weight_kg, reps, exercise_id")
+    .in("session_id", sessionIds);
+
+  // Lookup exercise names (catalog + seed fallback)
+  const exerciseIds = new Set<string>();
+  for (const s of sets ?? []) exerciseIds.add(s.exercise_id as string);
+  const { data: exercises } = await supabase
+    .from("exercise_catalog")
+    .select("id, name")
+    .in("id", Array.from(exerciseIds));
+  const nameMap = new Map<string, string>();
+  for (const e of exercises ?? []) nameMap.set(e.id as string, e.name as string);
+
+  // Agrega por session_id
+  const aggBy = new Map<
+    string,
+    {
+      totalVolume: number;
+      totalSets: number;
+      totalReps: number;
+      exerciseNames: Set<string>;
+    }
+  >();
+  for (const set of sets ?? []) {
+    const sid = set.session_id as string;
+    const cur = aggBy.get(sid) ?? {
+      totalVolume: 0,
+      totalSets: 0,
+      totalReps: 0,
+      exerciseNames: new Set<string>(),
+    };
+    const weight = (set.weight_kg as number | null) ?? 0;
+    const reps = set.reps as number;
+    cur.totalVolume += weight * reps;
+    cur.totalSets += 1;
+    cur.totalReps += reps;
+    const exId = set.exercise_id as string;
+    cur.exerciseNames.add(nameMap.get(exId) ?? exId);
+    aggBy.set(sid, cur);
+  }
+
+  return sessions.map((s) => {
+    const sid = s.id as string;
+    const agg = aggBy.get(sid);
+    return {
+      sessionId: sid,
+      date: s.session_date as string,
+      kind: s.kind as WorkoutKind,
+      totalVolume: Math.round(agg?.totalVolume ?? 0),
+      totalSets: agg?.totalSets ?? 0,
+      totalReps: agg?.totalReps ?? 0,
+      exerciseNames: Array.from(agg?.exerciseNames ?? []).slice(0, 4),
+      startedAt: s.started_at as string,
+      endedAt: (s.ended_at as string | null) ?? null,
+      notes: (s.notes as string | null) ?? null,
+    };
+  });
+}
+
+export interface SessionDetail {
+  sessionId: string;
+  date: string;
+  kind: WorkoutKind;
+  startedAt: string;
+  endedAt: string | null;
+  notes: string | null;
+  exercises: Array<{
+    exerciseId: string;
+    exerciseName: string;
+    muscleGroup: MuscleGroup | null;
+    sets: Array<{
+      id: string;
+      setOrder: number;
+      weightKg: number | null;
+      reps: number;
+      rpe: number | null;
+    }>;
+  }>;
+}
+
+/**
+ * Retorna detalhe completo de uma session (todos os exercícios + sets).
+ * Usado quando user clica num dia do calendário.
+ */
+export async function getSessionDetails(
+  sessionId: string,
+): Promise<SessionDetail | null> {
+  if (!isSupabaseConfigured()) return null;
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken) return null;
+  const supabase = await createSupabaseWithJwt(accessToken);
+
+  const { data: sess } = await supabase
+    .from("workout_sessions")
+    .select("id, kind, session_date, started_at, ended_at, notes, patient_id")
+    .eq("id", sessionId)
+    .maybeSingle();
+  if (!sess || sess.patient_id !== userId) return null;
+
+  const { data: sets } = await supabase
+    .from("workout_sets")
+    .select("id, set_order, weight_kg, reps, rpe, exercise_id")
+    .eq("session_id", sessionId)
+    .order("set_order", { ascending: true });
+
+  // Lookup exercise names + muscle groups
+  const exerciseIds = new Set<string>();
+  for (const s of sets ?? []) exerciseIds.add(s.exercise_id as string);
+  const { data: exCatalog } = await supabase
+    .from("exercise_catalog")
+    .select("id, name, muscle_group")
+    .in("id", Array.from(exerciseIds));
+  const exMap = new Map<
+    string,
+    { name: string; muscleGroup: MuscleGroup | null }
+  >();
+  for (const e of exCatalog ?? [])
+    exMap.set(e.id as string, {
+      name: e.name as string,
+      muscleGroup: (e.muscle_group as MuscleGroup) ?? null,
+    });
+
+  // Agrupa sets por exercise_id mantendo ordem
+  const byExercise = new Map<string, SessionDetail["exercises"][number]>();
+  for (const set of sets ?? []) {
+    const exId = set.exercise_id as string;
+    const meta = exMap.get(exId);
+    if (!byExercise.has(exId)) {
+      byExercise.set(exId, {
+        exerciseId: exId,
+        exerciseName: meta?.name ?? exId,
+        muscleGroup: meta?.muscleGroup ?? null,
+        sets: [],
+      });
+    }
+    byExercise.get(exId)!.sets.push({
+      id: set.id as string,
+      setOrder: set.set_order as number,
+      weightKg: (set.weight_kg as number | null) ?? null,
+      reps: set.reps as number,
+      rpe: (set.rpe as number | null) ?? null,
+    });
+  }
+
+  return {
+    sessionId: sess.id as string,
+    date: sess.session_date as string,
+    kind: sess.kind as WorkoutKind,
+    startedAt: sess.started_at as string,
+    endedAt: (sess.ended_at as string | null) ?? null,
+    notes: (sess.notes as string | null) ?? null,
+    exercises: Array.from(byExercise.values()),
+  };
+}
+
+/**
+ * Pra cada exercise_id, busca o último set logado (mais recente) com
+ * peso, reps, rpe e data. Permite mostrar "Última vez: 50kg × 8" no
+ * logger, ajudando o user a saber se deve aumentar carga.
+ */
+export async function getLastSetsForExercises(
+  exerciseIds: string[],
+): Promise<
+  Map<
+    string,
+    {
+      weightKg: number | null;
+      reps: number;
+      rpe: number | null;
+      date: string;
+    }
+  >
+> {
+  const map = new Map<
+    string,
+    {
+      weightKg: number | null;
+      reps: number;
+      rpe: number | null;
+      date: string;
+    }
+  >();
+  if (!exerciseIds.length || !isSupabaseConfigured()) return map;
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken) return map;
+  const supabase = await createSupabaseWithJwt(accessToken);
+
+  // Pra cada exercício, pega o mais recente. Postgres não tem DISTINCT ON
+  // facilmente via supabase-js — fetcho últimos 200 sets do user e filtro
+  // em memória (Lucas tem ~30 exercícios distintos no max).
+  const { data: sets } = await supabase
+    .from("workout_sets")
+    .select(
+      `id, weight_kg, reps, rpe, exercise_id, created_at,
+       workout_sessions!inner(session_date, patient_id)`,
+    )
+    .eq("workout_sessions.patient_id", userId)
+    .in("exercise_id", exerciseIds)
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  for (const s of sets ?? []) {
+    const exId = s.exercise_id as string;
+    if (map.has(exId)) continue; // já temos o mais recente (order desc)
+    const sessRel = (s as { workout_sessions?: { session_date?: string } })
+      .workout_sessions;
+    map.set(exId, {
+      weightKg: (s.weight_kg as number | null) ?? null,
+      reps: s.reps as number,
+      rpe: (s.rpe as number | null) ?? null,
+      date: (sessRel?.session_date as string) ?? "—",
+    });
+  }
+  return map;
 }

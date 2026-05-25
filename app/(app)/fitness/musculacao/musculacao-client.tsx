@@ -13,6 +13,8 @@ import {
   History,
   Sparkles,
   Share2,
+  Calendar as CalendarIcon,
+  Play,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -272,31 +274,71 @@ export function MusculacaoClient({
           Meu treino
         </h2>
         {todayWorkout ? (
-          <Link
-            href="/fitness/musculacao/hoje"
-            className="block overflow-hidden rounded-3xl border border-brand-200 bg-gradient-to-br from-brand-700 via-brand-800 to-brand-900 text-white shadow-md transition hover:shadow-lg"
-          >
-            <div className="flex items-center gap-4 px-5 py-4">
-              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/15 ring-1 ring-white/20">
-                <Sparkles className="h-5 w-5 text-amber-200" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/70">
-                  Treino de hoje · Dia {todayWorkout.dayIndex}/
-                  {todayWorkout.totalDays}
+          <>
+            <Link
+              href="/fitness/musculacao/hoje"
+              className="block overflow-hidden rounded-3xl border border-brand-200 bg-gradient-to-br from-brand-700 via-brand-800 to-brand-900 text-white shadow-md transition hover:shadow-lg"
+            >
+              <div className="flex items-center gap-4 px-5 py-4">
+                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/15 ring-1 ring-white/20">
+                  <Sparkles className="h-5 w-5 text-amber-200" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/70">
+                    Treino de hoje · Dia {todayWorkout.dayIndex}/
+                    {todayWorkout.totalDays}
+                  </div>
+                  <div className="mt-0.5 truncate text-[16px] font-semibold leading-tight">
+                    {todayWorkout.dayName}
+                  </div>
+                  <div className="mt-0.5 text-[11px] text-white/70">
+                    {todayWorkout.exerciseCount} exercício
+                    {todayWorkout.exerciseCount === 1 ? "" : "s"} ·{" "}
+                    {todayWorkout.programName}
+                  </div>
                 </div>
-                <div className="mt-0.5 truncate text-[16px] font-semibold leading-tight">
-                  {todayWorkout.dayName}
-                </div>
-                <div className="mt-0.5 text-[11px] text-white/70">
-                  {todayWorkout.exerciseCount} exercício
-                  {todayWorkout.exerciseCount === 1 ? "" : "s"} ·{" "}
-                  {todayWorkout.programName}
-                </div>
+                <span className="shrink-0 text-white">→</span>
               </div>
-              <span className="shrink-0 text-white">→</span>
+            </Link>
+            {/* Lucas (2026-05-25): "quando eu falar que vou treinar, tem
+                que ter alguma aba para preencher quantas reps, quantos kgs
+                foram feitos" — botão grande "Vou treinar agora" +
+                calendário visual lado a lado */}
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <Link
+                href="/fitness/musculacao/hoje"
+                className="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50/60 px-3 py-3 text-emerald-900 transition hover:bg-emerald-50"
+              >
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-600 text-white shadow-sm">
+                  <Play className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[12.5px] font-semibold leading-tight">
+                    Vou treinar
+                  </div>
+                  <div className="mt-0.5 text-[10px] text-emerald-700/80 leading-tight">
+                    Logar reps & kg
+                  </div>
+                </div>
+              </Link>
+              <Link
+                href="/fitness/musculacao/calendario"
+                className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3 py-3 text-zinc-800 transition hover:bg-zinc-50"
+              >
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-zinc-800 text-white shadow-sm">
+                  <CalendarIcon className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[12.5px] font-semibold leading-tight">
+                    Calendário
+                  </div>
+                  <div className="mt-0.5 text-[10px] text-zinc-500 leading-tight">
+                    Histórico por dia
+                  </div>
+                </div>
+              </Link>
             </div>
-          </Link>
+          </>
         ) : (
           <Link
             href="/fitness/musculacao/programa"

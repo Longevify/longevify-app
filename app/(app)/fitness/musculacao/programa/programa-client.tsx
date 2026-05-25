@@ -200,10 +200,23 @@ export function ProgramaClient({ program }: ProgramaClientProps) {
       <div className="pb-12">
         <BackBar onBack={() => setView("questionnaire")} />
 
+        {/* Lucas (2026-05-25): "acho que o treino não ta ficando salvo
+            quando eu peço para criar" → banner explícito de que o
+            programa ainda não foi persistido. Botão "Salvar e ativar"
+            fica fixed no bottom pro user não passar batido. */}
+        <div className="mb-3 flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+          <div className="flex-1 text-[11.5px] leading-snug text-amber-900">
+            <strong className="font-semibold">Programa ainda NÃO salvo.</strong>{" "}
+            Revise abaixo e clique em <strong>“Salvar e ativar”</strong> pra
+            começar a usar — caso contrário, vai sumir ao recarregar.
+          </div>
+        </div>
+
         <header className="mb-5 rounded-3xl border border-brand-200 bg-gradient-to-br from-brand-50 via-white to-white px-5 py-5">
           <div className="inline-flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-brand-800">
             <Sparkles className="h-3 w-3" />
-            Programa gerado pelo Dr. Lon
+            Programa gerado pelo Dr. Lon (preview)
           </div>
           <h2 className="mt-1 text-[20px] font-semibold leading-tight text-zinc-900">
             {previewName}
