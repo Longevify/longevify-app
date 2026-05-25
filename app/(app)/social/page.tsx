@@ -11,10 +11,12 @@ import {
   getDailyXpEarned,
   getDailyXpHistory,
   getFriendStreaks,
+  getActiveStories,
   DEFAULT_DAILY_XP_GOAL,
 } from "@/lib/social/server";
 import { getRecentUserAchievements } from "@/lib/fitness/achievements";
 import { getUserIdFromCookie } from "@/lib/auth/jwt";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import {
   getStreakDays,
   getTaskCompletionsHistory,
@@ -36,6 +38,7 @@ export const revalidate = 0;
 export default async function SocialPage() {
   const { userId } = await getUserIdFromCookie();
   const [
+    user,
     points,
     friends,
     friendsRanking,
@@ -50,7 +53,9 @@ export default async function SocialPage() {
     xpHistory,
     streakDays,
     completionsToday,
+    activeStories,
   ] = await Promise.all([
+    getCurrentUser(),
     getMyHealthPoints(),
     getMyFriends(),
     getRanking("friends", 50),
@@ -67,6 +72,7 @@ export default async function SocialPage() {
     userId
       ? getTaskCompletionsHistory(userId, 1)
       : Promise.resolve([] as Array<{ date: string; count: number }>),
+    getActiveStories(),
   ]);
 
   // "Completed today" = qualquer task de protocolo marcada hoje
@@ -109,6 +115,8 @@ export default async function SocialPage() {
       streakDays={streakDays}
       completedToday={completedToday}
       friendStreaks={friendStreaks}
+      activeStories={activeStories}
+      myFirstName={user.firstName}
     />
   );
 }
