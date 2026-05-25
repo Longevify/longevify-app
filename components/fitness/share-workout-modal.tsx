@@ -23,10 +23,26 @@ import { createSocialPostAction } from "@/app/(app)/fitness/share-actions";
  * fitness, tem que ter a opção de postar os achievements do treino,
  * depois de uma sessão de musculação, uma sessão de corrida".
  *
+ * Lucas (2026-05-25): "quero que apareça a opção de compartilhar os
+ * treinos na rede social instagram, facebook, e outros ou publicar na
+ * rede social da longevify". Antes era um botão genérico "Compartilhar"
+ * que abria o navigator.share — agora cada rede tem botão dedicado com
+ * SVG + cor da marca, igual share sheet de app social.
+ *
  * Modal genérico de compartilhamento estilo Strava:
  *  - Renderiza um card 1080×1080 em canvas com stats sobrepostos
- *  - 3 ações: Baixar imagem | Compartilhar (navigator.share) | Postar no feed
+ *  - Botões por rede: Instagram | Facebook | X | WhatsApp | Telegram | Mais
+ *  - Botão grande: Postar no feed Longevify (com toggle público/amigos)
  *  - Toggle público/amigos (default: amigos)
+ *
+ * Estratégia por rede:
+ *  - Instagram: sem deep-link com imagem confiável → baixa a imagem +
+ *    instrução "Salvei a imagem — abra o Instagram e poste como Story/Post"
+ *  - Facebook: sharer.php?u={url} + baixa imagem pra user anexar manualmente
+ *  - X (Twitter): twitter.com/intent/tweet?text=...&url=... + baixa imagem
+ *  - WhatsApp: wa.me/?text=... + baixa imagem
+ *  - Telegram: t.me/share/url?url=...&text=... + baixa imagem
+ *  - Mais: navigator.share() com file attach (Web Share Level 2)
  *
  * Variantes suportadas via `kind`:
  *  - running: distância + tempo + pace + traçado GPS
@@ -84,6 +100,14 @@ interface ShareWorkoutModalProps {
   open: boolean;
 }
 
+/** Resultado de um clique numa rede externa — pra feedback inline */
+type ShareToast =
+  | { kind: "instagram_saved" }
+  | { kind: "opened"; network: string }
+  | { kind: "copied"; network: string }
+  | { kind: "error"; message: string }
+  | null;
+
 export function ShareWorkoutModal({
   data,
   onClose,
@@ -101,6 +125,7 @@ export function ShareWorkoutModal({
   // Lucas (2026-05-24): "tenha a opção de anexar uma fotinho sua com os
   // stats da corrida, do treino ou do esporte escolhido e publicar."
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
+  const [shareToast, setShareToast] = useState<ShareToast>(null);
   const [, startTransition] = useTransition();
 
   // Render preview canvas sempre que abrir ou foto mudar
@@ -108,6 +133,13 @@ export function ShareWorkoutModal({
     if (!open) return;
     drawCanvasImage(previewRef.current, data, 540, photoDataUrl);
   }, [open, data, photoDataUrl]);
+
+  // Toast auto-dismiss
+  useEffect(() => {
+    if (!shareToast) return;
+    const t = setTimeout(() => setShareToast(null), 4000);
+    return () => clearTimeout(t);
+  }, [shareToast]);
 
   if (!open) return null;
 
@@ -123,59 +155,148 @@ export function ShareWorkoutModal({
     reader.readAsDataURL(file);
   };
 
-  const handleDownload = async () => {
+  /**
+   * Gera o canvas 1080×1080 como Blob — base de todos os fluxos de share.
+   * Devolve { blob, file } pra reuso (download direto OU navigator.share).
+   */
+  const generateImageBlob = async (): Promise<{
+    blob: Blob;
+    file: File;
+  } | null> => {
     const cvs = document.createElement("canvas");
     cvs.width = 1080;
     cvs.height = 1080;
     await drawCanvasImage(cvs, data, 1080, photoDataUrl);
-    cvs.toBlob((blob) => {
-      if (!blob) return;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `longevify-${data.kind}-${Date.now()}.png`;
-      a.click();
-      URL.revokeObjectURL(url);
-    }, "image/png");
+    return new Promise((resolve) => {
+      cvs.toBlob((blob) => {
+        if (!blob) {
+          resolve(null);
+          return;
+        }
+        const file = new File([blob], `longevify-${data.kind}.png`, {
+          type: "image/png",
+        });
+        resolve({ blob, file });
+      }, "image/png");
+    });
   };
 
+  /** Dispara o download da imagem PNG no disco do user */
+  const downloadImage = async () => {
+    const result = await generateImageBlob();
+    if (!result) return;
+    const url = URL.createObjectURL(result.blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `longevify-${data.kind}-${Date.now()}.png`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownload = async () => {
+    await downloadImage();
+    setShareToast({ kind: "opened", network: "Baixado" });
+  };
+
+  // ───────────────────────────────────────────────────────────────────
+  //  Compartilhar em rede específica
+  //
+  //  Lucas (2026-05-25): instagram/facebook/twitter/whatsapp/telegram
+  //  ganharam botões dedicados. Cada um:
+  //    1) baixa a imagem (todos esses não aceitam imagem inline via URL)
+  //    2) abre a URL de share da rede
+  //    3) mostra toast com instrução
+  //
+  //  Exceção: Instagram não tem URL pública de "post composer" — abre só
+  //  o app. A user tem que selecionar a imagem manualmente, então a UX é
+  //  "baixei a imagem, abra o Instagram e poste como Story/Post".
+  // ───────────────────────────────────────────────────────────────────
+
+  const shareUrl = "https://longevify.com.br";
+  const shareTxt = shareText(data);
+
+  const handleShareInstagram = async () => {
+    await downloadImage();
+    setShareToast({ kind: "instagram_saved" });
+    // Tenta abrir o Instagram via deep-link — em mobile vai pro app, em
+    // desktop fallback pra web. Não consegue pre-anexar imagem (limitação
+    // do Instagram), mas pelo menos abre na tela de Story.
+    setTimeout(() => {
+      window.open("https://www.instagram.com/", "_blank", "noopener");
+    }, 600);
+  };
+
+  const handleShareFacebook = async () => {
+    await downloadImage();
+    const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+      shareUrl,
+    )}&quote=${encodeURIComponent(shareTxt)}`;
+    window.open(url, "_blank", "noopener,width=600,height=600");
+    setShareToast({ kind: "opened", network: "Facebook" });
+  };
+
+  const handleShareTwitter = async () => {
+    await downloadImage();
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+      shareTxt,
+    )}&url=${encodeURIComponent(shareUrl)}`;
+    window.open(url, "_blank", "noopener,width=600,height=600");
+    setShareToast({ kind: "opened", network: "X / Twitter" });
+  };
+
+  const handleShareWhatsApp = async () => {
+    await downloadImage();
+    const url = `https://wa.me/?text=${encodeURIComponent(
+      `${shareTxt} — ${shareUrl}`,
+    )}`;
+    window.open(url, "_blank", "noopener");
+    setShareToast({ kind: "opened", network: "WhatsApp" });
+  };
+
+  const handleShareTelegram = async () => {
+    await downloadImage();
+    const url = `https://t.me/share/url?url=${encodeURIComponent(
+      shareUrl,
+    )}&text=${encodeURIComponent(shareTxt)}`;
+    window.open(url, "_blank", "noopener");
+    setShareToast({ kind: "opened", network: "Telegram" });
+  };
+
+  /** "Mais" — navigator.share() nativo com file attach quando possível */
   const handleShareNative = async () => {
-    if (!navigator.share) {
-      await handleDownload();
+    if (typeof navigator === "undefined" || !navigator.share) {
+      // Fallback: copia link pra clipboard
+      try {
+        await navigator.clipboard.writeText(`${shareTxt} — ${shareUrl}`);
+        setShareToast({ kind: "copied", network: "Link" });
+      } catch {
+        await downloadImage();
+        setShareToast({ kind: "instagram_saved" });
+      }
       return;
     }
-    // Try Web Share API com arquivo
-    const cvs = document.createElement("canvas");
-    cvs.width = 1080;
-    cvs.height = 1080;
-    await drawCanvasImage(cvs, data, 1080, photoDataUrl);
-    cvs.toBlob(async (blob) => {
-      if (!blob) return;
-      const file = new File([blob], `longevify-${data.kind}.png`, {
-        type: "image/png",
-      });
-      try {
-        // Some browsers support files in share, some don't
-        const canShareFile =
-          "canShare" in navigator &&
-          navigator.canShare?.({ files: [file] });
-        if (canShareFile) {
-          await navigator.share({
-            title: data.title,
-            text: shareText(data),
-            files: [file],
-          });
-        } else {
-          await navigator.share({
-            title: data.title,
-            text: shareText(data),
-            url: window.location.origin,
-          });
-        }
-      } catch {
-        /* user cancelled */
+    const result = await generateImageBlob();
+    if (!result) return;
+    try {
+      const canShareFile =
+        "canShare" in navigator && navigator.canShare?.({ files: [result.file] });
+      if (canShareFile) {
+        await navigator.share({
+          title: data.title,
+          text: shareTxt,
+          files: [result.file],
+        });
+      } else {
+        await navigator.share({
+          title: data.title,
+          text: shareTxt,
+          url: shareUrl,
+        });
       }
-    }, "image/png");
+      setShareToast({ kind: "opened", network: "Compartilhar" });
+    } catch {
+      /* user cancelled */
+    }
   };
 
   const handlePostFeed = () => {
@@ -232,6 +353,9 @@ export function ShareWorkoutModal({
     });
   };
 
+  const hasNativeShare =
+    typeof navigator !== "undefined" && "share" in navigator;
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <div
@@ -245,7 +369,8 @@ export function ShareWorkoutModal({
               {modalTitle ?? "Compartilhar"}
             </h2>
             <p className="mt-0.5 text-[11.5px] text-zinc-500">
-              Imagem pronta pra Instagram, Twitter, WhatsApp ou postar no feed
+              Compartilhe no Instagram, Facebook, WhatsApp ou publique no feed
+              Longevify
             </p>
           </div>
           <button
@@ -260,7 +385,7 @@ export function ShareWorkoutModal({
 
         <div className="flex-1 overflow-y-auto px-5 py-5">
           {/* Preview do card */}
-          <div className="relative mx-auto aspect-square w-full max-w-[280px] overflow-hidden rounded-2xl shadow-lg">
+          <div className="relative mx-auto aspect-square w-full max-w-[260px] overflow-hidden rounded-2xl shadow-lg">
             <canvas
               ref={previewRef}
               width={540}
@@ -270,13 +395,13 @@ export function ShareWorkoutModal({
           </div>
 
           {/* Photo upload — Lucas (2026-05-24): "anexar uma fotinho sua" */}
-          <div className="mt-4 flex justify-center gap-2">
+          <div className="mt-3 flex justify-center gap-2">
             {photoDataUrl ? (
               <>
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-[12px] font-medium text-zinc-700 hover:bg-zinc-50"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-[11.5px] font-medium text-zinc-700 hover:bg-zinc-50"
                 >
                   <ImagePlus className="h-3.5 w-3.5" />
                   Trocar foto
@@ -284,17 +409,17 @@ export function ShareWorkoutModal({
                 <button
                   type="button"
                   onClick={() => setPhotoDataUrl(null)}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-[12px] font-medium text-rose-600 hover:bg-rose-50"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-[11.5px] font-medium text-rose-600 hover:bg-rose-50"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                  Remover foto
+                  Remover
                 </button>
               </>
             ) : (
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-zinc-300 bg-zinc-50/60 px-4 py-2 text-[12px] font-semibold text-zinc-700 hover:border-brand-400 hover:bg-brand-50/40 hover:text-brand-700"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-zinc-300 bg-zinc-50/60 px-4 py-1.5 text-[11.5px] font-semibold text-zinc-700 hover:border-brand-400 hover:bg-brand-50/40 hover:text-brand-700"
               >
                 <ImagePlus className="h-3.5 w-3.5" />
                 Anexar foto sua
@@ -310,20 +435,112 @@ export function ShareWorkoutModal({
             />
           </div>
 
-          {/* Visibility toggle pro post no feed */}
+          {/* ─── Compartilhar em redes externas ─── */}
           <div className="mt-5">
             <label className="text-[10.5px] font-semibold uppercase tracking-wide text-zinc-500">
-              Quem vê seu post no feed?
+              Compartilhar em
             </label>
-            <div className="mt-1.5 grid grid-cols-2 gap-2">
+            <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-6">
+              <SocialShareButton
+                label="Instagram"
+                onClick={handleShareInstagram}
+                bgClass="bg-gradient-to-br from-[#feda75] via-[#fa7e1e] via-50% to-[#d62976]"
+                icon={<InstagramIcon />}
+              />
+              <SocialShareButton
+                label="Facebook"
+                onClick={handleShareFacebook}
+                bgClass="bg-[#1877F2]"
+                icon={<FacebookIcon />}
+              />
+              <SocialShareButton
+                label="X"
+                onClick={handleShareTwitter}
+                bgClass="bg-black"
+                icon={<XIcon />}
+              />
+              <SocialShareButton
+                label="WhatsApp"
+                onClick={handleShareWhatsApp}
+                bgClass="bg-[#25D366]"
+                icon={<WhatsAppIcon />}
+              />
+              <SocialShareButton
+                label="Telegram"
+                onClick={handleShareTelegram}
+                bgClass="bg-[#229ED9]"
+                icon={<TelegramIcon />}
+              />
+              <SocialShareButton
+                label={hasNativeShare ? "Mais" : "Copiar"}
+                onClick={handleShareNative}
+                bgClass="bg-zinc-700"
+                icon={<Share2 className="h-5 w-5 text-white" strokeWidth={2.5} />}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleDownload}
+              className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-[12px] font-semibold text-zinc-700 transition hover:bg-zinc-50"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Baixar imagem
+            </button>
+          </div>
+
+          {/* Toast inline pro feedback de share */}
+          {shareToast && (
+            <div
+              className={cn(
+                "mt-3 rounded-xl px-3 py-2 text-[11.5px] leading-tight",
+                shareToast.kind === "instagram_saved"
+                  ? "border border-amber-200 bg-amber-50 text-amber-800"
+                  : shareToast.kind === "error"
+                    ? "border border-rose-200 bg-rose-50 text-rose-700"
+                    : "border border-emerald-200 bg-emerald-50 text-emerald-800",
+              )}
+            >
+              {shareToast.kind === "instagram_saved" && (
+                <>
+                  📸 Imagem salva! Abra o Instagram e poste como{" "}
+                  <strong>Story</strong> ou <strong>Feed</strong> selecionando a
+                  imagem que foi baixada.
+                </>
+              )}
+              {shareToast.kind === "opened" &&
+                `✓ ${shareToast.network} aberto — imagem salva no seu dispositivo`}
+              {shareToast.kind === "copied" &&
+                `✓ ${shareToast.network} copiado pra área de transferência`}
+              {shareToast.kind === "error" && shareToast.message}
+            </div>
+          )}
+
+          {/* ─── Postar no feed Longevify ─── */}
+          <div className="mt-5 rounded-2xl border border-brand-200/70 bg-brand-50/40 px-4 py-4">
+            <div className="flex items-center gap-2">
+              <span className="grid h-7 w-7 place-items-center rounded-full bg-brand-700 text-[12px] font-bold text-white">
+                L
+              </span>
+              <div>
+                <p className="text-[13px] font-semibold text-brand-900">
+                  Postar no feed Longevify
+                </p>
+                <p className="text-[10.5px] text-brand-700/70">
+                  Apareça no ranking e inspire seus amigos
+                </p>
+              </div>
+            </div>
+
+            {/* Visibility toggle */}
+            <div className="mt-3 grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setVisibility("friends")}
                 className={cn(
-                  "flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-[12px] font-semibold transition",
+                  "flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-[11.5px] font-semibold transition",
                   visibility === "friends"
-                    ? "border-brand-300 bg-brand-50 text-brand-900"
-                    : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50",
+                    ? "border-brand-400 bg-white text-brand-900"
+                    : "border-zinc-200 bg-white/60 text-zinc-600 hover:bg-white",
                 )}
               >
                 <UsersIcon className="h-3.5 w-3.5" />
@@ -333,16 +550,37 @@ export function ShareWorkoutModal({
                 type="button"
                 onClick={() => setVisibility("public")}
                 className={cn(
-                  "flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-[12px] font-semibold transition",
+                  "flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-[11.5px] font-semibold transition",
                   visibility === "public"
-                    ? "border-amber-300 bg-amber-50 text-amber-900"
-                    : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50",
+                    ? "border-amber-300 bg-white text-amber-900"
+                    : "border-zinc-200 bg-white/60 text-zinc-600 hover:bg-white",
                 )}
               >
                 <Globe className="h-3.5 w-3.5" />
                 Público
               </button>
             </div>
+
+            <button
+              type="button"
+              onClick={handlePostFeed}
+              disabled={postStatus === "posting" || postStatus === "posted"}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-brand-700 to-brand-800 px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition disabled:opacity-60"
+            >
+              {postStatus === "posting" ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Postando…
+                </>
+              ) : postStatus === "posted" ? (
+                <>
+                  <Check className="h-3.5 w-3.5" />
+                  Postado!
+                </>
+              ) : (
+                <>Publicar no feed</>
+              )}
+            </button>
           </div>
 
           {error && (
@@ -352,54 +590,12 @@ export function ShareWorkoutModal({
           )}
         </div>
 
-        <footer className="border-t border-zinc-100 px-5 py-3">
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={handleDownload}
-              disabled={postStatus === "posting"}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-[12.5px] font-semibold text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-50"
-            >
-              <Download className="h-3.5 w-3.5" />
-              Baixar
-            </button>
-            {typeof navigator !== "undefined" && "share" in navigator && (
-              <button
-                type="button"
-                onClick={handleShareNative}
-                disabled={postStatus === "posting"}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-[12.5px] font-semibold text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-50"
-              >
-                <Share2 className="h-3.5 w-3.5" />
-                Compartilhar
-              </button>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={handlePostFeed}
-            disabled={postStatus === "posting" || postStatus === "posted"}
-            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-brand-700 to-brand-800 px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition disabled:opacity-60"
-          >
-            {postStatus === "posting" ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Postando…
-              </>
-            ) : postStatus === "posted" ? (
-              <>
-                <Check className="h-3.5 w-3.5" />
-                Postado!
-              </>
-            ) : (
-              <>Postar no feed Longevify</>
-            )}
-          </button>
+        <footer className="border-t border-zinc-100 px-5 py-3 pb-[max(env(safe-area-inset-bottom),12px)]">
           <button
             type="button"
             onClick={onClose}
             disabled={postStatus === "posting"}
-            className="mt-2 w-full rounded-xl px-3 py-2 text-[11.5px] font-medium text-zinc-500 transition hover:bg-zinc-50 disabled:opacity-50"
+            className="w-full rounded-xl px-3 py-2 text-[12px] font-medium text-zinc-500 transition hover:bg-zinc-50 disabled:opacity-50"
           >
             Pular
           </button>
@@ -414,6 +610,114 @@ export function ShareWorkoutModal({
         />
       </div>
     </div>
+  );
+}
+
+// ─── Botão de rede social ─────────────────────────────────────────────
+
+interface SocialShareButtonProps {
+  label: string;
+  onClick: () => void | Promise<void>;
+  bgClass: string;
+  icon: React.ReactNode;
+}
+
+function SocialShareButton({
+  label,
+  onClick,
+  bgClass,
+  icon,
+}: SocialShareButtonProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex flex-col items-center gap-1.5 rounded-xl px-1 py-2 transition hover:bg-zinc-50 active:scale-95"
+    >
+      <span
+        className={cn(
+          "grid h-11 w-11 place-items-center rounded-full shadow-sm transition group-hover:shadow-md",
+          bgClass,
+        )}
+      >
+        {icon}
+      </span>
+      <span className="text-[10.5px] font-semibold leading-tight text-zinc-700">
+        {label}
+      </span>
+    </button>
+  );
+}
+
+// ─── SVG das marcas (open-source, simple-icons style) ─────────────────
+//
+// lucide-react não tem ícones de marcas (Instagram/Facebook/etc) por
+// questão de licença. Embutimos SVGs minimal aqui — paths são variantes
+// genéricas do logotipo, dentro do uso comum permitido pra ícones de
+// share. Cor white forçada porque o fundo já é a cor da marca.
+
+function InstagramIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5 text-white"
+      fill="currentColor"
+      aria-hidden
+    >
+      <path d="M12 2.16c3.2 0 3.58.012 4.85.07 1.17.054 1.8.25 2.23.41.56.218.96.48 1.38.9.42.42.68.82.9 1.38.16.43.36 1.06.41 2.23.058 1.27.07 1.65.07 4.85s-.012 3.58-.07 4.85c-.054 1.17-.25 1.8-.41 2.23-.218.56-.48.96-.9 1.38-.42.42-.82.68-1.38.9-.43.16-1.06.36-2.23.41-1.27.058-1.65.07-4.85.07s-3.58-.012-4.85-.07c-1.17-.054-1.8-.25-2.23-.41a3.7 3.7 0 01-1.38-.9 3.7 3.7 0 01-.9-1.38c-.16-.43-.36-1.06-.41-2.23C2.172 15.58 2.16 15.2 2.16 12s.012-3.58.07-4.85c.054-1.17.25-1.8.41-2.23.218-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.43-.16 1.06-.36 2.23-.41C8.42 2.172 8.8 2.16 12 2.16zm0 1.62c-3.13 0-3.5.012-4.74.068-1.07.05-1.65.226-2.04.376-.51.198-.88.435-1.27.823-.39.388-.625.757-.823 1.27-.15.39-.327.97-.376 2.04C2.7 8.5 2.69 8.87 2.69 12s.01 3.5.067 4.74c.05 1.07.226 1.65.376 2.04.198.51.435.88.823 1.27.388.39.757.625 1.27.823.39.15.97.327 2.04.376 1.24.056 1.61.068 4.74.068s3.5-.012 4.74-.068c1.07-.05 1.65-.226 2.04-.376.51-.198.88-.435 1.27-.823.39-.388.625-.757.823-1.27.15-.39.327-.97.376-2.04.056-1.24.068-1.61.068-4.74s-.012-3.5-.068-4.74c-.05-1.07-.226-1.65-.376-2.04a3.42 3.42 0 00-.823-1.27 3.42 3.42 0 00-1.27-.823c-.39-.15-.97-.327-2.04-.376C15.5 3.7 15.13 3.78 12 3.78zm0 2.76a5.46 5.46 0 110 10.92 5.46 5.46 0 010-10.92zm0 1.62a3.84 3.84 0 100 7.68 3.84 3.84 0 000-7.68zm5.65-2.88a1.28 1.28 0 11-2.56 0 1.28 1.28 0 012.56 0z" />
+    </svg>
+  );
+}
+
+function FacebookIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5 text-white"
+      fill="currentColor"
+      aria-hidden
+    >
+      <path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.99 3.66 9.13 8.44 9.88V14.9H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.24.2 2.24.2v2.47h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.77l-.44 2.9h-2.33v6.98C18.34 21.13 22 16.99 22 12z" />
+    </svg>
+  );
+}
+
+function XIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4 text-white"
+      fill="currentColor"
+      aria-hidden
+    >
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  );
+}
+
+function WhatsAppIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5 text-white"
+      fill="currentColor"
+      aria-hidden
+    >
+      <path d="M17.5 14.38c-.3-.15-1.77-.87-2.05-.97-.27-.1-.47-.15-.67.15s-.77.97-.95 1.17c-.18.2-.35.22-.65.08-.3-.15-1.27-.47-2.42-1.5-.89-.8-1.49-1.77-1.67-2.07-.17-.3-.02-.46.13-.6.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51-.17-.01-.37-.01-.57-.01s-.52.07-.8.37c-.27.3-1.05 1.02-1.05 2.5s1.07 2.9 1.22 3.1c.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.69.62.71.23 1.36.2 1.87.12.57-.08 1.77-.72 2.02-1.42.25-.7.25-1.3.17-1.42-.07-.13-.27-.2-.57-.35zM12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.46 1.32 4.96L2.05 22l5.25-1.38a9.94 9.94 0 004.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.92 0-2.65-1.03-5.14-2.9-7.01a9.83 9.83 0 00-7-2.9zm5.95 15.55a8.27 8.27 0 01-5.95 2.46h-.01a8.24 8.24 0 01-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.22 8.22 0 01-1.26-4.36c0-4.54 3.7-8.23 8.24-8.23 2.2 0 4.27.86 5.82 2.42a8.18 8.18 0 012.41 5.83c0 4.54-3.7 8.23-8.24 8.23z" />
+    </svg>
+  );
+}
+
+function TelegramIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5 text-white"
+      fill="currentColor"
+      aria-hidden
+    >
+      <path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z" />
+    </svg>
   );
 }
 
