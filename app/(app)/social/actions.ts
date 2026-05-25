@@ -5,6 +5,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { getUserIdFromCookie } from "@/lib/auth/jwt";
 import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
 import { awardPoints } from "@/lib/social/server";
+import { normalizePhone } from "@/lib/phone";
 
 /**
  * Server actions da feature de convite de amigo.
@@ -309,30 +310,8 @@ export async function removeFriendAction(
 }
 
 // ─── Contacts sync (Lucas 2026-05-24) ────────────────────────────────
-
-/**
- * Normaliza phone pra formato uniforme: só dígitos, com country code BR
- * default (55) se 10-11 dígitos sem prefixo.
- *
- * Exemplos:
- *   "(11) 98765-4321"  → "5511987654321"
- *   "+55 21 98765 4321" → "5521987654321"
- *   "11987654321"      → "5511987654321"
- *   "5511987654321"    → "5511987654321"
- *   "+1 415 555 2671"  → "14155552671"
- */
-export function normalizePhone(raw: string): string | null {
-  if (!raw) return null;
-  const digits = raw.replace(/\D/g, "");
-  if (digits.length < 8) return null; // muito curto
-  // Se já começa com 55 (BR) e tem 12-13 dígitos, ok
-  if (digits.length >= 12) return digits;
-  // 10-11 dígitos: assume BR sem country code
-  if (digits.length === 10 || digits.length === 11) return `55${digits}`;
-  // 8-9 dígitos: pode ser fixo sem DDD — não dá pra inferir, rejeita
-  if (digits.length < 10) return null;
-  return digits;
-}
+// Helper `normalizePhone` vive em lib/phone.ts (não pode ser exportado
+// daqui — Next.js exige que arquivos "use server" só exportem async).
 
 /**
  * Salva o phone do user atual (opt-in pra ser encontrado por contatos
