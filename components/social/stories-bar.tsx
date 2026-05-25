@@ -45,7 +45,8 @@ export function StoriesBar({
         Fix: padding mais generoso (px-2 py-2) + margin negativa do mesmo
         valor pra não criar offset visual.
       */}
-      <div className="mb-4 -mx-2 overflow-x-auto px-2 py-2">
+      {/* Lucas (2026-05-25): liquid glass wrapper pra stories bar */}
+      <div className="liquid-glass mb-4 overflow-x-auto rounded-2xl px-3 py-3">
         <ul className="flex gap-3 sm:gap-4">
           {/* Slot do user: SEMPRE mostra avatar grande com + sobreposto */}
           <li>

@@ -80,7 +80,7 @@ export function CompactHealthSummary({
           type="button"
           data-tour="score-card"
           onClick={() => setScoreOpen(true)}
-          className="group relative overflow-hidden rounded-2xl border border-white/5 bg-gradient-to-br from-[#0d2818] via-[#143D28] to-[#0F3020] p-4 text-left text-white shadow-[0_8px_24px_-12px_rgba(13,40,24,.4)] transition hover:shadow-[0_12px_30px_-12px_rgba(13,40,24,.5)] hover:-translate-y-0.5 lg:flex-1"
+          className="glass-highlight group relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-[#0d2818] via-[#143D28] to-[#0F3020] p-4 text-left text-white shadow-[0_8px_24px_-12px_rgba(13,40,24,.4)] transition hover:shadow-[0_12px_30px_-12px_rgba(13,40,24,.5)] hover:-translate-y-0.5 lg:flex-1"
         >
           <span className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-emerald-500/10 blur-2xl" />
           <span className="pointer-events-none absolute right-3 top-3 text-emerald-300/40">
@@ -148,7 +148,7 @@ export function CompactHealthSummary({
           type="button"
           data-tour="bio-age-card"
           onClick={() => setBioOpen(true)}
-          className="group relative overflow-hidden rounded-2xl border border-zinc-200/80 bg-white p-4 text-left shadow-[0_8px_24px_-15px_rgba(13,40,24,.18)] transition hover:shadow-[0_12px_30px_-15px_rgba(13,40,24,.22)] hover:-translate-y-0.5 lg:flex-1"
+          className="liquid-glass group relative overflow-hidden rounded-2xl p-4 text-left transition hover:-translate-y-0.5 lg:flex-1"
         >
           <span className="pointer-events-none absolute right-3 top-3 text-emerald-400">
             <Calendar className="h-3.5 w-3.5" />
