@@ -208,23 +208,44 @@ export function ExerciseHistoryPopup({
             </>
           )}
 
-          {/* Vídeo de execução */}
-          {exercise.videoUrl && (
-            <div className="mt-6">
-              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
-                Execução
-              </h3>
-              <div className="aspect-video overflow-hidden rounded-2xl border border-zinc-200">
-                <iframe
-                  src={exercise.videoUrl}
-                  title={`Execução: ${exercise.name}`}
-                  className="h-full w-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
+          {/* Vídeo de execução — Lucas (2026-05-25): "os vídeos tem que
+              ser em português". Em vez de embedar URL hardcoded
+              (frequentemente em inglês), abre busca direta no YouTube
+              em PT-BR. Region+language do user garante canais BR
+              (Renato Cariani, Leandro Twin, etc) ranqueados primeiro. */}
+          <div className="mt-6">
+            <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+              Execução
+            </h3>
+            <a
+              href={`https://www.youtube.com/results?search_query=${encodeURIComponent(
+                `como fazer ${exercise.name} técnica em português`,
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-gradient-to-br from-rose-50 to-white px-4 py-3.5 transition hover:border-rose-300 hover:shadow-sm"
+            >
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-rose-500 to-rose-700 text-white shadow-sm">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  className="h-5 w-5"
+                  aria-hidden
+                >
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[13.5px] font-semibold text-zinc-900">
+                  Ver tutorial no YouTube
+                </div>
+                <p className="mt-0.5 text-[11.5px] text-zinc-500">
+                  Vídeos em português com técnica de execução
+                </p>
               </div>
-            </div>
-          )}
+              <span className="shrink-0 text-rose-600">↗</span>
+            </a>
+          </div>
 
           {exercise.description && (
             <div className="mt-5 rounded-xl bg-brand-50/40 px-3 py-2.5 text-[12px] leading-relaxed text-brand-900/80">

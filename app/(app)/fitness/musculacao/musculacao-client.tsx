@@ -695,21 +695,18 @@ function LogSetModal({
             </div>
           )}
 
-          {/* Video library hint */}
-          {exercise.videoUrl ? (
-            <a
-              href={exercise.videoUrl}
-              target="_blank"
-              rel="noopener"
-              className="mt-4 inline-flex items-center gap-1.5 text-[12px] font-medium text-brand-700 underline-offset-2 hover:underline"
-            >
-              Ver vídeo de execução ↗
-            </a>
-          ) : (
-            <p className="mt-4 text-[10.5px] text-zinc-400">
-              📹 Biblioteca de vídeos · em breve
-            </p>
-          )}
+          {/* Vídeo: link direto pra busca no YouTube em PT-BR.
+              Lucas (2026-05-25): "os vídeos tem que ser em português" */}
+          <a
+            href={`https://www.youtube.com/results?search_query=${encodeURIComponent(
+              `como fazer ${exercise.name} técnica em português`,
+            )}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-4 inline-flex items-center gap-1.5 text-[12px] font-medium text-brand-700 underline-offset-2 hover:underline"
+          >
+            ▶️ Ver tutorial em português ↗
+          </a>
         </div>
 
         <footer className="border-t border-zinc-100 px-5 py-3">
