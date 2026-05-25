@@ -236,6 +236,8 @@ export function SocialClient({
           xpHistory={xpHistory}
           streakDays={streakDays}
           completedToday={completedToday}
+          myFirstName={myFirstName}
+          friendsCount={friends.length}
         />
       )}
 
@@ -922,6 +924,8 @@ function ProfileView({
   xpHistory,
   streakDays,
   completedToday,
+  myFirstName,
+  friendsCount,
 }: {
   points: HealthPoints;
   myPosts: SocialPost[];
@@ -931,6 +935,8 @@ function ProfileView({
   xpHistory: Array<{ date: string; xp: number }>;
   streakDays: number;
   completedToday: boolean;
+  myFirstName: string;
+  friendsCount: number;
 }) {
   const breakdown: Array<{ label: string; value: number; color: string }> = [
     { label: "Fitness", value: points.fitnessPoints, color: "bg-emerald-500" },
@@ -945,10 +951,92 @@ function ProfileView({
   ];
   const total = breakdown.reduce((s, b) => s + b.value, 0) || 1;
 
-  // Lucas (2026-05-23/24): perfil Duolingo-style — foguinho + XP diário
-  // + heatmap + achievements + posts próprios + breakdown.
+  // Lucas (2026-05-25): "a subaba perfil da aba social está vazia,
+  // coloque seção de pfp, nome de usuário, e fotos, igual ao do
+  // instagram" → hero estilo Insta no topo (PFP grande + nome + stats
+  // row) + grid 3-col de fotos. Sections de gamificação (foguinho, XP,
+  // heatmap, achievements, breakdown) ficam ABAIXO no scroll.
+
+  // Filtra só posts com imageUrl pra grid Instagram-style (posts texto
+  // continuam acessíveis via lista de "Suas postagens" mais abaixo)
+  const photoPosts = myPosts.filter(
+    (p) => typeof p.payload.imageUrl === "string" && p.payload.imageUrl,
+  );
+
   return (
     <div className="flex flex-col gap-4">
+      {/* Profile Hero — Instagram-style */}
+      <section className="rounded-2xl border border-zinc-200 bg-white px-5 py-5">
+        <div className="flex items-center gap-5">
+          {/* PFP grande circular com gradient ring brand */}
+          <div className="grid h-[88px] w-[88px] shrink-0 place-items-center rounded-full bg-gradient-to-tr from-brand-400 via-brand-600 to-brand-800 p-0.5 sm:h-[100px] sm:w-[100px]">
+            <span className="grid h-full w-full place-items-center rounded-full bg-white p-1">
+              <span className="grid h-full w-full place-items-center rounded-full bg-brand-50 text-[32px] font-bold text-brand-700 sm:text-[38px]">
+                {myFirstName[0]?.toUpperCase() ?? "?"}
+              </span>
+            </span>
+          </div>
+
+          {/* Nome + stats inline (igual Insta) */}
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[18px] font-semibold leading-tight text-zinc-900 sm:text-[20px]">
+              {myFirstName}
+            </div>
+            <div className="mt-0.5 text-[11.5px] font-medium text-brand-700">
+              Level {points.level} · {levelTitle(points.level)}
+            </div>
+
+            {/* Stats row: posts | amigos | streak */}
+            <div className="mt-3 flex gap-4 text-center">
+              <ProfileStat value={myPosts.length} label="posts" />
+              <ProfileStat value={friendsCount} label="amigos" />
+              <ProfileStat
+                value={streakDays}
+                label={`dia${streakDays === 1 ? "" : "s"} 🔥`}
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Grid 3-col de fotos — Instagram explore-style */}
+      <section>
+        <div className="mb-2 flex items-center justify-between px-1">
+          <h3 className="text-[11.5px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+            Fotos · {photoPosts.length}
+          </h3>
+        </div>
+        {photoPosts.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/50 px-4 py-10 text-center">
+            <div className="text-[28px]" aria-hidden>
+              📷
+            </div>
+            <p className="mt-2 text-[12px] text-zinc-500">
+              Nenhuma foto ainda. Use o botão{" "}
+              <span className="font-semibold text-brand-700">+</span> no feed
+              pra publicar.
+            </p>
+          </div>
+        ) : (
+          <ul className="grid grid-cols-3 gap-1 sm:gap-1.5">
+            {photoPosts.map((post) => (
+              <li
+                key={post.id}
+                className="relative aspect-square overflow-hidden rounded-md bg-zinc-100"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={post.payload.imageUrl!}
+                  alt={post.payload.title ?? "Foto"}
+                  className="absolute inset-0 h-full w-full object-cover"
+                  loading="lazy"
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       {/* StreakHero — foguinho gigante */}
       <StreakHero days={streakDays} completedToday={completedToday} />
 
@@ -1079,6 +1167,29 @@ function ProfileView({
         </div>
         <Globe className="h-4 w-4 text-zinc-400" />
       </Link>
+    </div>
+  );
+}
+
+/**
+ * Stat individual no Instagram-style profile header (posts | amigos |
+ * dias). Número grande em cima, label compacto embaixo.
+ */
+function ProfileStat({
+  value,
+  label,
+}: {
+  value: number;
+  label: string;
+}) {
+  return (
+    <div className="flex flex-col items-center">
+      <span className="text-[18px] font-bold leading-tight text-zinc-900 tabular-nums sm:text-[20px]">
+        {value.toLocaleString("pt-BR")}
+      </span>
+      <span className="mt-0.5 text-[10.5px] font-medium text-zinc-500">
+        {label}
+      </span>
     </div>
   );
 }
