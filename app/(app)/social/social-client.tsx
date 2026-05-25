@@ -20,6 +20,7 @@ import {
   Crown,
   Medal,
   ChevronRight,
+  PencilLine,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -48,6 +49,7 @@ import { StreakHero } from "@/components/social/streak-hero";
 import { XpDailyGoal } from "@/components/social/xp-daily-goal";
 import { ActivityHeatmap } from "@/components/social/activity-heatmap";
 import { FriendStreakBadge } from "@/components/social/friend-streak-badge";
+import { PostComposerModal } from "@/components/social/post-composer-modal";
 
 /**
  * Cliente da aba Social — 4 tabs:
@@ -316,23 +318,57 @@ function PointsHero({ points }: { points: HealthPoints }) {
 }
 
 function FeedView({ feed }: { feed: SocialPost[] }) {
-  if (feed.length === 0) {
-    return (
-      <EmptyState
-        icon={<Heart className="h-8 w-8 text-zinc-300" />}
-        title="Nada no feed ainda"
-        body="Adicione amigos e veja as conquistas deles aparecerem aqui."
-      />
-    );
-  }
+  // Lucas (2026-05-24): "não achei um botão fácil de publicação de
+  // stories e de fotos na parte social. Quero que tenha isso" →
+  // composer CTA proeminente no topo do feed.
+  const [composerOpen, setComposerOpen] = useState(false);
+
   return (
-    <ul className="flex flex-col gap-3">
-      {feed.map((post) => (
-        <li key={post.id}>
-          <FeedPostCard post={post} />
-        </li>
-      ))}
-    </ul>
+    <>
+      {/* CTA composer — sempre visível no topo do feed */}
+      <button
+        type="button"
+        onClick={() => setComposerOpen(true)}
+        className="mb-4 flex w-full items-center gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3.5 text-left transition hover:border-brand-300 hover:bg-brand-50/30 hover:shadow-sm active:scale-[0.99]"
+      >
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-700 to-brand-800 text-white shadow-sm">
+          <PencilLine className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-[14px] font-semibold text-zinc-900">
+            Publicar uma foto ou story
+          </div>
+          <p className="mt-0.5 text-[11.5px] text-zinc-500">
+            Mostre seu treino, sua corrida ou só uma reflexão pros amigos
+          </p>
+        </div>
+      </button>
+
+      {feed.length === 0 ? (
+        <EmptyState
+          icon={<Heart className="h-8 w-8 text-zinc-300" />}
+          title="Nada no feed ainda"
+          body="Adicione amigos e veja as conquistas deles aparecerem aqui."
+        />
+      ) : (
+        <ul className="flex flex-col gap-3">
+          {feed.map((post) => (
+            <li key={post.id}>
+              <FeedPostCard post={post} />
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <PostComposerModal
+        open={composerOpen}
+        onClose={() => setComposerOpen(false)}
+        onPosted={() => {
+          // Recarrega a página pra ver o post novo no feed
+          window.location.reload();
+        }}
+      />
+    </>
   );
 }
 
@@ -378,13 +414,28 @@ function FeedPostCard({ post }: { post: SocialPost }) {
       </header>
 
       <div className="mt-3">
-        <h3 className="text-[14px] font-semibold text-zinc-900">
-          {post.payload.title}
-        </h3>
+        {post.payload.title && post.payload.title !== "Compartilhou um momento" && (
+          <h3 className="text-[14px] font-semibold text-zinc-900">
+            {post.payload.title}
+          </h3>
+        )}
         {post.payload.body && (
-          <p className="mt-1 text-[12.5px] leading-relaxed text-zinc-600">
+          <p className="mt-1 text-[13px] leading-relaxed text-zinc-700 whitespace-pre-wrap">
             {post.payload.body}
           </p>
+        )}
+
+        {/* Foto anexada (Lucas 2026-05-24: stories/fotos no feed) */}
+        {post.payload.imageUrl && (
+          <div className="mt-3 overflow-hidden rounded-2xl border border-zinc-200">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={post.payload.imageUrl}
+              alt={post.payload.title ?? "Foto do post"}
+              className="block h-auto w-full max-h-[500px] object-cover"
+              loading="lazy"
+            />
+          </div>
         )}
 
         {/* Stats específicas por kind */}
