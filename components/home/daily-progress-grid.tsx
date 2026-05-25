@@ -323,7 +323,7 @@ function SleepCard({
     <button
       type="button"
       onClick={onClick}
-      className="group flex flex-col gap-1.5 rounded-2xl border border-zinc-200/80 bg-white p-3 text-left shadow-[0_4px_16px_-10px_rgba(13,40,24,.1)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_22px_-10px_rgba(13,40,24,.15)]"
+      className="liquid-glass group flex flex-col gap-1.5 rounded-2xl p-3 text-left transition hover:-translate-y-0.5"
     >
       {/* Lucas (2026-05-23 v2): "cards de sono e exercício muito altos —
           a barra colorida do sono quero que fique mais alongada e as
@@ -496,7 +496,7 @@ function RichExerciseCard({
     <button
       type="button"
       onClick={onClick}
-      className="group flex flex-col gap-2 rounded-2xl border border-zinc-200/80 bg-white p-3 text-left shadow-[0_4px_16px_-10px_rgba(13,40,24,.1)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_22px_-10px_rgba(13,40,24,.15)]"
+      className="liquid-glass group flex flex-col gap-2 rounded-2xl p-3 text-left transition hover:-translate-y-0.5"
     >
       {/* Lucas (2026-05-23 v2): "cards de sono e de exercício muito
           altos" → padding p-4 → p-3, gap menor, header h-7. */}

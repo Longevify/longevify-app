@@ -188,8 +188,8 @@ export function SocialClient({
       {/* User hero — points + level */}
       {points && <PointsHero points={points} />}
 
-      {/* Tabs */}
-      <nav className="sticky top-3 z-10 mt-5 mb-5 rounded-2xl border border-border bg-white/95 p-1.5 shadow-[0_4px_18px_-12px_rgba(13,40,24,.12)] backdrop-blur">
+      {/* Tabs — liquid glass (Lucas 2026-05-25) */}
+      <nav className="liquid-glass sticky top-3 z-10 mt-5 mb-5 rounded-2xl p-1.5">
         <ul className="grid grid-cols-4 gap-1">
           <TabBtn label="Feed" Icon={Heart} active={tab === "feed"} onClick={() => setTab("feed")} />
           <TabBtn label="Ranking" Icon={Trophy} active={tab === "ranking"} onClick={() => setTab("ranking")} />
@@ -317,7 +317,7 @@ function PointsHero({ points }: { points: HealthPoints }) {
   const pct = Math.min(100, Math.round((progressInLevel / levelRange) * 100));
 
   return (
-    <section className="overflow-hidden rounded-3xl border border-brand-200 bg-gradient-to-br from-brand-700 via-brand-800 to-brand-900 text-white shadow-md">
+    <section className="glass-highlight relative overflow-hidden rounded-3xl border border-brand-200 bg-gradient-to-br from-brand-700 via-brand-800 to-brand-900 text-white shadow-md">
       <div className="px-5 py-5">
         <div className="flex items-start gap-4">
           <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-md">
@@ -397,15 +397,15 @@ function FeedView({
       )}
 
       {/* FAB pra postar foto no feed — Lucas: "+ abaixo é para postar
-          foto no feed". Fica fixo bottom-right, ícone + grande sem
-          texto. */}
+          foto no feed". Fixo bottom-right com glass highlight pra
+          parecer liquid glass. */}
       <button
         type="button"
         onClick={() => setComposerMode("post")}
         aria-label="Publicar foto no feed"
-        className="fixed bottom-6 right-6 z-30 grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-brand-700 to-brand-800 text-white shadow-[0_8px_24px_-4px_rgba(31,93,63,0.5)] transition active:scale-95 hover:shadow-[0_12px_28px_-4px_rgba(31,93,63,0.6)]"
+        className="glass-highlight fixed bottom-6 right-6 z-30 grid h-14 w-14 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-brand-700 to-brand-800 text-white shadow-[0_8px_24px_-4px_rgba(31,93,63,0.5)] transition active:scale-95 hover:shadow-[0_12px_28px_-4px_rgba(31,93,63,0.6)]"
       >
-        <PencilLine className="h-6 w-6" strokeWidth={2.5} />
+        <PencilLine className="relative z-10 h-6 w-6" strokeWidth={2.5} />
       </button>
 
       {composerMode && (
