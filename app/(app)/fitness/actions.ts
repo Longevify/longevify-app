@@ -5,6 +5,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { getUserIdFromCookie } from "@/lib/auth/jwt";
 import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
 import { evaluateAchievements } from "@/lib/fitness/achievements";
+import { awardPoints } from "@/lib/social/server";
 import type {
   Achievement,
   ActivityType,
@@ -64,6 +65,7 @@ export async function logStrengthSet(input: {
     .maybeSingle();
 
   let sessionId: string;
+  let sessionNewlyCreated = false;
   if (existing?.id) {
     sessionId = existing.id as string;
   } else {
@@ -83,6 +85,7 @@ export async function logStrengthSet(input: {
       };
     }
     sessionId = created.id as string;
+    sessionNewlyCreated = true;
   }
 
   // Acha próximo set_order
@@ -115,11 +118,24 @@ export async function logStrengthSet(input: {
 
   revalidatePath("/fitness/musculacao");
 
+  // Lucas (2026-05-26): cabear pontos workout_logged. Só awarda na 1ª
+  // set da sessão (sessionNewlyCreated) — sets subsequentes não somam
+  // pontos extras (senão usuário com 30 sets ganha 600pts, abusivo).
+  if (sessionNewlyCreated) {
+    await awardPoints("workout_logged", { sessionId });
+  }
+
   // Avalia conquistas (Phase 3C). Fire-and-forget — não bloqueia o
   // retorno. Mas precisamos do resultado pra tocar o toast no client.
   // Como server actions são síncronas, esperamos rápido (~50ms total
   // pra avaliar mesmo com 30 conquistas).
   const unlocked = await evaluateAchievements();
+
+  // Awarda achievement_unlocked pra cada conquista nova — usa o xp da
+  // conquista como pointsOverride (cada conquista tem peso próprio).
+  for (const a of unlocked) {
+    await awardPoints("achievement_unlocked", { achievementId: a.id }, a.xp);
+  }
 
   return {
     ok: true,
@@ -307,7 +323,14 @@ export async function saveRunningSession(input: {
   }
 
   revalidatePath("/fitness/corrida");
+  // Lucas (2026-05-26): pontos running_logged (30pts) — uma vez por
+  // sessão, fired aqui antes de retornar.
+  await awardPoints("running_logged", { sessionId, distanceKm: input.distanceKm });
+
   const unlocked = await evaluateAchievements();
+  for (const a of unlocked) {
+    await awardPoints("achievement_unlocked", { achievementId: a.id }, a.xp);
+  }
   return {
     ok: true,
     data: {
@@ -407,7 +430,18 @@ export async function logOtherWorkout(input: {
   }
 
   revalidatePath("/fitness/outros");
+  // Lucas (2026-05-26): outros workouts (bike/swim/yoga/etc) também
+  // contam como workout_logged (20pts). Activity_type vai no context
+  // pra futuro analytics.
+  await awardPoints("workout_logged", {
+    sessionId,
+    activityType: input.activityType,
+  });
+
   const unlocked = await evaluateAchievements();
+  for (const a of unlocked) {
+    await awardPoints("achievement_unlocked", { achievementId: a.id }, a.xp);
+  }
   return {
     ok: true,
     data: {

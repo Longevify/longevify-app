@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { getUserIdFromCookie } from "@/lib/auth/jwt";
 import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
+import { awardPoints } from "@/lib/social/server";
 import type { FoodItem, MealType, Nutrients } from "@/lib/dieta/types";
 
 export const dynamic = "force-dynamic";
@@ -114,6 +115,17 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+
+  // Lucas (2026-05-26): pontos meal_logged (5pts) — cada refeição
+  // logada. Múltiplas refeições no mesmo dia somam (5 × 4 = 20pts/dia
+  // se loga café/almoço/lanche/jantar). Fire-and-forget — não bloqueia
+  // resposta caso awardPoints falhe.
+  await awardPoints("meal_logged", {
+    mealId: data?.id,
+    mealType: body.meal_type,
+  }).catch((err) => {
+    console.error("[meals/POST] awardPoints failed:", err);
+  });
 
   return NextResponse.json(
     { ok: true, meal: data },
