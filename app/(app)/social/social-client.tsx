@@ -20,7 +20,7 @@ import {
   Crown,
   Medal,
   ChevronRight,
-  PencilLine,
+  Camera,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -379,6 +379,50 @@ function FeedView({
         onCreateStory={() => setComposerMode("story")}
       />
 
+      {/* Lucas (2026-05-25): "só to vendo o botão para postar stories,
+          ta faltando botão para postar foto no feed". O FAB anterior
+          ficava atrás do DrLonFloating (z-40 dele tapava o z-30 do FAB).
+          Substituí por 2 botões grandes side-by-side logo abaixo da
+          stories bar — descobertos sem precisar scrollar/competir
+          com elementos flutuantes. */}
+      <div className="mb-4 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => setComposerMode("post")}
+          className="group flex items-center gap-2.5 rounded-2xl border border-brand-200 bg-gradient-to-br from-brand-700 to-brand-800 px-3 py-2.5 text-left text-white shadow-sm transition active:scale-[0.98] hover:shadow-md"
+        >
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/15 ring-1 ring-white/20">
+            <Camera className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-[12.5px] font-semibold leading-tight">
+              Postar foto
+            </div>
+            <div className="mt-0.5 text-[10px] leading-tight text-white/75">
+              No feed Longevify
+            </div>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setComposerMode("story")}
+          className="group flex items-center gap-2.5 rounded-2xl border border-fuchsia-200 bg-gradient-to-br from-fuchsia-50 to-orange-50 px-3 py-2.5 text-left text-fuchsia-900 shadow-sm transition active:scale-[0.98] hover:shadow-md"
+        >
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-tr from-orange-400 via-pink-500 to-fuchsia-600 text-white shadow-sm">
+            <Sparkles className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-[12.5px] font-semibold leading-tight">
+              Criar story
+            </div>
+            <div className="mt-0.5 text-[10px] leading-tight text-fuchsia-700/80">
+              Dura 24h
+            </div>
+          </div>
+        </button>
+      </div>
+
       {/* Feed cards */}
       {feed.length === 0 ? (
         <EmptyState
@@ -395,18 +439,6 @@ function FeedView({
           ))}
         </ul>
       )}
-
-      {/* FAB pra postar foto no feed — Lucas: "+ abaixo é para postar
-          foto no feed". Fixo bottom-right com glass highlight pra
-          parecer liquid glass. */}
-      <button
-        type="button"
-        onClick={() => setComposerMode("post")}
-        aria-label="Publicar foto no feed"
-        className="glass-highlight fixed bottom-6 right-6 z-30 grid h-14 w-14 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-brand-700 to-brand-800 text-white shadow-[0_8px_24px_-4px_rgba(31,93,63,0.5)] transition active:scale-95 hover:shadow-[0_12px_28px_-4px_rgba(31,93,63,0.6)]"
-      >
-        <PencilLine className="relative z-10 h-6 w-6" strokeWidth={2.5} />
-      </button>
 
       {composerMode && (
         <PostComposerModal
