@@ -4,6 +4,7 @@ import { TopNav } from "@/components/app/top-nav";
 import { BottomNav } from "@/components/app/bottom-nav";
 import { Footer } from "@/components/app/footer";
 import { DrLonFloating } from "@/components/app/dr-lon-floating";
+import { AuthRefresher } from "@/components/app/auth-refresher";
 import { TourRunner } from "@/components/onboarding/tour/tour-runner";
 import { UserProvider } from "@/lib/auth/user-context";
 import { getCurrentUser } from "@/lib/auth/current-user";
@@ -33,6 +34,12 @@ export default async function AppLayout({
 
   return (
     <UserProvider user={user}>
+      {/* Lucas (2026-05-26): mantém JWT do Supabase sempre fresco
+          — fim dos banners "Sessão expirou" prematuros em search,
+          contatos, save de treino. Triggera getSession() no mount
+          (inicia auto-refresh timer) + em visibilitychange/focus
+          (cobre tab que ficou em background). */}
+      <AuthRefresher />
       <div className="flex min-h-screen flex-col">
         <TopNav />
         {/* Reserva espaço no fim do scroll pra BottomNav (h-14 + safe-area
