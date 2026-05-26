@@ -20,7 +20,6 @@ import {
   Crown,
   Medal,
   ChevronRight,
-  PencilLine,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -387,7 +386,7 @@ function FeedView({
           body="Adicione amigos e veja as conquistas deles aparecerem aqui."
         />
       ) : (
-        <ul className="flex flex-col gap-3 pb-24">
+        <ul className="flex flex-col gap-3">
           {feed.map((post) => (
             <li key={post.id}>
               <FeedPostCard post={post} />
@@ -396,16 +395,17 @@ function FeedView({
         </ul>
       )}
 
-      {/* FAB pra postar foto no feed — Lucas: "+ abaixo é para postar
-          foto no feed". Fixo bottom-right com glass highlight pra
-          parecer liquid glass. */}
+      {/* Lucas (2026-05-26): botão "+" quadrado abaixo do feed, igual
+          Instagram fazia (estilo "Add to feed" card). Substitui os 2
+          botões anteriores. Story continua acessível via avatar "+"
+          no stories bar — esse "+" aqui é dedicado pra postar foto. */}
       <button
         type="button"
         onClick={() => setComposerMode("post")}
-        aria-label="Publicar foto no feed"
-        className="glass-highlight fixed bottom-6 right-6 z-30 grid h-14 w-14 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-brand-700 to-brand-800 text-white shadow-[0_8px_24px_-4px_rgba(31,93,63,0.5)] transition active:scale-95 hover:shadow-[0_12px_28px_-4px_rgba(31,93,63,0.6)]"
+        aria-label="Postar foto no feed"
+        className="group mx-auto mt-5 mb-24 flex h-20 w-20 items-center justify-center rounded-2xl border-2 border-dashed border-zinc-300 bg-white text-zinc-400 transition hover:border-brand-400 hover:bg-brand-50/40 hover:text-brand-700 active:scale-95"
       >
-        <PencilLine className="relative z-10 h-6 w-6" strokeWidth={2.5} />
+        <Plus className="h-9 w-9" strokeWidth={2} />
       </button>
 
       {composerMode && (
