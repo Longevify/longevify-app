@@ -15,6 +15,7 @@ import {
   Share2,
   Calendar as CalendarIcon,
   Play,
+  RotateCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -70,11 +71,20 @@ interface TodayWorkoutSummary {
   programName: string;
 }
 
+interface RotationStatus {
+  needsRotation: boolean;
+  programAgeDays: number;
+  rotationCount: number;
+  programName: string;
+}
+
 interface MusculacaoClientProps {
   exercises: Exercise[];
   volumeHistory: Array<{ date: string; volumeKg: number; setsCount: number }>;
   muscleAnalysis: MuscleGroupRow[];
   todayWorkout?: TodayWorkoutSummary | null;
+  /** Lucas (2026-05-26): "varie o treino de 3 em 3 meses". */
+  rotation?: RotationStatus | null;
 }
 
 export function MusculacaoClient({
@@ -82,6 +92,7 @@ export function MusculacaoClient({
   volumeHistory,
   muscleAnalysis,
   todayWorkout,
+  rotation,
 }: MusculacaoClientProps) {
   const [query, setQuery] = useState("");
   const [groupFilter, setGroupFilter] = useState<MuscleGroup | "all">("all");
@@ -137,6 +148,43 @@ export function MusculacaoClient({
   // compartilhar treinos" → share modal pra hoje
   const [shareModalData, setShareModalData] =
     useState<ShareWorkoutData | null>(null);
+
+  // Lucas (2026-05-26): "por padrão preciso que você varie o treino de
+  // 3 em 3 meses" → trigger pra POST /api/fitness/program/rotate
+  const [rotating, setRotating] = useState(false);
+  const [rotationDismissed, setRotationDismissed] = useState(false);
+  const handleRotate = async () => {
+    if (rotating) return;
+    setRotating(true);
+    try {
+      const res = await fetch("/api/fitness/program/rotate", {
+        method: "POST",
+      });
+      const data = (await res.json()) as
+        | { ok: true; name: string; rotationCount: number }
+        | { ok: false; error: string };
+      if (data.ok) {
+        toast.success({
+          title: "Treino atualizado",
+          description: `${data.name} ativo agora. Vamos variar!`,
+        });
+        // Reload pra refletir o novo programa
+        window.location.reload();
+      } else {
+        toast.error({
+          title: "Falha ao gerar variação",
+          description: data.error,
+        });
+      }
+    } catch (e) {
+      toast.error({
+        title: "Erro de rede",
+        description: e instanceof Error ? e.message : "—",
+      });
+    } finally {
+      setRotating(false);
+    }
+  };
 
   const openShareToday = () => {
     if (today.setsCount === 0) {
@@ -264,6 +312,63 @@ export function MusculacaoClient({
             →
           </span>
         </button>
+      )}
+
+      {/* Lucas (2026-05-26): "varie o treino de 3 em 3 meses". Banner
+          de rotação ativa quando programa atual >= 90 dias. Dr. Lon
+          olha estrutura atual e gera variação (mesmos focos, exercícios
+          + reps diferentes). User pode adiar via X. */}
+      {rotation?.needsRotation && !rotationDismissed && (
+        <section className="mb-4 overflow-hidden rounded-3xl border border-amber-300 bg-gradient-to-br from-amber-50 via-orange-50 to-white shadow-sm">
+          <div className="px-5 py-4">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-amber-500 text-white shadow-sm">
+                <RotateCcw className="h-4 w-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-700">
+                  Hora de variar
+                </div>
+                <p className="mt-0.5 text-[14px] font-semibold leading-tight text-amber-900">
+                  Seu treino completou {Math.floor(rotation.programAgeDays / 30)}{" "}
+                  meses
+                </p>
+                <p className="mt-1 text-[11.5px] leading-snug text-amber-800/90">
+                  Pra evitar estagnação, Dr. Lon pode gerar uma{" "}
+                  <strong>variação automática</strong> — mesmos focos
+                  musculares, exercícios e rep schemes diferentes. Princípio
+                  básico de periodização pra hipertrofia.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRotationDismissed(true)}
+                aria-label="Adiar"
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/60 text-amber-700 transition hover:bg-white"
+              >
+                <span className="text-[14px] leading-none">×</span>
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={handleRotate}
+              disabled={rotating}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-60"
+            >
+              {rotating ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Dr. Lon montando variação…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Atualizar com novas variações
+                </>
+              )}
+            </button>
+          </div>
+        </section>
       )}
 
       {/* Lucas (2026-05-25): "na aba musculação e corrida, tem que ter

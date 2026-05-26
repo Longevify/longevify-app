@@ -145,6 +145,11 @@ export interface WorkoutProgram {
   structure: ProgramStructure;
   aiModel: string;
   active: boolean;
+  /** Lucas (2026-05-26): "varie o treino de 3 em 3 meses". Rotação
+   * automática: link pro programa anterior (NULL pro programa raiz). */
+  parentProgramId: string | null;
+  /** Quantas rotações automáticas já aconteceram a partir do raiz. */
+  rotationCount: number;
   createdAt: string;
   updatedAt: string;
 }
