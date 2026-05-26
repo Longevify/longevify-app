@@ -5,7 +5,10 @@ import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { getUserIdFromCookie } from "@/lib/auth/jwt";
 import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
 import { evaluateAchievements } from "@/lib/fitness/achievements";
-import { awardPoints } from "@/lib/social/server";
+import {
+  awardPoints,
+  maybeAwardDailyTasksAndStreak,
+} from "@/lib/social/server";
 import type {
   Achievement,
   ActivityType,
@@ -136,6 +139,11 @@ export async function logStrengthSet(input: {
   for (const a of unlocked) {
     await awardPoints("achievement_unlocked", { achievementId: a.id }, a.xp);
   }
+
+  // Lucas (2026-05-26): check daily tasks + streak depois de awarda
+  // workout/running/other — talvez user acabou de completar (refeição
+  // + treino) hoje. Função é idempotente (não dispara 2x no mesmo dia).
+  await maybeAwardDailyTasksAndStreak();
 
   return {
     ok: true,
@@ -331,6 +339,11 @@ export async function saveRunningSession(input: {
   for (const a of unlocked) {
     await awardPoints("achievement_unlocked", { achievementId: a.id }, a.xp);
   }
+
+  // Lucas (2026-05-26): check daily tasks + streak depois de awarda
+  // workout/running/other — talvez user acabou de completar (refeição
+  // + treino) hoje. Função é idempotente (não dispara 2x no mesmo dia).
+  await maybeAwardDailyTasksAndStreak();
   return {
     ok: true,
     data: {
@@ -442,6 +455,11 @@ export async function logOtherWorkout(input: {
   for (const a of unlocked) {
     await awardPoints("achievement_unlocked", { achievementId: a.id }, a.xp);
   }
+
+  // Lucas (2026-05-26): check daily tasks + streak depois de awarda
+  // workout/running/other — talvez user acabou de completar (refeição
+  // + treino) hoje. Função é idempotente (não dispara 2x no mesmo dia).
+  await maybeAwardDailyTasksAndStreak();
   return {
     ok: true,
     data: {

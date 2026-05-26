@@ -447,6 +447,62 @@ Retorne SOMENTE JSON neste schema (zero comentários):
     // Não da rollback — exam ja criado, melhor manter parcial
   }
 
+  // Lucas (2026-05-26): biomarker_improved (75pts) — detecta se ALGUM
+  // biomarker melhorou de status vs exame anterior. Awarda UMA vez por
+  // upload (não por biomarker — senão 20 melhorias = 1500pts, abusivo).
+  // Status rank: out=0, normal=1, optimal=2. Melhoria = rank novo > rank
+  // anterior. Primeira aparição (sem anterior) não conta.
+  try {
+    // Pega o exame anterior mais recente (excluindo o atual)
+    const { data: prevExam } = await supabase
+      .from("exams")
+      .select("id")
+      .eq("patient_id", userId)
+      .neq("id", examId)
+      .order("taken_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (prevExam?.id) {
+      // Fetch valores do exame anterior — biomarker_id → status
+      const { data: prevValues } = await supabase
+        .from("biomarker_values")
+        .select("biomarker_id, status")
+        .eq("exam_id", prevExam.id as string);
+
+      const STATUS_RANK: Record<string, number> = {
+        out: 0,
+        out_of_range: 0,
+        normal: 1,
+        optimal: 2,
+      };
+      const prevStatusByBio = new Map<string, string>();
+      for (const v of prevValues ?? []) {
+        prevStatusByBio.set(v.biomarker_id as string, v.status as string);
+      }
+
+      const improvedBiomarkers: string[] = [];
+      for (const v of values) {
+        const prevStatus = prevStatusByBio.get(v.biomarker_id);
+        if (!prevStatus) continue; // primeira vez desse biomarker
+        const prevRank = STATUS_RANK[prevStatus] ?? 0;
+        const newRank = STATUS_RANK[v.status] ?? 0;
+        if (newRank > prevRank) improvedBiomarkers.push(v.biomarker_id);
+      }
+
+      if (improvedBiomarkers.length > 0) {
+        const { awardPoints } = await import("@/lib/social/server");
+        await awardPoints(
+          "biomarker_improved",
+          { examId, improvedBiomarkers, count: improvedBiomarkers.length },
+        );
+      }
+    }
+  } catch (err) {
+    console.error("[lab-uploads/parse] biomarker_improved check:", err);
+    // Não bloqueia — só não awarda pontos.
+  }
+
   // ─── 7. Pré-computa insights Dr. Lon ───────────────────────────────────
   //
   // Lucas (2026-05-20): "quando abro o onboarding do app, não quero

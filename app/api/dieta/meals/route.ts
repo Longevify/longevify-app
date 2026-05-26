@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { getUserIdFromCookie } from "@/lib/auth/jwt";
 import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
-import { awardPoints } from "@/lib/social/server";
+import {
+  awardPoints,
+  maybeAwardDailyTasksAndStreak,
+} from "@/lib/social/server";
 import type { FoodItem, MealType, Nutrients } from "@/lib/dieta/types";
 
 export const dynamic = "force-dynamic";
@@ -125,6 +128,12 @@ export async function POST(request: Request) {
     mealType: body.meal_type,
   }).catch((err) => {
     console.error("[meals/POST] awardPoints failed:", err);
+  });
+
+  // Lucas (2026-05-26): meal_logged + workout_logged hoje = qualifica
+  // pra daily_tasks_completed (50pts) + checa streak milestone.
+  await maybeAwardDailyTasksAndStreak().catch((err) => {
+    console.error("[meals/POST] daily-tasks failed:", err);
   });
 
   return NextResponse.json(
