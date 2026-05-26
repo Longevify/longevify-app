@@ -815,3 +815,124 @@ export async function awardPoints(
 
   return { ok: true, pointsAdded: points };
 }
+
+// ─── Daily tasks + streak milestones (Lucas 2026-05-26) ───────────────
+//
+// "daily_tasks_completed" (50pts) = user logou hoje 1 refeição AND 1
+// atividade física (workout_logged | running_logged). Fired UMA vez
+// por dia (idempotência por query do day-event existente).
+//
+// "streak_milestone" (100pts) = quando dias consecutivos com
+// daily_tasks_completed bate marco: 7, 14, 30, 60, 90, 180, 365.
+//
+// Estratégia: cada awardPoints de meal_logged / workout_logged /
+// running_logged chama `maybeAwardDailyTasksAndStreak()` no fim.
+// Função é defensiva — checa se já fired hoje, se faltam categorias,
+// se streak realmente subiu pra um marco.
+
+const STREAK_MILESTONES = [7, 14, 30, 60, 90, 180, 365];
+
+/**
+ * Conta dias consecutivos com daily_tasks_completed event, partindo
+ * de hoje (ou ontem se hoje ainda não fired) pra trás. Retorna 0 se
+ * nenhum evento foi registrado nos últimos N dias.
+ */
+async function computeStreakDays(
+  userId: string,
+  accessToken: string,
+): Promise<number> {
+  if (!isSupabaseConfigured()) return 0;
+  const supabase = await createSupabaseWithJwt(accessToken);
+  // Pega até 400 dias de events (cobre streaks anuais)
+  const { data } = await supabase
+    .from("health_point_events")
+    .select("created_at")
+    .eq("patient_id", userId)
+    .eq("kind", "daily_tasks_completed")
+    .order("created_at", { ascending: false })
+    .limit(400);
+  if (!data || data.length === 0) return 0;
+
+  // Set de dias com event (UTC-based; ok pra Brasil que é UTC-3 com
+  // timezone único — não vai criar offset de meia-noite frequente)
+  const days = new Set(
+    data.map((d) => (d.created_at as string).slice(0, 10)),
+  );
+
+  // Conta consecutivos a partir de hoje pra trás
+  let streak = 0;
+  const cursor = new Date();
+  for (let i = 0; i < 400; i++) {
+    const dayStr = cursor.toISOString().slice(0, 10);
+    if (days.has(dayStr)) {
+      streak++;
+      cursor.setUTCDate(cursor.getUTCDate() - 1);
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
+/**
+ * Chamada APÓS cada meal_logged / workout_logged / running_logged.
+ * Verifica se hoje já tem (refeição + atividade física) → se sim e
+ * ainda não tinha event de daily_tasks_completed hoje, awarda 50pts.
+ * Depois checa se o streak resultante bate marco (7/14/30/.../365)
+ * e awarda streak_milestone (100pts).
+ *
+ * Idempotência: query checa daily_tasks_completed do dia antes de
+ * inserir. Race race teórico (2 actions em paralelo poderiam ambas
+ * passar o check) é aceitável — no pior caso awarda 50pts duplicado,
+ * fácil de detectar/limpar.
+ */
+export async function maybeAwardDailyTasksAndStreak(): Promise<void> {
+  if (!isSupabaseConfigured()) return;
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken) return;
+
+  const supabase = await createSupabaseWithJwt(accessToken);
+  const today = new Date().toISOString().slice(0, 10);
+  const todayStart = `${today}T00:00:00Z`;
+  const tomorrow = new Date();
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  const tomorrowStart = `${tomorrow.toISOString().slice(0, 10)}T00:00:00Z`;
+
+  // 1. Idempotência: já tem daily_tasks_completed hoje?
+  const { data: existing } = await supabase
+    .from("health_point_events")
+    .select("id")
+    .eq("patient_id", userId)
+    .eq("kind", "daily_tasks_completed")
+    .gte("created_at", todayStart)
+    .lt("created_at", tomorrowStart)
+    .limit(1);
+  if (existing && existing.length > 0) return;
+
+  // 2. Tem (meal + workout/running) hoje?
+  const { data: todayEvents } = await supabase
+    .from("health_point_events")
+    .select("kind")
+    .eq("patient_id", userId)
+    .gte("created_at", todayStart)
+    .lt("created_at", tomorrowStart);
+  if (!todayEvents) return;
+  const kinds = new Set(todayEvents.map((e) => e.kind as string));
+  const hasMeal = kinds.has("meal_logged");
+  const hasFitness =
+    kinds.has("workout_logged") || kinds.has("running_logged");
+  if (!hasMeal || !hasFitness) return;
+
+  // 3. Awarda daily_tasks_completed (50pts)
+  await awardPoints("daily_tasks_completed", { date: today });
+
+  // 4. Compute streak (inclui o dia de hoje, que acabou de ganhar event)
+  // Re-query depois da inserção pra incluir hoje. Como awardPoints é
+  // bloqueante, o select abaixo já vê o novo event.
+  const streak = await computeStreakDays(userId, accessToken);
+
+  // 5. Awarda streak_milestone se cair em marco (7/14/30/60/90/180/365)
+  if (STREAK_MILESTONES.includes(streak)) {
+    await awardPoints("streak_milestone", { days: streak });
+  }
+}
