@@ -395,17 +395,17 @@ function FeedView({
         </ul>
       )}
 
-      {/* Lucas (2026-05-26): botão "+" quadrado abaixo do feed, igual
-          Instagram fazia (estilo "Add to feed" card). Story continua
-          acessível via avatar "+" no stories bar — esse "+" aqui é
-          dedicado pra postar foto. */}
+      {/* Lucas (2026-05-26): "+" quadrado verde, bordas sólidas
+          (sem dashed). Mesma posição abaixo do feed, mas agora com
+          fundo brand-700/800 + sombra — mais convidativo, parece
+          CTA principal e não placeholder. */}
       <button
         type="button"
         onClick={() => setComposerMode("post")}
         aria-label="Postar foto no feed"
-        className="group mx-auto mt-5 mb-24 flex h-20 w-20 items-center justify-center rounded-2xl border-2 border-dashed border-zinc-300 bg-white text-zinc-400 transition hover:border-brand-400 hover:bg-brand-50/40 hover:text-brand-700 active:scale-95"
+        className="group mx-auto mt-5 mb-24 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-700 to-brand-800 text-white shadow-md transition hover:shadow-lg hover:from-brand-700 hover:to-brand-900 active:scale-95"
       >
-        <Plus className="h-9 w-9" strokeWidth={2} />
+        <Plus className="h-9 w-9" strokeWidth={2.5} />
       </button>
 
       {composerMode && (
