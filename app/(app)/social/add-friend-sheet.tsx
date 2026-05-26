@@ -87,7 +87,14 @@ export function AddFriendSheet({
         teclado. Desktop continua com sheet centralizada arredondada.
       */}
       <div className="relative z-10 flex h-full max-h-full w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-auto sm:max-h-[88dvh] sm:max-w-[520px] sm:rounded-3xl">
-        <header className="flex items-center gap-3 border-b border-zinc-100 px-4 py-3.5">
+        {/* Lucas (2026-05-26): "se eu abro essa aba no telefone, os
+            botões ficam muito altos" — header colava no notch do iPhone
+            sem safe-area. Padding-top respeita safe-area-inset-top em
+            mobile fullscreen + mantém 14px em desktop. */}
+        <header
+          className="flex items-center gap-3 border-b border-zinc-100 px-4 pb-3.5"
+          style={{ paddingTop: "max(0.875rem, env(safe-area-inset-top))" }}
+        >
           {view === "menu" ? (
             <button
               type="button"
@@ -388,14 +395,19 @@ function SearchPane() {
  *     pendente / convidar).
  */
 function ContactsPane() {
-  // Lucas (2026-05-25): "isso fica carregando infinitamente". Bug era
-  // que se myPhoneLinkedAction retornasse erro (ex: cookie auth
-  // expirado → "Não autenticado"), o `if (res.ok)` falhava e setLinked
-  // nunca era chamado, deixando `linked` em null pra sempre = loop
-  // infinito de "Carregando...".
-  // Fix: trata o erro setando authError + UI mostra botão de reload.
+  // Lucas (2026-05-26): "tem que pedir para fazer o sync dos contatos
+  // para evitar com que isso apareça [Sessão expirou]". Antes a gente
+  // chamava `myPhoneLinkedAction` direto no mount → server action
+  // disparava com JWT possivelmente expirado → "Sessão expirou" banner.
+  // Fix: arranca o auto-check; mostra UI didática "Sincronizar contatos"
+  // e só dispara a action quando user clica. Click acontece já com
+  // cookie fresco (qualquer navegação refresca via /api/health).
+  // - linked === null: ainda não checou (estado inicial = mostra CTA)
+  // - linked === false: checou, user não vinculou phone → mostra opt-in
+  // - linked === true: checou, ok → mostra sync UI
   const [linked, setLinked] = useState<boolean | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
   const [results, setResults] = useState<UserSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -404,18 +416,21 @@ function ContactsPane() {
   );
   const [manualPhones, setManualPhones] = useState("");
 
-  // Carrega se user já vinculou phone — trata erro pra não ficar loop
-  useEffect(() => {
-    myPhoneLinkedAction().then((res) => {
+  const checkPhoneLinked = async () => {
+    setChecking(true);
+    setAuthError(null);
+    try {
+      const res = await myPhoneLinkedAction();
       if (res.ok) {
         setLinked(res.data?.linked ?? false);
       } else {
-        // Falha de auth ou outro erro — para o loading
         setAuthError(res.error);
         setLinked(false);
       }
-    });
-  }, []);
+    } finally {
+      setChecking(false);
+    }
+  };
 
   const matchPhones = async (phones: string[]) => {
     if (phones.length === 0) {
@@ -493,11 +508,41 @@ function ContactsPane() {
     }
   };
 
+  // Estado inicial — user ainda não tentou sincronizar. Mostra CTA
+  // didático em vez de auto-checar (que disparava "Sessão expirou").
   if (linked === null) {
     return (
-      <div className="flex items-center justify-center gap-2 py-8 text-[12px] text-zinc-500">
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        Carregando…
+      <div className="flex flex-col gap-3">
+        <div className="rounded-2xl border border-zinc-200 bg-gradient-to-br from-brand-50/40 to-white px-4 py-5 text-center">
+          <div className="mx-auto mb-2 grid h-12 w-12 place-items-center rounded-2xl bg-brand-700 text-white shadow-sm">
+            <Smartphone className="h-5 w-5" />
+          </div>
+          <h3 className="text-[14px] font-semibold text-zinc-900">
+            Sincronizar contatos
+          </h3>
+          <p className="mt-1 text-[11.5px] leading-snug text-zinc-600">
+            Pra encontrar quem da sua lista já está no Longevify, primeiro
+            precisamos vincular seu telefone (opt-in).
+          </p>
+          <button
+            type="button"
+            onClick={checkPhoneLinked}
+            disabled={checking}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-brand-700 to-brand-800 px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition disabled:opacity-50"
+          >
+            {checking ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Conectando…
+              </>
+            ) : (
+              <>
+                <Smartphone className="h-3.5 w-3.5" />
+                Começar
+              </>
+            )}
+          </button>
+        </div>
       </div>
     );
   }

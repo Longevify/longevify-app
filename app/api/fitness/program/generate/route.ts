@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { getExerciseCatalog } from "@/lib/fitness/server";
+import { getUserIdFromCookie } from "@/lib/auth/jwt";
+import { createSupabaseWithJwt } from "@/lib/supabase/server-with-jwt";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type {
   EquipmentKind,
   ExperienceLevel,
@@ -17,12 +20,15 @@ export const maxDuration = 60;
  * Lucas (2026-05-21): "teremos a opção de criação de treinos com base
  * em algumas perguntas iniciais"
  *
- * Recebe questionário (objetivo, freq/semana, equipamento, experiência,
- * restrições) + lista de exercícios disponíveis e devolve um programa
- * estruturado (array de dias × array de exercícios).
- *
- * Stateless. O caller (componente client) chama `saveAiWorkoutProgram`
- * server action separadamente pra persistir.
+ * Lucas (2026-05-26): "não quero que precise clicar para salvar para
+ * de fato armazenar o treino, por padrão ja salva o treino". Antes a
+ * rota só gerava (stateless) e o client chamava saveAiWorkoutProgram
+ * separadamente — mas se o JWT expirava entre os dois calls, Lucas via
+ * "Não autenticado". Agora a rota faz GERAR + SALVAR no MESMO request:
+ *  - Auth check upfront
+ *  - Anthropic call
+ *  - Insert no workout_programs (active=true, antigos viram inactive)
+ *  - Retorna programId
  *
  * Modelo: Claude Sonnet 4.6 — qualidade alta pra raciocínio sobre split,
  * volume e progressão, custo OK (~$0.01/programa).
@@ -170,6 +176,22 @@ export async function POST(request: Request) {
     );
   }
 
+  // Auth check upfront — se vai falhar, prefere falhar ANTES de chamar
+  // Anthropic ($) e descobrir só na hora de salvar.
+  if (!isSupabaseConfigured()) {
+    return NextResponse.json(
+      { ok: false, error: "supabase-unavailable" },
+      { status: 503 },
+    );
+  }
+  const { userId, accessToken } = await getUserIdFromCookie();
+  if (!userId || !accessToken) {
+    return NextResponse.json(
+      { ok: false, error: "Sessão expirou. Recarregue a página e tente novamente." },
+      { status: 401 },
+    );
+  }
+
   // Validação básica
   if (!body.goal || !body.frequencyPerWeek || !body.experienceLevel) {
     return NextResponse.json(
@@ -242,9 +264,56 @@ export async function POST(request: Request) {
       })),
     };
 
+    // Auto-save no MESMO request — Lucas (2026-05-26): "por padrão ja
+    // salva o treino". Desativa programa anterior + insere ativo.
+    const supabase = await createSupabaseWithJwt(accessToken);
+
+    const { error: deactErr } = await supabase
+      .from("workout_programs")
+      .update({ active: false })
+      .eq("patient_id", userId)
+      .eq("active", true);
+    if (deactErr) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `Erro ao desativar programa anterior: ${deactErr.message}`,
+        },
+        { status: 500 },
+      );
+    }
+
+    const { data: inserted, error: insErr } = await supabase
+      .from("workout_programs")
+      .insert({
+        patient_id: userId,
+        name: parsed.name,
+        goal: body.goal,
+        frequency_per_week: body.frequencyPerWeek,
+        equipment_available: body.equipmentAvailable ?? [],
+        experience_level: body.experienceLevel,
+        restrictions: body.restrictions?.trim() || null,
+        structure,
+        ai_model: "claude-sonnet-4-6",
+        active: true,
+      })
+      .select("id")
+      .single();
+
+    if (insErr || !inserted) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `Erro ao salvar: ${insErr?.message ?? "—"}`,
+        },
+        { status: 500 },
+      );
+    }
+
     return NextResponse.json(
       {
         ok: true,
+        programId: inserted.id as string,
         name: parsed.name,
         structure,
         aiModel: "claude-sonnet-4-6",
