@@ -396,6 +396,8 @@ function mapWorkoutProgramRow(r: Record<string, unknown>): WorkoutProgram {
     structure: r.structure as ProgramStructure,
     aiModel: r.ai_model as string,
     active: r.active as boolean,
+    parentProgramId: (r.parent_program_id as string | null) ?? null,
+    rotationCount: (r.rotation_count as number) ?? 0,
     createdAt: r.created_at as string,
     updatedAt: r.updated_at as string,
   };
