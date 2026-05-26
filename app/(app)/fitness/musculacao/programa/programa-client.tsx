@@ -13,7 +13,6 @@ import {
   Calendar,
   AlertTriangle,
   RotateCcw,
-  Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -30,10 +29,7 @@ import {
   MUSCLE_GROUP_EMOJI,
   type MuscleGroup,
 } from "@/lib/fitness/types";
-import {
-  saveAiWorkoutProgram,
-  archiveActiveProgram,
-} from "../../actions";
+import { archiveActiveProgram } from "../../actions";
 import { toast } from "@/lib/toast";
 
 /**
@@ -53,7 +49,13 @@ interface ProgramaClientProps {
 
 export function ProgramaClient({ program }: ProgramaClientProps) {
   const router = useRouter();
-  const [view, setView] = useState<"questionnaire" | "display" | "preview">(
+  // Lucas (2026-05-26): "não quero que precise clicar para salvar pra
+  // de fato armazenar o treino, por padrão ja salva o treino. Porém
+  // sempre inclua a opção de mudar o treino". 2 views agora:
+  //  - questionnaire: form
+  //  - display: programa ativo (com "Refazer com novas variações")
+  // Removida a view "preview" — o gerar agora salva direto.
+  const [view, setView] = useState<"questionnaire" | "display">(
     program ? "display" : "questionnaire",
   );
 
@@ -70,13 +72,8 @@ export function ProgramaClient({ program }: ProgramaClientProps) {
   const [experience, setExperience] = useState<ExperienceLevel>("intermediario");
   const [restrictions, setRestrictions] = useState("");
 
-  // Estados de preview (programa gerado mas não salvo ainda)
-  const [previewName, setPreviewName] = useState("");
-  const [previewStructure, setPreviewStructure] =
-    useState<ProgramStructure | null>(null);
-
   const [generating, setGenerating] = useState(false);
-  const [saving, startSaving] = useTransition();
+  const [, startSaving] = useTransition();
 
   const toggleEquipment = (eq: EquipmentKind) => {
     setEquipment((cur) =>
@@ -84,6 +81,13 @@ export function ProgramaClient({ program }: ProgramaClientProps) {
     );
   };
 
+  /**
+   * Gera + salva o programa num único request (Lucas 2026-05-26: "por
+   * padrão já salva o treino"). A API rota agora autentica, chama
+   * Anthropic e insere o workout_program em sequência — elimina o
+   * race "Não autenticado" que aparecia quando o cookie expirava
+   * entre gerar e clicar em salvar.
+   */
   const generate = async () => {
     if (equipment.length === 0) {
       toast.error({
@@ -108,6 +112,7 @@ export function ProgramaClient({ program }: ProgramaClientProps) {
       const data = (await res.json()) as
         | {
             ok: true;
+            programId: string;
             name: string;
             structure: ProgramStructure;
             aiModel: string;
@@ -120,9 +125,13 @@ export function ProgramaClient({ program }: ProgramaClientProps) {
         });
         return;
       }
-      setPreviewName(data.name);
-      setPreviewStructure(data.structure);
-      setView("preview");
+      // Auto-saved no servidor — só refresh + toast.
+      toast.success({
+        title: "Treino criado e ativado",
+        description: `${data.name} já está pronto. Vai treinar!`,
+      });
+      router.refresh();
+      setView("display");
     } catch (e) {
       toast.error({
         title: "Erro de rede",
@@ -131,34 +140,6 @@ export function ProgramaClient({ program }: ProgramaClientProps) {
     } finally {
       setGenerating(false);
     }
-  };
-
-  const saveProgram = () => {
-    if (!previewStructure) return;
-    startSaving(async () => {
-      const result = await saveAiWorkoutProgram({
-        name: previewName,
-        goal,
-        frequencyPerWeek: frequency,
-        equipmentAvailable: equipment,
-        experienceLevel: experience,
-        restrictions,
-        structure: previewStructure,
-      });
-      if (result.ok) {
-        toast.success({
-          title: "Programa salvo",
-          description: `${previewName} já está ativo. Vai treinar!`,
-        });
-        router.refresh();
-        setView("display");
-      } else {
-        toast.error({
-          title: "Erro ao salvar",
-          description: result.error,
-        });
-      }
-    });
   };
 
   const archive = () => {
@@ -191,96 +172,6 @@ export function ProgramaClient({ program }: ProgramaClientProps) {
         }}
         onArchive={archive}
       />
-    );
-  }
-
-  // ─── View: preview (programa gerado, ainda não salvo) ────────────────
-  if (view === "preview" && previewStructure) {
-    return (
-      <div className="pb-12">
-        <BackBar onBack={() => setView("questionnaire")} />
-
-        {/* Lucas (2026-05-25): "acho que o treino não ta ficando salvo
-            quando eu peço para criar" → banner explícito de que o
-            programa ainda não foi persistido. Botão "Salvar e ativar"
-            fica fixed no bottom pro user não passar batido. */}
-        <div className="mb-3 flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
-          <div className="flex-1 text-[11.5px] leading-snug text-amber-900">
-            <strong className="font-semibold">Programa ainda NÃO salvo.</strong>{" "}
-            Revise abaixo e clique em <strong>“Salvar e ativar”</strong> pra
-            começar a usar — caso contrário, vai sumir ao recarregar.
-          </div>
-        </div>
-
-        <header className="mb-5 rounded-3xl border border-brand-200 bg-gradient-to-br from-brand-50 via-white to-white px-5 py-5">
-          <div className="inline-flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-brand-800">
-            <Sparkles className="h-3 w-3" />
-            Programa gerado pelo Dr. Lon (preview)
-          </div>
-          <h2 className="mt-1 text-[20px] font-semibold leading-tight text-zinc-900">
-            {previewName}
-          </h2>
-          <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] text-zinc-600">
-            <span className="rounded-full bg-white px-2 py-0.5 ring-1 ring-zinc-200">
-              {PROGRAM_GOAL_LABEL[goal]}
-            </span>
-            <span className="rounded-full bg-white px-2 py-0.5 ring-1 ring-zinc-200">
-              {frequency}x/semana
-            </span>
-            <span className="rounded-full bg-white px-2 py-0.5 ring-1 ring-zinc-200">
-              {EXPERIENCE_LABEL[experience]}
-            </span>
-          </div>
-        </header>
-
-        <ProgramStructureView structure={previewStructure} />
-
-        <div className="mt-6 flex flex-col gap-2 sm:flex-row">
-          <button
-            type="button"
-            onClick={() => {
-              setPreviewStructure(null);
-              setView("questionnaire");
-            }}
-            className="rounded-xl border border-zinc-200 bg-white px-5 py-3 text-[13px] font-semibold text-zinc-700 transition hover:bg-zinc-50"
-          >
-            Refazer questionário
-          </button>
-          <button
-            type="button"
-            onClick={generate}
-            disabled={generating}
-            className="rounded-xl border border-brand-300 bg-brand-50 px-5 py-3 text-[13px] font-semibold text-brand-800 transition hover:bg-brand-100 disabled:opacity-50"
-          >
-            {generating ? (
-              <span className="inline-flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Gerando…
-              </span>
-            ) : (
-              "↻ Gerar outra versão"
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={saveProgram}
-            disabled={saving}
-            className="flex-1 rounded-xl bg-gradient-to-br from-brand-700 to-brand-800 px-5 py-3 text-[14px] font-semibold text-white shadow-sm transition disabled:opacity-50"
-          >
-            {saving ? (
-              <span className="inline-flex items-center justify-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Salvando…
-              </span>
-            ) : (
-              <span className="inline-flex items-center justify-center gap-2">
-                <Check className="h-4 w-4" /> Salvar e ativar
-              </span>
-            )}
-          </button>
-        </div>
-      </div>
     );
   }
 
@@ -416,10 +307,6 @@ export function ProgramaClient({ program }: ProgramaClientProps) {
           </>
         )}
       </button>
-
-      <p className="mt-3 text-center text-[10.5px] text-zinc-400">
-        Powered by Claude Sonnet 4.6 · 100% no Brasil 🇧🇷
-      </p>
 
       {/* Phase 3K: Templates alternative */}
       <Link
