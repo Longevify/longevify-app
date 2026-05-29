@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createSocialPostAction } from "@/app/(app)/fitness/share-actions";
+import { getBrowserClient } from "@/lib/supabase/browser";
 
 /**
  * Lucas (2026-05-24):
@@ -138,11 +139,32 @@ export function PostComposerModal({
         payload.expiresAt = exp;
       }
 
-      const res = await createSocialPostAction({
+      let res = await createSocialPostAction({
         kind: mode === "story" ? "story" : "milestone",
         payload,
         visibility,
       });
+
+      // Lucas (2026-05-26): "quando eu vou postar algo aparece não
+      // autenticado". Self-heal: se o servidor disse "Não autenticado",
+      // o cookie ficou stale entre page load e click. Tenta refresh
+      // explícito via browser client (que tem refresh_token) e refaz.
+      if (!res.ok && res.error === "Não autenticado") {
+        try {
+          const client = getBrowserClient();
+          if (client) {
+            await client.auth.refreshSession();
+            res = await createSocialPostAction({
+              kind: mode === "story" ? "story" : "milestone",
+              payload,
+              visibility,
+            });
+          }
+        } catch {
+          // ignora — vai cair na branch de erro abaixo
+        }
+      }
+
       setPosting(false);
       if (res.ok) {
         onPosted?.();

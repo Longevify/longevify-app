@@ -31,10 +31,25 @@ export function AuthRefresher() {
     const client = getBrowserClient();
     if (!client) return; // demo mode
 
-    // Initial getSession() inicia o timer interno de auto-refresh do
-    // @supabase/ssr. Sem essa chamada, o timer não roda mesmo após
-    // createBrowserClient.
-    void client.auth.getSession();
+    // Lucas (2026-05-26 v2): "quando eu vou postar algo aparece não
+    // autenticado". Bug residual após v1 — getSession() retorna a
+    // sessão atual mas NÃO refresca eagerly se o token ainda tem
+    // alguns segundos de vida. Se user navega pro app com cookie de
+    // 59m59s, getSession passa, mas server actions disparadas 30s
+    // depois pegam JWT expirado.
+    //
+    // Fix v2: tenta refreshSession() na inicialização. Se o token
+    // ainda tá fresco, no-op silencioso. Se tá perto de expirar ou
+    // expirado, força refresh via /token endpoint do Supabase ANTES
+    // do user disparar qualquer action. Cookies httpOnly atualizados
+    // = próximas server actions veem token novo.
+    //
+    // Tanto refreshSession quanto getSession iniciam o timer interno
+    // de auto-refresh — getSession era só pra "ligar" o client.
+    void client.auth.refreshSession().catch(() => {
+      // Sem refresh_token válido (user nunca logou ou logout). Não
+      // bloqueia — ações vão retornar "Não autenticado" naturalmente.
+    });
 
     // Backup: quando user volta pra tab (após lunch, dormir, etc.),
     // browser throttla timers em background. Forçamos refresh
@@ -42,7 +57,7 @@ export function AuthRefresher() {
     // que o user dispare um server action.
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        void client.auth.getSession();
+        void client.auth.refreshSession().catch(() => {});
       }
     };
     document.addEventListener("visibilitychange", onVisibilityChange);
