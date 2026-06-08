@@ -1,5 +1,4 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { cookies } from "next/headers";
 import { getServerClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
@@ -16,8 +15,8 @@ export const revalidate = 0;
  * — usuário "estava logado" mas o servidor já tinha clearado a sessão
  * sem ele saber.
  *
- * Logout REAL acontece via POST. O ProfileMenu link continua sendo
- * <Link>, mas com `prefetch={false}` + cliente faz POST quando clica.
+ * Logout REAL acontece via POST. ProfileMenu usa <form method="post">
+ * (nunca <Link href="/logout">) pra evitar prefetch silencioso.
  *
  * Forma simples de invocar: navegar pra /logout via GET DEPOIS de
  * confirmar a intenção (porque o GET agora é inerte, é seguro como
@@ -29,12 +28,21 @@ async function signOutAndRedirect(request: NextRequest) {
     const supabase = await getServerClient();
     await supabase?.auth.signOut();
   }
-  const store = await cookies();
-  store.delete("longevify_demo_session");
   const url = request.nextUrl.clone();
   url.pathname = "/login";
   url.search = "";
-  return NextResponse.redirect(url);
+  const response = NextResponse.redirect(url);
+  // Deleta o cookie diretamente na response do redirect — mais confiável do
+  // que cookies().delete() que pode não ser flushed quando o Route Handler
+  // retorna NextResponse.redirect(). Sem isso, o demo cookie sobrevive e
+  // current-user.ts devolve DEMO_USER mesmo depois do logout.
+  response.cookies.set("longevify_demo_session", "", {
+    path: "/",
+    maxAge: 0,
+    httpOnly: true,
+    sameSite: "lax",
+  });
+  return response;
 }
 
 export async function GET(request: NextRequest) {
