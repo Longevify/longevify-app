@@ -163,19 +163,34 @@ export async function signUp(
   if (!supabase) return { ok: false, error: "Supabase indisponível." };
 
   const h = await headers();
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      emailRedirectTo: buildRedirectUrl(h, "/auth/callback"),
-      data: {
-        first_name: firstName,
-        last_name: lastName,
-        birth_date: birthDate,
-        chronological_age: String(chronologicalAge),
+
+  // Wrap em try/catch: supabase.auth.signUp() pode *throw* (erro de rede,
+  // timeout, rate limit) em vez de retornar { error }. Sem catch, a Server
+  // Action explode e o React mostra genérico "fetch failed" no cliente.
+  let signUpData: Awaited<ReturnType<typeof supabase.auth.signUp>>;
+  try {
+    signUpData = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: buildRedirectUrl(h, "/auth/callback"),
+        data: {
+          first_name: firstName,
+          last_name: lastName,
+          birth_date: birthDate,
+          chronological_age: String(chronologicalAge),
+        },
       },
-    },
-  });
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return {
+      ok: false,
+      error: `Não foi possível criar sua conta. Verifique sua conexão e tente novamente. (${msg})`,
+    };
+  }
+
+  const { data, error } = signUpData;
   if (error) {
     const lower = error.message.toLowerCase();
     const alreadyRegistered =
