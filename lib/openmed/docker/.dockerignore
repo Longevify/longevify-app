@@ -1,0 +1,11 @@
+__pycache__
+*.pyc
+.venv
+venv
+.pytest_cache
+.env
+.env.local
+README.md
+setup-mac-mini.sh
+setup-mac-native.sh
+.dockerignore
