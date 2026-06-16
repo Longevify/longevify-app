@@ -1,0 +1,35 @@
+{
+  "name": "longevify-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Capacitor wrapper for Longevify app — iOS + Android",
+  "scripts": {
+    "cap": "cap",
+    "sync": "cap sync",
+    "sync:ios": "cap sync ios",
+    "sync:android": "cap sync android",
+    "open:ios": "cap open ios",
+    "open:android": "cap open android",
+    "run:ios": "cap run ios",
+    "run:android": "cap run android",
+    "update": "cap update",
+    "doctor": "cap doctor"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/app": "^8.0.0",
+    "@capacitor/camera": "^8.0.0",
+    "@capacitor/cli": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/ios": "^8.0.0",
+    "@capacitor/network": "^8.0.0",
+    "@capacitor/preferences": "^8.0.0",
+    "@capacitor/push-notifications": "^8.0.0",
+    "@capacitor/splash-screen": "^8.0.0",
+    "@capacitor/status-bar": "^8.0.0",
+    "capacitor-health": "^8.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
